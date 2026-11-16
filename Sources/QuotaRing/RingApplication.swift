@@ -18,6 +18,13 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private var codexAction:CodexFollowAction = .free
     private var codexTarget:CodexFollowWindow?
     private var overlayAccessibilityGranted=false
+    private var overlayControlMissing=false
+    private var overlayNoticeWork:DispatchWorkItem?
+    private var overlayNoticeWindow:UInt32?
+    private var overlayNoticeShown=false
+    private var overlayNoticeGeneration=0
+    private let onOverlayUnavailable:(()->Void)?
+    private let overlayMissingMessage="未找到 Codex 额度控件，已暂时显示普通圆环。请确认头像上方的用量控件可见；找到后会自动恢复覆盖。"
     private let signingFingerprint=SigningFingerprint.current()
     private var quotaMenuBar:QuotaMenuBar?
     private var activeContextMenu:NSMenu?
@@ -67,10 +74,12 @@ final class RingApplication: NSObject, NSApplicationDelegate {
                                  fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt)
     }
     private let client = AppServerClient()
-    private var circleSize: CGFloat { overlayActive ? 26:CGFloat(preferences.size.rawValue) }
+    private var coveringUsage:Bool { overlayActive && !overlayControlMissing }
+    private var circleSize: CGFloat { coveringUsage ? 26:CGFloat(preferences.size.rawValue) }
 
-    init(store:PreferencesStore = PreferencesStore(),codexMonitor:CodexWindowMonitor = CodexWindowMonitor(),automaticRefresh:Bool = true) {
-        self.store=store;self.codexMonitor=codexMonitor;self.automaticRefresh=automaticRefresh;super.init()
+    init(store:PreferencesStore = PreferencesStore(),codexMonitor:CodexWindowMonitor = CodexWindowMonitor(),automaticRefresh:Bool = true,onOverlayUnavailable:(()->Void)? = nil) {
+        self.store=store;self.codexMonitor=codexMonitor;self.automaticRefresh=automaticRefresh
+        self.onOverlayUnavailable=onOverlayUnavailable;super.init()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -169,6 +178,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         }
     }
     func applicationWillTerminate(_ notification: Notification) {
+        cancelOverlayNotice()
         spaceRevision += 1;presentationObservation=nil
         codexMonitor.stop()
         savePosition(); refreshTimer?.invalidate(); clockTimer?.invalidate(); hideWork?.cancel(); client.cancel()
@@ -208,6 +218,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         spaceChanged()
     }
     @objc private func spaceChanged() {
+        cancelOverlayNotice()
         // A context menu can change app activation. Keep its source panel in
         // place throughout tracking; an actual Space change still dismisses it.
         guard activeContextMenu == nil else { return }
@@ -238,9 +249,11 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             switch codexAction {
             case .attach(let target):showCodex(target);redraw();return
             case .hidden:
+                cancelOverlayNotice()
                 beginCodexFollow(frame:expandedFrame ?? panel.frame)
                 codexPanel?.orderOut(nil);redraw();return
             case .free:
+                cancelOverlayNotice()
                 if overlayActive {
                     beginCodexFollow(frame:expandedFrame ?? panel.frame)
                     codexPanel?.orderOut(nil);redraw();return
@@ -312,18 +325,21 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         codexTarget=target
         guard !isDragging,let area=codexArea else { return }
         let frame:NSRect
-        if overlayActive {
-            guard let control=target.usageFrame,
-                  let overlay=CodexFollow.usageOverlayFrame(control:control,window:target.frame) else {
-                beginCodexFollow(frame:expandedFrame ?? panel.frame)
-                codexPanel?.orderOut(nil);return
-            }
+        if overlayActive,let control=target.usageFrame,
+           let overlay=CodexFollow.usageOverlayFrame(control:control,window:target.frame) {
+            overlayControlMissing=false;cancelOverlayNotice()
             frame=overlay
-        } else { frame=CodexFollow.frame(in:area,size:circleSize,anchor:preferences.codexAnchor) }
+        } else {
+            overlayControlMissing=overlayActive
+            if overlayControlMissing { scheduleOverlayNotice(windowID:target.id) }
+            frame=CodexFollow.frame(in:area,size:circleSize,anchor:preferences.codexAnchor)
+        }
         beginCodexFollow(frame:frame)
         panel.ignoresMouseEvents=false
         hideWork?.cancel();dockEdge=nil;dockScreen=nil;isTucked=false
         if panel.frame != frame { move(to:frame,animated:false) }
+        material.frame=NSRect(origin:.zero,size:frame.size)
+        material.layer?.cornerRadius=frame.width/2;ring.frame=material.bounds
         expandedFrame=frame
         let top=NSScreen.screens.first?.frame.maxY ?? 0
         let windowBounds=CGRect(x:target.frame.minX,y:top-target.frame.maxY,width:target.frame.width,height:target.frame.height)
@@ -335,6 +351,29 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         // Same normal level + relative ordering keeps the ring above Codex but
         // below apps covering Codex. Fullscreen uses the eligible floating level.
         panel.order(.above,relativeTo:Int(target.id))
+    }
+    private func cancelOverlayNotice() {
+        overlayNoticeGeneration += 1
+        overlayNoticeWork?.cancel();overlayNoticeWork=nil;overlayNoticeWindow=nil
+    }
+    private func scheduleOverlayNotice(windowID:UInt32) {
+        guard !overlayNoticeShown,overlayNoticeWindow != windowID else { return }
+        cancelOverlayNotice();overlayNoticeWindow=windowID
+        let generation=overlayNoticeGeneration
+        let work=DispatchWorkItem { [weak self] in
+            guard let self,self.overlayNoticeGeneration == generation else { return }
+            self.cancelOverlayNotice()
+            guard self.overlayActive,self.overlayControlMissing,self.activeContextMenu == nil,
+                  case .attach(let target)=self.codexAction,target.id == windowID,
+                  self.panel.isVisible,self.panel.isOnActiveSpace else { return }
+            self.overlayNoticeShown=true
+            self.redraw()
+            // Explain once per enabling session while continuing to locate.
+            if let notify=self.onOverlayUnavailable { notify() }
+            else { self.openSettings() }
+        }
+        overlayNoticeWork=work
+        DispatchQueue.main.asyncAfter(deadline:.now()+3,execute:work)
     }
     private func endCodexFollow() {
         codexPanel?.orderOut(nil);codexTarget=nil
@@ -453,9 +492,9 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         let composition=RingComposition(snapshot:visible,preferences:preferences,fiveHourSupport:fiveHourSupport)
         ring.composition=composition
         ring.positionLocked = preferences.effectivePositionLocked
-        ring.coversNativeUsage=followingCodex && overlayActive
+        ring.coversNativeUsage=followingCodex && coveringUsage
         let information=details
-        var accessibilityHelp = information.tooltip + (overlayActive ? "\n覆盖 Codex 用量，点击打开 Codex 用量菜单；右键或菜单栏打开 CodexRing 设置。":(followingCodex ? "\n跟随 Codex 窗口，可在窗口内拖动；点击打开设置。":"\n自由移动：拖动移动，贴边隐藏，移入边缘恢复；点击打开设置。"))
+        var accessibilityHelp = information.tooltip + (coveringUsage ? "\n覆盖 Codex 用量，点击打开 Codex 用量菜单；右键或菜单栏打开 CodexRing 设置。":(followingCodex ? "\n跟随 Codex 窗口，可在窗口内拖动；点击打开设置。":"\n自由移动：拖动移动，贴边隐藏，移入边缘恢复；点击打开设置。"))
         if preferences.overlayCodexUsage { accessibilityHelp += "\n覆盖模式下位置已锁定，关闭覆盖后可调整固定状态。" }
         else if preferences.positionLocked { accessibilityHelp += "\n位置已固定，右键菜单取消固定可解锁。" }
         let top = NSScreen.screens.first?.frame.maxY ?? 0
@@ -465,7 +504,8 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             FileHandle.standardError.write(Data(("[space] "+diagnostics.replacingOccurrences(of:"\n",with:" | ")+"\n").utf8))
         }
         if model.diagnostics { accessibilityHelp += "\n" + diagnostics }
-        ring.hoverDetails=information.hoverCardText
+        if overlayActive && overlayControlMissing { accessibilityHelp += "\n"+overlayMissingMessage }
+        ring.hoverDetails=information.hoverCardText + (overlayActive && overlayControlMissing ? "\n"+overlayMissingMessage:"")
         ring.setAccessibilityHelp(accessibilityHelp)
         panel.title = "CodexRing"
         model.snapshot = visible; model.source = visible.source; model.isRefreshing = fetching
@@ -473,8 +513,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         model.overlayAccessibilityGranted=overlayAccessibilityGranted
         model.overlayAuthorizationNotice=store.observeAccessibilityTrust(overlayAccessibilityGranted,fingerprint:signingFingerprint)
             ? "应用已更新，旧授权可能已失效，请删除旧版本授权，重新授权。":nil
-        let settingsHint=preferences.showMenuBar ? "可从菜单栏打开设置。":"重新打开 CodexRing 可进入设置。"
-        model.overlayStatus=overlayActive ? ((followingCodex && panel.isVisible ? "已覆盖；":"等待 Codex 用量控件显示；")+settingsHint) : ""
+        model.overlayStatus=overlayActive && overlayControlMissing ? overlayMissingMessage:""
         model.updatedText = dateText(lastRefreshedAt)
         if model.debugState != debugState { model.debugState=debugState }
         model.diagnosticText = diagnostics
@@ -495,7 +534,9 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         value.reconcileOverlayPermission(granted:overlayAccessibilityGranted)
         preferences=value
         if model.preferences != value { model.preferences=value }
-        if old.overlayCodexUsage != value.overlayCodexUsage { ring.dismissHover() }
+        if old.overlayCodexUsage != value.overlayCodexUsage {
+            ring.dismissHover();cancelOverlayNotice();overlayControlMissing=false;overlayNoticeShown=false
+        }
         if old.size != value.size || old.overlayCodexUsage != value.overlayCodexUsage { resizeCircle() }
         if !value.autoHide { reveal(animated: false) }
         if old.refreshInterval != value.refreshInterval { configureRefreshTimer() }
@@ -637,7 +678,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         redraw();debugWindow?.showWindow(nil);NSApp.activate(ignoringOtherApps:true);debugWindow?.window?.makeKeyAndOrderFront(nil)
     }
     private func handleRingClick() {
-        guard overlayActive,followingCodex else { openSettings();return }
+        guard coveringUsage,followingCodex else { openSettings();return }
         ring.dismissHover()
         guard panel.isVisible,panel.isOnActiveSpace,let target=codexTarget else { return }
         codexMonitor.pressUsageControl(windowID:target.id) { [weak self] success in

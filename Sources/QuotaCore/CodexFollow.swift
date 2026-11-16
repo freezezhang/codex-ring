@@ -14,6 +14,28 @@ public enum CodexFollowAction:Equatable {
     case free,hidden,attach(CodexFollowWindow)
 }
 public enum CodexFollow {
+    /// Probe only the lower sidebar. A 20-point grid intersects every eligible
+    /// control (at least 26 points wide/high), including on secondary displays.
+    /// Points are discovery hints, never an assumed overlay position.
+    public static func usageSearchRegion(window:CGRect)->CGRect {
+        CGRect(x:window.minX,y:max(window.minY,window.maxY-300),
+               width:min(320,window.width),height:min(300,window.height))
+    }
+    public static func usageProbePoints(window:CGRect)->[CGPoint] {
+        let region=usageSearchRegion(window:window)
+        guard !region.isEmpty,!region.isNull else { return [] }
+        var points:[CGPoint]=[]
+        for y in [80.0,104,56] {
+            let point=CGPoint(x:region.minX+28,y:region.maxY-y)
+            if region.contains(point) { points.append(point) }
+        }
+        for x in stride(from:min(10,region.width/2),to:region.width,by:20) {
+            for y in stride(from:min(10,region.height/2),to:region.height,by:20) {
+                points.append(CGPoint(x:region.minX+x,y:region.maxY-y))
+            }
+        }
+        return points
+    }
     /// Center a compact ring over the native usage icon, without changing the
     /// user's normal ring size or saved free/follow positions.
     public static func usageOverlayFrame(control:CGRect,window:CGRect)->CGRect? {

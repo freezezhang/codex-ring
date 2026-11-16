@@ -99,6 +99,11 @@ private struct RingSettingsView:View {
                 valueRow("需要辅助功能权限",value:model.overlayAccessibilityGranted ? "已授权":"未授权")
                     .padding(.leading,16)
                     .padding(.top,12)
+                if !model.overlayStatus.isEmpty {
+                    Text(model.overlayStatus).font(.caption).foregroundStyle(.orange)
+                        .fixedSize(horizontal:false,vertical:true)
+                        .padding(.leading,16).padding(.top,8)
+                }
                 if let notice=model.overlayAuthorizationNotice {
                     VStack(alignment:.leading,spacing:8) {
                         Text(notice).font(.caption).foregroundStyle(.secondary)

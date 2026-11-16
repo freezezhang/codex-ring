@@ -1,14 +1,46 @@
 import AppKit
 import ApplicationServices
+import QuotaCore
 
 /// Locates sidebar controls without activating Codex or reading chat content.
 /// Presses only the matched control in response to an explicit ring click.
 final class CodexUsageLocator {
+    private var accessibilityActivation=CodexAccessibilityActivation()
+    /// Chromium and Electron use different renderer accessibility flags.
+    /// These app-local flags enable the tree; they do not grant or
+    /// change macOS Accessibility permission, activate windows, or press UI.
+    func prepare(application:AXUIElement,pid:pid_t) {
+        let result=accessibilityActivation.prepare(processID:pid,now:ProcessInfo.processInfo.systemUptime,
+            isEnabled:{ self.attribute(application,$0) as? Bool },
+            enable:{ name in
+                let error=AXUIElementSetAttributeValue(application,name as CFString,kCFBooleanTrue)
+                self.diagnostic("renderer initialization: \(name), result=\(error.rawValue)")
+                return error == .success
+            })
+        if let result { diagnostic("renderer state: \(result)") }
+    }
     private struct Cached {
         let element:AXUIElement
-        let foundAt:Date
     }
     private var cache:[UInt32:Cached]=[:]
+    private struct SearchPass {
+        let window:AXUIElement
+        let bounds:CGRect
+        let startedAt:TimeInterval
+        let points:[CGPoint]
+        var pointIndex=0
+        var hitCount=0
+        var candidateCount=0
+        var nodes:[AXUIElement]
+        var nodeIndex=0
+    }
+    private var searches:[UInt32:SearchPass]=[:]
+    private var lastDiagnostic=""
+    private func diagnostic(_ value:String) {
+        guard ProcessInfo.processInfo.arguments.contains("--space-diagnostics"),value != lastDiagnostic else { return }
+        lastDiagnostic=value
+        FileHandle.standardError.write(Data(("[usage-locator] "+value+"\n").utf8))
+    }
     func press(id:UInt32,expectedFrame:CGRect)->Bool {
         guard let cached=cache[id],isUsage(cached.element),let rect=frame(cached.element),
               abs(rect.minX-expectedFrame.minX)<2,abs(rect.minY-expectedFrame.minY)<2,
@@ -45,30 +77,85 @@ final class CodexUsageLocator {
             return ["用量","使用量","Usage","Rate limits"].contains { $0.caseInsensitiveCompare(text.trimmingCharacters(in:.whitespacesAndNewlines)) == .orderedSame }
         }
     }
-    func locate(in window:AXUIElement,id:UInt32,bounds:CGRect)->CGRect? {
-        // Search only the bottom of the left sidebar, avoiding chat text.
-        let region=CGRect(x:bounds.minX,y:max(bounds.minY,bounds.maxY-300),width:min(320,bounds.width),height:min(300,bounds.height))
+    private func parent(of element:AXUIElement)->AXUIElement? {
+        guard let value=attribute(element,kAXParentAttribute),CFGetTypeID(value)==AXUIElementGetTypeID() else { return nil }
+        return (value as! AXUIElement)
+    }
+    private func belongs(_ element:AXUIElement,to window:AXUIElement)->Bool {
+        if let owner=attribute(element,kAXWindowAttribute) { return CFEqual(owner,window) }
+        var current:AXUIElement?=element
+        for _ in 0..<16 {
+            guard let node=current else { return false }
+            if CFEqual(node,window) { return true }
+            current=parent(of:node)
+        }
+        return false
+    }
+    func locate(in window:AXUIElement,application:AXUIElement,id:UInt32,bounds:CGRect)->CGRect? {
+        let region=CodexFollow.usageSearchRegion(window:bounds)
         func valid(_ rect:CGRect)->Bool {
             rect.width>=26 && rect.width<=100 && rect.height>=26 && rect.height<=64 && region.contains(rect)
         }
-        if let cached=cache[id],Date().timeIntervalSince(cached.foundAt)<1,
-           isUsage(cached.element),let rect=frame(cached.element),valid(rect) { return rect }
+        // Revalidate the actual control, rather than expiring a working match
+        // every second and forcing a fresh walk through a large Electron tree.
+        if let cached=cache[id],isUsage(cached.element),let rect=frame(cached.element),
+           valid(rect),belongs(cached.element,to:window) {
+            diagnostic("matched cached control")
+            return rect
+        }
         cache[id]=nil
-        // Bound both traversal and AX messaging so a busy renderer cannot
-        // block the main thread or leave an overlay at a guessed position.
+        let now=ProcessInfo.processInfo.systemUptime
+        var search=searches[id]
+        if search == nil || search!.bounds != bounds || !CFEqual(search!.window,window)
+            || now-search!.startedAt>10 {
+            search=SearchPass(window:window,bounds:bounds,startedAt:now,
+                              points:CodexFollow.usageProbePoints(window:bounds),nodes:[window])
+        }
+        var pass=search!
+        AXUIElementSetMessagingTimeout(application,0.05)
         AXUIElementSetMessagingTimeout(window,0.05)
-        let deadline=Date().addingTimeInterval(0.4)
-        var queue=[window],cursor=0
-        while cursor<queue.count,cursor<1600,Date()<deadline {
-            let element=queue[cursor];cursor += 1
+        let deadline=now+0.4,probeDeadline=now+0.15
+        func remember(_ element:AXUIElement,_ rect:CGRect,_ method:String)->CGRect {
+            if cache.count>=32 { cache.removeAll() }
+            cache[id]=Cached(element:element);searches[id]=nil
+            diagnostic("matched control via "+method)
+            return rect
+        }
+        // Application-scoped AX hit-testing reads controls without moving the
+        // pointer or clicking. Walk from an icon leaf to its actual button,
+        // accepting only a named usage control owned by the target window.
+        while pass.pointIndex<pass.points.count,ProcessInfo.processInfo.systemUptime<probeDeadline {
+            let point=pass.points[pass.pointIndex];pass.pointIndex += 1
+            var hit:AXUIElement?
+            guard AXUIElementCopyElementAtPosition(application,Float(point.x),Float(point.y),&hit) == .success else { continue }
+            pass.hitCount += 1
+            for _ in 0..<12 {
+                guard let node=hit,ProcessInfo.processInfo.systemUptime<probeDeadline else { break }
+                if CFEqual(node,window) { break }
+                if let rect=frame(node),valid(rect) {
+                    pass.candidateCount += 1
+                    if isUsage(node),belongs(node,to:window) { return remember(node,rect,"sidebar hit-test") }
+                }
+                hit=parent(of:node)
+            }
+        }
+        // Keep progress between monitor ticks: a timeout must not permanently
+        // starve a deeper control by restarting at the window root each time.
+        while pass.nodeIndex<pass.nodes.count,pass.nodeIndex<1600,ProcessInfo.processInfo.systemUptime<deadline {
+            let element=pass.nodes[pass.nodeIndex];pass.nodeIndex += 1
             let rect=frame(element)
             if let rect,rect.width>1,rect.height>1,!region.intersects(rect) { continue }
-            if let rect,valid(rect),isUsage(element) {
-                if cache.count>32 { cache.removeAll() }
-                cache[id]=Cached(element:element,foundAt:Date());return rect
+            if let rect,valid(rect),isUsage(element),belongs(element,to:window) {
+                return remember(element,rect,"tree traversal")
             }
-            if let children=attribute(element,kAXChildrenAttribute) as? [AXUIElement] { queue += children }
+            if let children=attribute(element,kAXChildrenAttribute) as? [AXUIElement] {
+                pass.nodes += children.prefix(max(0,1600-pass.nodes.count))
+            }
         }
+        let finished=pass.pointIndex>=pass.points.count && (pass.nodeIndex>=pass.nodes.count || pass.nodeIndex>=1600)
+        if searches.count>=32 { searches.removeAll() }
+        searches[id]=finished ? nil:pass
+        diagnostic("control not found; probes=\(pass.pointIndex)/\(pass.points.count), hits=\(pass.hitCount), candidates=\(pass.candidateCount), nodes=\(pass.nodeIndex), search=\(finished ? "complete":"continuing")")
         return nil
     }
 }

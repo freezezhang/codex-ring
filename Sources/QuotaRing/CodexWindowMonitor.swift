@@ -82,13 +82,29 @@ final class CodexWindowMonitor {
         let locator=usageLocator
         busy=true
         queue.async { [weak self] in
-            let value=trusted ? Self.read(pids:pids,top:top,front:front,previous:previous,locator:locateUsage ? locator:nil)
+            let valid=DispatchQueue.main.sync {
+                guard let self else { return false }
+                return self.timer != nil && self.revision == request
+                    && (!locateUsage || (self.tracksUsageControl && self.accessibilityTrusted()))
+            }
+            guard valid else {
+                DispatchQueue.main.async { self?.busy=false }
+                return
+            }
+            var value=trusted ? Self.read(pids:pids,top:top,front:front,previous:previous,locator:locateUsage ? locator:nil)
                 : Self.readBasic(pids:pids,top:top,front:front,previous:previous,hasObservedWindow:observed)
+            if locateUsage,case .unavailable=value {
+                // An unavailable accessibility tree must not remove the fallback
+                // ring. Public window metadata can still place a normal ring;
+                // it never supplies or guesses a native control's coordinates.
+                value=Self.readBasic(pids:pids,top:top,front:front,previous:previous,hasObservedWindow:observed)
+            }
+            let sampled=value
             DispatchQueue.main.async {
                 guard let self else { return };self.busy=false
                 guard self.timer != nil,self.revision == request else { return }
                 let windows:[CodexFollowWindow]?
-                switch value {
+                switch sampled {
                 case .windows(let values,_),.basicWindows(let values,_):windows=values
                 default:windows=nil
                 }
@@ -100,7 +116,7 @@ final class CodexWindowMonitor {
                     self.knownWindows=windows
                     if windows.contains(where:\.isOnScreen) { self.hasObservedWindow=true }
                 }
-                self.publish(value)
+                self.publish(sampled)
             }
         }
     }
@@ -132,6 +148,10 @@ final class CodexWindowMonitor {
         for pid in pids {
             let app=AXUIElementCreateApplication(pid)
             AXUIElementSetMessagingTimeout(app,0.2)
+            // read() runs only with AX trust, and locator exists only when the
+            // user has selected usage overlay. Basic following never enables
+            // the Electron renderer's accessibility tree.
+            locator?.prepare(application:app,pid:pid)
             guard let windows=attribute(app,kAXWindowsAttribute as CFString) as? [AXUIElement] else { return .unavailable }
             if windows.isEmpty {
                 let registered=Set(records.compactMap { info -> UInt32? in
@@ -171,7 +191,7 @@ final class CodexWindowMonitor {
                 // During a fullscreen animation AX and CG can briefly disagree.
                 // Wait for a consistent sample instead of treating that as closure.
                 guard var match=matches.first(where:\.isOnScreen) ?? matches.first else { return .unavailable }
-                if match.isOnScreen,let rect=locator?.locate(in:window,id:match.id,bounds:axFrame) {
+                if match.isOnScreen,let rect=locator?.locate(in:window,application:app,id:match.id,bounds:axFrame) {
                     match.usageFrame=CGRect(x:rect.minX,y:top-rect.maxY,width:rect.width,height:rect.height)
                 }
                 result.append(match)

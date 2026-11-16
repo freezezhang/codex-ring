@@ -2,6 +2,27 @@ import XCTest
 @testable import QuotaCore
 
 final class UsageOverlayTests:XCTestCase {
+    func testSidebarProbesStayInWindowAcrossDisplaysAndReachEligibleControls() {
+        for origin in [CGPoint.zero,CGPoint(x:2560,y:-400),CGPoint(x:-1920,y:200)] {
+            let window=CGRect(origin:origin,size:CGSize(width:1200,height:800))
+            let region=CodexFollow.usageSearchRegion(window:window)
+            let points=CodexFollow.usageProbePoints(window:window)
+            XCTAssertTrue(points.allSatisfy { region.contains($0) && window.contains($0) })
+            for x in stride(from:region.minX,through:region.maxX-26,by:7) {
+                for y in stride(from:region.minY,through:region.maxY-26,by:7) {
+                    let control=CGRect(x:x,y:y,width:26,height:26)
+                    XCTAssertTrue(points.contains(where:control.contains),"No probe in \(control)")
+                }
+            }
+        }
+    }
+    func testSidebarSearchRegionIsClippedToSmallWindow() {
+        let window=CGRect(x:20,y:40,width:160,height:120)
+        XCTAssertEqual(CodexFollow.usageSearchRegion(window:window),window)
+        XCTAssertFalse(CodexFollow.usageProbePoints(window:window).isEmpty)
+        XCTAssertTrue(CodexFollow.usageProbePoints(window:window).allSatisfy(window.contains))
+        XCTAssertTrue(CodexFollow.usageProbePoints(window:.zero).isEmpty)
+    }
     func testOverlayCentersOnControlAcrossDisplays() throws {
         for origin in [CGPoint.zero,CGPoint(x:2560,y:288),CGPoint(x:-1920,y:-1080)] {
             let window=CGRect(origin:origin,size:CGSize(width:1200,height:800))

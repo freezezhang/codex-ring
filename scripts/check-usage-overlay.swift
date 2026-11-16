@@ -9,6 +9,7 @@ final class OverlayCheck:NSObject,NSApplicationDelegate {
     var fixture:NSWindow!
     var button:NSButton!
     var preferences=RingPreferences()
+    var noticeCount=0
     var pressCount=0
     var trusted=true
     var finished=false
@@ -22,7 +23,7 @@ final class OverlayCheck:NSObject,NSApplicationDelegate {
         button=NSButton(frame:NSRect(x:8,y:52,width:36,height:36));button.title="用量";button.toolTip="原生用量提示";button.target=self;button.action=#selector(usagePressed)
         fixture.contentView?.addSubview(button)
         fixture.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)
-        ring=RingApplication(store:store,codexMonitor:CodexWindowMonitor(bundleIdentifier:"local.freeze.codex-ring.overlay-check",accessibilityTrusted:{ [self] in trusted }),automaticRefresh:false)
+        ring=RingApplication(store:store,codexMonitor:CodexWindowMonitor(bundleIdentifier:"local.freeze.codex-ring.overlay-check",accessibilityTrusted:{ [self] in trusted }),automaticRefresh:false,onOverlayUnavailable:{ [weak self] in self?.noticeCount += 1 })
         ring.applicationDidFinishLaunching(notification)
         after(2) { [self] in
             guard attached("initial overlay") else { return }
@@ -33,11 +34,7 @@ final class OverlayCheck:NSObject,NSApplicationDelegate {
                 button.setFrameOrigin(NSPoint(x:28,y:72))
                 after(1) { [self] in
                     guard attached("control moved within window") else { return }
-                    button.removeFromSuperview()
-                    after(2) { [self] in
-                        guard circle() == nil else { finish("missing control left an overlay",false);return }
-                        print("PASS missing control hidden")
-                        fixture.contentView?.addSubview(button)
+                    testMissingControl { [self] in
                         after(1) { [self] in
                             guard attached("control reappeared") else { return }
                             trusted=false
@@ -53,7 +50,7 @@ final class OverlayCheck:NSObject,NSApplicationDelegate {
                                         preferences.overlayCodexUsage=false;ring.applyPreferences(preferences)
                                         after(1) { [self] in
                                             guard normal("overlay disabled") else { return }
-                                            finish("overlay geometry, hover interception, forwarded click, disappearance, permission loss and size/position restoration",true)
+                                            finish("overlay geometry, hover interception, forwarded click, visible fallback and notice, permission loss and size/position restoration",true)
                                         }
                                     }
                                 }
@@ -64,7 +61,41 @@ final class OverlayCheck:NSObject,NSApplicationDelegate {
             }
         }
         }
-        after(30) { [self] in finish("timeout",false) }
+        after(45) { [self] in finish("timeout",false) }
+    }
+    func testMissingControl(_ completion:@escaping ()->Void) {
+        func fallback()->Bool {
+            guard let window=circle(),window.frame.width == 76,
+                  fixture.frame.contains(window.frame),!window.ignoresMouseEvents else {
+                finish("missing control did not preserve normal-size ring",false);return false
+            }
+            guard let view=window.contentView?.subviews.first?.subviews.first as? RingView,
+                  !view.coversNativeUsage,
+                  view.hoverDetails.contains("未找到 Codex 额度控件") else {
+                finish("fallback still forwards clicks or lacks explanation",false);return false
+            }
+            return true
+        }
+        button.removeFromSuperview()
+        after(1) { [self] in
+            guard fallback(),noticeCount == 0 else { return }
+            fixture.contentView?.addSubview(button)
+            after(3.5) { [self] in
+                guard attached("brief disappearance recovered"),noticeCount == 0 else {
+                    finish("brief disappearance raised a delayed warning",false);return
+                }
+                button.removeFromSuperview()
+                after(4) { [self] in
+                    guard fallback(),noticeCount == 1 else { finish("persistent disappearance did not notify once",false);return }
+                    after(3.5) { [self] in
+                        guard fallback(),noticeCount == 1 else { finish("repeated missing-control warning",false);return }
+                        print("PASS visible fallback, warning debounce, single notice, normal hover and no click forwarding")
+                        fixture.contentView?.addSubview(button)
+                        completion()
+                    }
+                }
+            }
+        }
     }
     @objc func usagePressed() { pressCount += 1 }
     func testInteraction(_ completion:@escaping ()->Void) {
