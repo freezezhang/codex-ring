@@ -28,8 +28,9 @@
 
 - macOS 与 Swift 工具链。
 - 已安装官方 Codex，且已有可用登录状态。
+- 支持仅安装桌面版：优先使用正在运行或系统登记的 Codex 桌面应用内附带的程序，兼容新版和旧版目录、改名或自定义安装位置，以及系统／用户 Applications；找不到时回退到 Homebrew 常用目录和当前进程 PATH 中的独立 CLI。无需为了 CodexRing 额外安装 Node 或 CLI。
 - [Release 下载](https://github.com/freezezhang/codex-ring/releases/latest)提供 Intel、Apple 芯片和通用版；只需下载其中一个。
-- 构建最低目标为 macOS 13.0；还需满足已安装官方 Codex CLI 的系统要求。界面及旧系统兼容性需在目标设备验收。
+- 构建最低目标为 macOS 13.0；还需满足所用 Codex 桌面版或独立 CLI 的系统要求。界面及旧系统兼容性需在目标设备验收。
 
 ## 构建
 

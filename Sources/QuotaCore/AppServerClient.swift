@@ -5,7 +5,9 @@ import Foundation
 public final class AppServerClient {
     private let lock = NSLock()
     private var active: StdioSession?
-    public init() {}
+    private let resolveExecutable: () -> URL?
+    public convenience init() { self.init(resolveExecutable: { CodexExecutableLocator.resolve() }) }
+    init(resolveExecutable: @escaping () -> URL?) { self.resolveExecutable = resolveExecutable }
     public func cancel() { lock.lock(); let session = active; active = nil; lock.unlock(); session?.cancel() }
     public func fetch(executable: URL? = nil, arguments: [String]? = nil, timeout: TimeInterval = 18) -> QuotaSnapshot {
         run(executable:executable,arguments:arguments,timeout:timeout,accountOnly:false).0
@@ -17,11 +19,10 @@ public final class AppServerClient {
         run(executable:executable,arguments:arguments,timeout:timeout,accountOnly:true).1
     }
     private func run(executable:URL?,arguments:[String]?,timeout:TimeInterval,accountOnly:Bool)->(QuotaSnapshot,CodexAccountInfo?) {
-        let path = executable ?? ["/usr/local/bin/codex", "/opt/homebrew/bin/codex"].first(where: {
-            FileManager.default.isExecutableFile(atPath: $0)
-        }).map { URL(fileURLWithPath: $0) }
+        let path = executable ?? resolveExecutable()
         guard let path else { return (QuotaSnapshot(source: .official, fetchedAt: Date(), failure: .missingCLI),nil) }
-        let session = StdioSession(executable: path, arguments: arguments ?? ["app-server", "--stdio"],accountOnly:accountOnly)
+        // Stdio is the documented default, including versions without --stdio.
+        let session = StdioSession(executable: path, arguments: arguments ?? ["app-server"],accountOnly:accountOnly)
         lock.lock(); active = session; lock.unlock()
         let result = session.run(timeout: timeout)
         lock.lock(); if active === session { active = nil }; lock.unlock()
