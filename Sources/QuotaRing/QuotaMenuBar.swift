@@ -2,10 +2,17 @@ import AppKit
 import SwiftUI
 import QuotaCore
 
-final class QuotaMenuBar:NSObject,NSPopoverDelegate {
+private final class QuotaFloatingPanel:NSPanel {
+    override var canBecomeKey:Bool { true }
+    override var canBecomeMain:Bool { false }
+}
+
+final class QuotaMenuBar:NSObject {
     private let model:SettingsModel
     private var item:NSStatusItem?
-    private let popover=NSPopover()
+    private let panel=QuotaFloatingPanel(contentRect:.zero,styleMask:[.borderless],backing:.buffered,defer:false)
+    private var hostingView:NSView?
+    private var localMonitor:Any?,globalMonitor:Any?,deactivationObserver:NSObjectProtocol?
     private let menuIcon:NSImage? = {
         let icon=Bundle.main.url(forResource:"ChatGPTMenuIcon",withExtension:"png").flatMap { NSImage(contentsOf:$0) }
         icon?.isTemplate=true;icon?.size=NSSize(width:18,height:18)
@@ -15,16 +22,28 @@ final class QuotaMenuBar:NSObject,NSPopoverDelegate {
     init(model:SettingsModel) {
         self.model=model
         super.init()
-        popover.behavior = .transient;popover.animates=false
-        popover.delegate=self
-        popover.appearance=NSAppearance(named:.darkAqua)
-        popover.contentViewController=NSHostingController(rootView:QuotaMenuView(model:model,
+        panel.isReleasedWhenClosed=false;panel.isOpaque=false;panel.backgroundColor = .clear
+        panel.hasShadow=true;panel.level = .popUpMenu;panel.animationBehavior = .none
+        panel.collectionBehavior=[.moveToActiveSpace,.fullScreenAuxiliary,.ignoresCycle]
+        panel.appearance=NSAppearance(named:.darkAqua)
+        let material=NSVisualEffectView(frame:.zero)
+        material.material = .popover;material.blendingMode = .behindWindow;material.state = .active
+        material.wantsLayer=true;material.layer?.cornerRadius=16;material.layer?.masksToBounds=true
+        material.layer?.borderWidth=0.5;material.layer?.borderColor=NSColor.white.withAlphaComponent(0.12).cgColor
+        let host=NSHostingView(rootView:QuotaMenuView(model:model,
             contentSizeChanged:{ [weak self] in
                 DispatchQueue.main.async { [weak self] in self?.fitPanel() }
             },
             refresh:{ [weak self] in self?.onRefresh?() },
             settings:{ [weak self] in self?.close();self?.onSettings?() },
             quit:{ [weak self] in self?.close();self?.onQuit?() }))
+        host.autoresizingMask=[.width,.height];material.addSubview(host)
+        hostingView=host;panel.contentView=material
+        deactivationObserver=NotificationCenter.default.addObserver(forName:NSApplication.didResignActiveNotification,object:nil,queue:.main) { [weak self] _ in self?.close() }
+    }
+    deinit {
+        removeMonitors()
+        if let deactivationObserver { NotificationCenter.default.removeObserver(deactivationObserver) }
     }
     func update(enabled:Bool) {
         guard enabled else {
@@ -44,31 +63,51 @@ final class QuotaMenuBar:NSObject,NSPopoverDelegate {
         item?.button?.image=menuIcon;item?.button?.imagePosition = .imageLeft
         item?.button?.toolTip=model.menuPresentation?.help ?? "CodexRing"
         item?.button?.setAccessibilityLabel(model.menuPresentation?.help ?? "CodexRing")
-        if popover.isShown {
+        if panel.isVisible {
             DispatchQueue.main.async { [weak self] in self?.fitPanel() }
         }
     }
-    func close() { popover.performClose(nil) }
-    func popoverDidShow(_ notification:Notification) { model.menuPanelVisible=true }
-    func popoverWillClose(_ notification:Notification) { model.menuPanelVisible=false }
+    func close() {
+        panel.orderOut(nil);model.menuPanelVisible=false;removeMonitors()
+    }
+    private func removeMonitors() {
+        if let localMonitor { NSEvent.removeMonitor(localMonitor);self.localMonitor=nil }
+        if let globalMonitor { NSEvent.removeMonitor(globalMonitor);self.globalMonitor=nil }
+    }
     private func fitPanel() {
-        guard let view=popover.contentViewController?.view else { return }
+        guard let view=hostingView,let button=item?.button,let window=button.window else { return }
         view.layoutSubtreeIfNeeded()
         let size=view.fittingSize
-        if size.width>0,size.height>0,popover.contentSize != size { popover.contentSize=size }
+        guard size.width>0,size.height>0 else { return }
+        let anchor=window.convertToScreen(button.convert(button.bounds,to:nil))
+        let screen=window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? anchor
+        let x=max(screen.minX+8,min(anchor.midX-size.width/2,screen.maxX-size.width-8))
+        let top=min(anchor.minY-6,screen.maxY-6)
+        let y=max(screen.minY+8,top-size.height)
+        let frame=NSRect(x:x,y:y,width:size.width,height:size.height).integral
+        if panel.frame != frame { panel.setFrame(frame,display:true);panel.invalidateShadow() }
     }
     func show() {
-        guard let button=item?.button,!popover.isShown else { return }
+        guard item?.button != nil,!panel.isVisible else { return }
         fitPanel()
         NSApp.activate(ignoringOtherApps:true)
-        popover.show(relativeTo:button.bounds,of:button,preferredEdge:.minY)
-        popover.contentViewController?.view.window?.makeKey()
-        // Keep keyboard navigation available, but don't preselect a footer
-        // button when the panel was opened with the mouse.
-        DispatchQueue.main.async { [weak self] in
-            guard let self,self.popover.isShown else { return }
-            self.popover.contentViewController?.view.window?.makeFirstResponder(nil)
+        panel.makeKeyAndOrderFront(nil)
+        panel.makeFirstResponder(nil)
+        model.menuPanelVisible=true;model.apiUsage.refreshIfNeeded()
+        localMonitor=NSEvent.addLocalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown,.otherMouseDown,.keyDown]) { [weak self] event in
+            guard let self else { return event }
+            if event.type == .keyDown {
+                if event.keyCode == 53 { self.close();return nil }
+            } else if event.window !== self.panel {
+                // Let the status button's action toggle the panel. Closing on its
+                // mouse-down would otherwise reopen it on the following mouse-up.
+                if let button=self.item?.button,event.window === button.window,
+                   button.bounds.contains(button.convert(event.locationInWindow,from:nil)) { return event }
+                self.close()
+            }
+            return event
         }
+        globalMonitor=NSEvent.addGlobalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown,.otherMouseDown]) { [weak self] _ in self?.close() }
     }
     @objc private func togglePanel() {
         guard let button=item?.button else { return }
@@ -86,7 +125,7 @@ final class QuotaMenuBar:NSObject,NSPopoverDelegate {
             NSMenu.popUpContextMenu(menu,with:event,for:button)
             return
         }
-        if popover.isShown { close();return }
+        if panel.isVisible { close();return }
         show()
     }
     @objc private func refresh() { onRefresh?() }
@@ -100,6 +139,11 @@ private struct QuotaContentHeight:PreferenceKey {
     static func reduce(value:inout CGFloat,nextValue:()->CGFloat) { value=max(value,nextValue()) }
 }
 
+private struct QuotaHeaderHeight:PreferenceKey {
+    static let defaultValue:CGFloat=0
+    static func reduce(value:inout CGFloat,nextValue:()->CGFloat) { value=max(value,nextValue()) }
+}
+
 private struct QuotaMenuView:View {
     @ObservedObject var model:SettingsModel
     @State private var contentHeight:CGFloat=440
@@ -107,50 +151,53 @@ private struct QuotaMenuView:View {
     let refresh:()->Void,settings:()->Void,quit:()->Void
     var body:some View {
         VStack(spacing:0) {
-            HStack(alignment:.top) {
-                VStack(alignment:.leading,spacing:5) {
-                    HStack(spacing:8) {
-                        Text("CodexRing").font(.system(size:20,weight:.semibold))
-                        if model.menuPresentation?.isDebug == true {
-                            Text("调试").font(.caption).foregroundStyle(.orange)
-                        }
-                    }
-                    Text(model.isRefreshing ? "正在刷新…":model.menuPresentation?.updatedText ?? "尚未刷新")
-                        .font(.system(size:11)).foregroundStyle(.secondary).monospacedDigit()
-                }
-                Spacer()
-                Button(action:refresh) {
-                    Image(systemName:"arrow.clockwise").font(.system(size:14,weight:.medium))
-                        .frame(width:28,height:28)
-                }.buttonStyle(.borderless).help("刷新额度")
-                    .accessibilityLabel("刷新额度")
-                    .disabled(model.isRefreshing || model.debugState.isEnabled)
-            }.padding(20)
-            Divider()
+            QuotaSectionCard {
+                QuotaMenuHeader(model:model,account:model.apiUsage)
+                    .background(GeometryReader { geometry in
+                        Color.clear.preference(key:QuotaHeaderHeight.self,value:geometry.size.height)
+                    })
+            }.padding(.horizontal,12).padding(.top,12)
             if let data=model.menuPresentation {
                 quotaContent(data)
             }
             Divider()
-            HStack {
-                Button(action:settings) { Label("设置",systemImage:"gearshape") }
+            HStack(spacing:12) {
+                Text("CodexRing").font(.system(size:15,weight:.medium)).foregroundStyle(.secondary)
                 Spacer()
-                Button(action:quit) { Label("退出",systemImage:"power") }
-            }.buttonStyle(.borderless).font(.system(size:12)).padding(.horizontal,20).padding(.vertical,14)
+                Button {
+                    model.apiUsage.refreshAccountPlan();refresh()
+                } label: {
+                    Image(systemName:"arrow.clockwise").frame(width:28,height:28)
+                }.help("刷新额度与账号").accessibilityLabel("刷新额度与账号").disabled(model.isRefreshing)
+                Button(action:settings) {
+                    Image(systemName:"gearshape").frame(width:28,height:28)
+                }.help("设置").accessibilityLabel("设置")
+                Button(action:quit) {
+                    Image(systemName:"power").frame(width:28,height:28)
+                }.help("退出 CodexRing").accessibilityLabel("退出 CodexRing")
+            }.buttonStyle(.borderless).font(.system(size:14,weight:.medium)).padding(.horizontal,20).padding(.vertical,10)
         }.frame(width:320).fixedSize(horizontal:false,vertical:true)
             .preferredColorScheme(.dark)
+            .onPreferenceChange(QuotaHeaderHeight.self) { _ in contentSizeChanged() }
     }
     private func quotaContent(_ data:QuotaMenuPresentation)->some View {
         return ScrollView {
-            VStack(alignment:.leading,spacing:20) {
-                ForEach(data.rows) { row in quota(row) }
-                if data.showsResetCards {
-                    Divider()
-                    cards(data)
+            VStack(alignment:.leading,spacing:12) {
+                QuotaSectionCard {
+                    VStack(alignment:.leading,spacing:16) {
+                        Text("OpenAI 订阅").font(.system(size:15,weight:.bold))
+                        ForEach(data.rows) { row in quota(row) }
+                        if data.showsResetCards {
+                            Divider().overlay(Color.white.opacity(0.03))
+                            cards(data)
+                        }
+                        if let notice=data.metadataNotice {
+                            Text(notice).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                 }
-                if let notice=data.metadataNotice {
-                    Text(notice).font(.caption).foregroundStyle(.secondary)
-                }
-            }.padding(20)
+                OpenAIUsagePanel(controller:model.apiUsage,metric:model.preferences.metric,settings:settings)
+            }.padding(12)
                 .fixedSize(horizontal:false,vertical:true)
                 .background(GeometryReader { geometry in
                     Color.clear.preference(key:QuotaContentHeight.self,value:geometry.size.height)
@@ -163,11 +210,11 @@ private struct QuotaMenuView:View {
             }
     }
     private func cards(_ data:QuotaMenuPresentation)->some View {
-        VStack(alignment:.leading,spacing:10) {
+        VStack(alignment:.leading,spacing:8) {
             HStack {
-                Text("重置卡").font(.system(size:14,weight:.semibold))
+                Text("重置卡").font(.system(size:12,weight:.medium)).foregroundStyle(.secondary)
                 Spacer()
-                Text(data.cardsSummary).font(.system(size:12)).foregroundStyle(.secondary)
+                Text(data.cardsSummary).font(.system(size:11)).foregroundStyle(.secondary)
             }
             ForEach(data.cardRows.indices,id:\.self) { index in
                 cardLine(data.cardRows[index])
@@ -185,7 +232,7 @@ private struct QuotaMenuView:View {
         }()
         return HStack(alignment:.firstTextBaseline,spacing:8) {
             Image(systemName:"clock").foregroundStyle(color ?? .secondary)
-            Text(row.text).font(.system(size:12)).monospacedDigit().foregroundStyle(color ?? .primary)
+            Text(row.text).font(.system(size:12)).monospacedDigit().foregroundStyle(color ?? .secondary)
             Spacer(minLength:0)
         }.accessibilityElement(children:.ignore).accessibilityLabel("重置卡到期 "+row.text)
     }
@@ -220,6 +267,46 @@ private struct QuotaMenuView:View {
                     .accessibilityLabel(pace.summary+"。"+pace.explanation)
             }
         }
+    }
+}
+
+private struct QuotaMenuHeader:View {
+    @ObservedObject var model:SettingsModel
+    @ObservedObject var account:OpenAIUsageController
+    var body:some View {
+        VStack(spacing:8) {
+            HStack(alignment:.lastTextBaseline,spacing:12) {
+                HStack(alignment:.lastTextBaseline,spacing:6) {
+                    Text("账号").font(.system(size:15,weight:.bold))
+                    if model.menuPresentation?.isDebug == true {
+                        Text("调试").font(.caption).foregroundStyle(.orange)
+                    }
+                }.fixedSize(horizontal:true,vertical:false)
+                Spacer(minLength:0)
+                Text(account.accountEmail ?? (account.planRefreshing ? "正在读取账号…":"账号未提供"))
+                    .font(.system(size:15,weight:.medium)).lineLimit(1).truncationMode(.middle)
+                    .help(account.accountEmail ?? "读取当前 Codex 登录账号")
+                    .accessibilityLabel("用户账号："+(account.accountEmail ?? "未提供"))
+            }
+            HStack(alignment:.lastTextBaseline,spacing:12) {
+                Text(model.isRefreshing ? "正在刷新…":model.menuPresentation?.updatedText ?? "尚未刷新")
+                    .font(.system(size:11)).foregroundStyle(.secondary).monospacedDigit()
+                Spacer(minLength:0)
+                Text(account.accountPlan?.title ?? "订阅类型未提供")
+                    .font(.system(size:12,weight:.medium)).foregroundStyle(.secondary).lineLimit(1)
+                    .accessibilityLabel("订阅类型："+(account.accountPlan?.title ?? "未提供"))
+            }
+        }
+    }
+}
+
+/// The subscription and API sections are peers; reset cards stay inside the subscription card.
+struct QuotaSectionCard<Content:View>:View {
+    @ViewBuilder var content:()->Content
+    var body:some View {
+        content().frame(maxWidth:.infinity,alignment:.leading).padding(12)
+            .background(Color.white.opacity(0.045),in:RoundedRectangle(cornerRadius:12))
+            .overlay(RoundedRectangle(cornerRadius:12).strokeBorder(Color.white.opacity(0.07),lineWidth:0.5))
     }
 }
 

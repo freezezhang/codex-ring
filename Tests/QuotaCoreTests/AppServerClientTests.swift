@@ -31,6 +31,51 @@ final class AppServerClientTests: XCTestCase {
             XCTAssertFalse(String(reflecting: s).contains("private-test-value"))
         }
     }
+    func testAccountPlanUsesOnlyReadAndDoesNotRetainEmailOrRefreshTokens() throws {
+        try withServer("""
+        import json, sys, os
+        assert json.loads(sys.stdin.readline())['method'] == 'initialize'
+        assert 'OPENAI_API_KEY' not in os.environ
+        print(json.dumps({'id':1,'result':{}}), flush=True)
+        assert json.loads(sys.stdin.readline())['method'] == 'initialized'
+        request = json.loads(sys.stdin.readline())
+        assert request['method'] == 'account/read'
+        assert request['params']['refreshToken'] == False
+        print(json.dumps({'id':2,'result':{'account':{'type':'chatgpt','planType':'prolite','email':'private-test-value','token':'private-test-value'}}}),flush=True)
+        sys.stdin.read()
+        """) { path in
+            let plan=AppServerClient().fetchAccountPlan(executable:URL(fileURLWithPath:"/usr/bin/python3"),arguments:[path.path],timeout:5)
+            XCTAssertEqual(plan,.prolite);XCTAssertEqual(plan?.expectedAPICredits,100)
+            XCTAssertFalse(String(reflecting:plan).contains("private-test-value"))
+        }
+    }
+    func testAccountInfoReadReturnsDisplayFieldsWithoutAuthenticationMaterial() throws {
+        try withServer("""
+        import json, sys
+        assert json.loads(sys.stdin.readline())['method'] == 'initialize'
+        print(json.dumps({'id':1,'result':{}}),flush=True)
+        assert json.loads(sys.stdin.readline())['method'] == 'initialized'
+        read=json.loads(sys.stdin.readline())
+        assert read['method'] == 'account/read' and read['params']['refreshToken'] == False
+        print(json.dumps({'id':2,'result':{'account':{'type':'chatgpt','email':'user@example.com','planType':'prolite','accessToken':'secret-test-token'}}}),flush=True)
+        sys.stdin.read()
+        """) { path in
+            let info=AppServerClient().fetchAccountInfo(executable:URL(fileURLWithPath:"/usr/bin/python3"),arguments:[path.path],timeout:5)
+            XCTAssertEqual(info?.email,"user@example.com");XCTAssertEqual(info?.plan,.prolite)
+            XCTAssertFalse(String(reflecting:info).contains("secret-test-token"))
+        }
+    }
+    func testAccountPlanUnavailableDoesNotFallBackToPreviouslyKnownTier() throws {
+        try withServer("""
+        import sys, json
+        sys.stdin.readline()
+        print(json.dumps({'id':1,'error':{'code':401,'message':'private-test-value'}}),flush=True)
+        sys.stdin.read()
+        """) { path in
+            let plan=AppServerClient().fetchAccountPlan(executable:URL(fileURLWithPath:"/usr/bin/python3"),arguments:[path.path],timeout:5)
+            XCTAssertNil(plan)
+        }
+    }
     func testMalformedResponseIsSanitized() throws {
         try withServer("""
         import sys

@@ -3,6 +3,7 @@ import SwiftUI
 import QuotaCore
 
 final class SettingsModel:ObservableObject {
+    let apiUsage=OpenAIUsageController()
     @Published var preferences:RingPreferences { didSet { onPreferences?(preferences) } }
     @Published var snapshot=QuotaSnapshot(source:.official,fetchedAt:Date(),loading:true)
     @Published var source:QuotaSource = .official
@@ -26,6 +27,7 @@ final class SettingsModel:ObservableObject {
     var onDiagnostics:(()->Void)?
     var onOpenAccessibilitySettings:(()->Void)?
     var onAbout:(()->Void)?
+    var onOpenDebug:(()->Void)?
     var onLoginChange:((Bool)->Void)?
     var onLoginSettings:(()->Void)?
     var onNotificationSettings:(()->Void)?
@@ -39,8 +41,11 @@ final class RingSettingsWindow:NSWindowController,NSWindowDelegate {
     private let onClose:()->Void
     init(model:SettingsModel,onClose:@escaping ()->Void) {
         self.onClose=onClose
-        let window=NSWindow(contentRect:NSRect(x:0,y:0,width:470,height:560),styleMask:[.titled,.closable,.miniaturizable],backing:.buffered,defer:false)
-        window.title="CodexRing";window.isReleasedWhenClosed=false
+        let window=NSWindow(contentRect:NSRect(x:0,y:0,width:780,height:620),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
+        window.title="CodexRing 设置";window.isReleasedWhenClosed=false
+        window.titlebarAppearsTransparent=true
+        window.contentMinSize=NSSize(width:720,height:520)
+        window.setFrameAutosaveName("CodexRingSidebarSettings")
         window.collectionBehavior=[.moveToActiveSpace,.fullScreenAuxiliary,.canJoinAllApplications,.ignoresCycle]
         super.init(window:window);window.delegate=self
         window.contentView=NSHostingView(rootView:RingSettingsView(model:model,onDone:{ [weak self] in self?.close() }));window.center()
@@ -48,55 +53,141 @@ final class RingSettingsWindow:NSWindowController,NSWindowDelegate {
     required init?(coder:NSCoder) { fatalError("init(coder:) is not used") }
     func windowWillClose(_ notification:Notification) { onClose() }
 }
+private enum SettingsPage:String,CaseIterable,Identifiable {
+    case general,appearance,ring,panel,api,alerts,about
+    var id:String { rawValue }
+    var title:String {
+        switch self {
+        case .general:return "通用"
+        case .appearance:return "显示"
+        case .ring:return "圆环"
+        case .panel:return "订阅"
+        case .api:return "API"
+        case .alerts:return "提醒"
+        case .about:return "关于"
+        }
+    }
+    var icon:String {
+        switch self {
+        case .general:return "gearshape.fill"
+        case .appearance:return "display"
+        case .ring:return "circle.dashed"
+        case .panel:return "chart.bar.fill"
+        case .api:return "network"
+        case .alerts:return "bell.badge.fill"
+        case .about:return "info.circle.fill"
+        }
+    }
+    var color:Color {
+        switch self {
+        case .general:return .gray
+        case .appearance:return .blue
+        case .ring:return .cyan
+        case .panel:return .green
+        case .api:return .purple
+        case .alerts:return .orange
+        case .about:return .indigo
+        }
+    }
+}
+
 private struct RingSettingsView:View {
     @ObservedObject var model:SettingsModel
     let onDone:()->Void
+    @State private var selected:SettingsPage? = .general
     private var colorScheme:ColorScheme? {
         switch model.preferences.theme { case .system:return nil;case .light:return .light;case .dark:return .dark }
     }
     var body:some View {
-        VStack(spacing:0) {
-            Form {
-                appearanceSection
-                quotaPanelSection
-                ringSection
-                alertsSection
-                generalSection
-                quotaStatusSection
-            }.formStyle(.grouped)
-            HStack {
-                Button("关于") { model.onAbout?() }
-                Spacer();Button("完成",action:onDone).keyboardShortcut(.defaultAction)
-            }
-                .padding(.horizontal,20).padding(.vertical,12)
-        }.frame(width:470,height:560)
+        HStack(spacing:0) {
+            VStack(alignment:.leading,spacing:12) {
+                List(SettingsPage.allCases,selection:$selected) { page in
+                    HStack(spacing:10) {
+                        Image(systemName:page.icon).font(.system(size:13,weight:.semibold))
+                            .foregroundStyle(.white).frame(width:26,height:26)
+                            .background(page.color,in:RoundedRectangle(cornerRadius:6))
+                        Text(page.title).font(.system(size:13,weight:.medium)).foregroundStyle(.primary)
+                    }.padding(.vertical,4).tag(page)
+                }.listStyle(.sidebar).scrollContentBackground(.hidden)
+                    .accessibilityLabel("设置分类")
+            }.frame(width:184).background(Color.primary.opacity(0.025))
+            Divider()
+            VStack(alignment:.leading,spacing:0) {
+                Text((selected ?? .general).title).font(.system(size:22,weight:.semibold))
+                    .padding(.horizontal,24).padding(.top,22).padding(.bottom,12)
+                // Keep panes alive so switching categories preserves unsaved API fields.
+                ZStack {
+                    ForEach(SettingsPage.allCases) { page in
+                        settingsPane(page)
+                            .frame(maxWidth:.infinity,maxHeight:.infinity)
+                            .opacity(selected == page ? 1:0)
+                            .allowsHitTesting(selected == page)
+                            .disabled(selected != page)
+                            .accessibilityHidden(selected != page)
+                            .zIndex(selected == page ? 1:0)
+                    }
+                }
+                Divider()
+                HStack {
+                    Spacer()
+                    Button("完成",action:onDone).keyboardShortcut(.defaultAction)
+                }.padding(.horizontal,24).padding(.vertical,14)
+            }.frame(maxWidth:.infinity,maxHeight:.infinity)
+        }.frame(minWidth:720,minHeight:520)
             .background(Color(nsColor:.windowBackgroundColor))
             .toggleStyle(.switch)
             .preferredColorScheme(colorScheme)
+            .onChange(of:selected) { value in if value == nil { selected = .general } }
+    }
+    @ViewBuilder private func settingsPane(_ page:SettingsPage)->some View {
+        if page == .about {
+            VStack(spacing:16) {
+                Image(nsImage:NSApp.applicationIconImage).resizable().scaledToFit()
+                    .frame(width:88,height:88).contentShape(Rectangle())
+                    .onTapGesture(count:5) { model.onOpenDebug?() }
+                    .accessibilityLabel("CodexRing 图标")
+                Text("CodexRing").font(.system(size:26,weight:.semibold))
+                Text("版本 "+(Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "开发版本"))
+                    .font(.body).foregroundStyle(.secondary)
+            }.frame(maxWidth:.infinity,maxHeight:.infinity)
+        } else {
+            Form {
+                switch page {
+                case .general:
+                    generalSection
+                    Section("刷新") {
+                        Picker("刷新间隔",selection:$model.preferences.refreshInterval) {
+                            ForEach(RefreshInterval.allCases,id:\.rawValue) { Text($0.title).tag($0) }
+                        }.pickerStyle(.menu)
+                    }
+                    quotaStatusSection
+                case .appearance:appearanceSection
+                case .ring:ringSection
+                case .panel:
+                    quotaPanelSection
+                    quotaStatusSection
+                case .api:OpenAIUsageSettings(controller:model.apiUsage)
+                case .alerts:alertsSection
+                case .about:EmptyView()
+                }
+            }.formStyle(.grouped).scrollContentBackground(.hidden)
+        }
     }
     private var appearanceSection:some View {
-        Section("显示") {
-            Picker("刷新间隔",selection:$model.preferences.refreshInterval) {
-                ForEach(RefreshInterval.allCases,id:\.rawValue) { Text($0.title).tag($0) }
-            }.pickerStyle(.menu)
+        Section("外观与菜单栏") {
             Toggle("菜单栏显示额度",isOn:$model.preferences.showMenuBar)
-                .help("按下方勾选的本周、5小时额度显示百分比，双选时用 | 分隔；点击打开额度进度面板。")
+                .help("按圆环分类中勾选的本周、5小时额度显示百分比，双选时用 | 分隔；点击打开额度进度面板。")
             Picker("显示项",selection:$model.preferences.metric) {
                 Text("剩余").tag(DisplayMetric.remaining);Text("已用").tag(DisplayMetric.used)
             }.pickerStyle(.segmented)
                 .accessibilityHint("已用从顶部顺时针，剩余从顶部逆时针；颜色按实际已用比例的70%、80%、90%变化。")
-            Picker("圆圈大小",selection:$model.preferences.size) {
-                Text("小号 · 26 点").tag(RingSize.avatar);Text("紧凑 · 32 点").tag(RingSize.tiny)
-                Text("中号 · 56 点").tag(RingSize.small);Text("标准 · 64 点").tag(RingSize.compact);Text("大号 · 76 点").tag(RingSize.large)
-            }.pickerStyle(.menu)
-                .accessibilityHint("26和32点只显示数字，表示所选百分比。无有效数据时显示横线。")
             Picker("主题",selection:$model.preferences.theme) {
                 ForEach(ThemePreference.allCases,id:\.rawValue) { Text($0.title).tag($0) }
             }.pickerStyle(.menu)
         }
     }
     private var quotaPanelSection:some View {
-        Section("额度面板") {
+        Section("进度与重置") {
             Toggle("显示用量节奏",isOn:$model.preferences.quotaPanel.showPace)
                 .help("显示红／绿进度标记、超额／余量和预计耗尽时间。")
             Picker("每周工作日",selection:$model.preferences.quotaPanel.weeklySchedule) {
@@ -113,8 +204,13 @@ private struct RingSettingsView:View {
         }
     }
     private var ringSection:some View {
-        Section("圆环") {
+        Section("额度与行为") {
             quotaControls
+            Picker("圆圈大小",selection:$model.preferences.size) {
+                Text("小号 · 26 点").tag(RingSize.avatar);Text("紧凑 · 32 点").tag(RingSize.tiny)
+                Text("中号 · 56 点").tag(RingSize.small);Text("标准 · 64 点").tag(RingSize.compact);Text("大号 · 76 点").tag(RingSize.large)
+            }.pickerStyle(.menu)
+                .accessibilityHint("26和32点只显示数字，表示所选百分比。无有效数据时显示横线。")
             Toggle("贴边自动隐藏",isOn:$model.preferences.autoHide)
                 .help("自由移动时贴近屏幕边缘自动收起；跟随 Codex 窗口时保持显示在窗口内。")
             Toggle("展开与收起动画",isOn:$model.preferences.animations)
@@ -166,7 +262,7 @@ private struct RingSettingsView:View {
         }
     }
     private var alertsSection:some View {
-        Section("提醒") {
+        Section("通知与彩带") {
             VStack(alignment:.leading,spacing:0) {
                 Toggle("额度与重置卡通知",isOn:$model.preferences.alerts.enabled)
                     .help("按刷新间隔检查真实额度；同一周期、同类事件只提醒一次。预测沿用每周工作日设置。")
@@ -202,7 +298,7 @@ private struct RingSettingsView:View {
         }
     }
     private var generalSection:some View {
-        Section("通用") {
+        Section("启动") {
             VStack(alignment:.leading,spacing:0) {
                 Toggle("登录时启动",isOn:Binding(get:{model.launchAtLogin},set:{model.onLoginChange?($0)}))
                 valueRow("登录项状态",value:model.loginError == nil ? model.loginStatus:"设置失败")

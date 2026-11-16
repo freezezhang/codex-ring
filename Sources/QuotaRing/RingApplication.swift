@@ -98,6 +98,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         model.onDebugState = { [weak self] in self?.applyDebugState($0) }
         model.onOpenAccessibilitySettings = { [weak self] in self?.openAccessibilitySettings() }
         model.onAbout = { [weak self] in self?.openAbout() }
+        model.onOpenDebug = { [weak self] in self?.openDebug() }
         notifications.onStatus = { [weak self] in self?.model.notificationStatus=$0 }
         notifications.onCelebrate = { [weak self] in self?.confetti.play() }
         notifications.refreshStatus()
@@ -734,7 +735,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         }
     }
     @objc private func quit() { NSApp.terminate(nil) }
-    @objc private func refreshFromMenu() { guard !debugState.isEnabled else { return };source == .official ? refresh():connectLive() }
+    @objc private func refreshFromMenu() { model.apiUsage.refresh();guard !debugState.isEnabled else { return };source == .official ? refresh():connectLive() }
     @objc private func togglePositionLock() {
         guard preferences.canTogglePositionLock else { return }
         var p=preferences;p.togglePositionLock();model.preferences=p

@@ -1,6 +1,6 @@
 import Foundation
 
-// Only the documented stdio handshake and rate-limit read are implemented.
+// Only the documented stdio handshake, rate-limit read and account read are implemented.
 // No credential parsing, OAuth flow, HTTP endpoint, account mutation or raw logging.
 public final class AppServerClient {
     private let lock = NSLock()
@@ -8,15 +8,24 @@ public final class AppServerClient {
     public init() {}
     public func cancel() { lock.lock(); let session = active; active = nil; lock.unlock(); session?.cancel() }
     public func fetch(executable: URL? = nil, arguments: [String]? = nil, timeout: TimeInterval = 18) -> QuotaSnapshot {
+        run(executable:executable,arguments:arguments,timeout:timeout,accountOnly:false).0
+    }
+    public func fetchAccountPlan(executable:URL?=nil,arguments:[String]?=nil,timeout:TimeInterval=12)->CodexAccountPlan? {
+        fetchAccountInfo(executable:executable,arguments:arguments,timeout:timeout)?.plan
+    }
+    public func fetchAccountInfo(executable:URL?=nil,arguments:[String]?=nil,timeout:TimeInterval=12)->CodexAccountInfo? {
+        run(executable:executable,arguments:arguments,timeout:timeout,accountOnly:true).1
+    }
+    private func run(executable:URL?,arguments:[String]?,timeout:TimeInterval,accountOnly:Bool)->(QuotaSnapshot,CodexAccountInfo?) {
         let path = executable ?? ["/usr/local/bin/codex", "/opt/homebrew/bin/codex"].first(where: {
             FileManager.default.isExecutableFile(atPath: $0)
         }).map { URL(fileURLWithPath: $0) }
-        guard let path else { return QuotaSnapshot(source: .official, fetchedAt: Date(), failure: .missingCLI) }
-        let session = StdioSession(executable: path, arguments: arguments ?? ["app-server", "--stdio"])
+        guard let path else { return (QuotaSnapshot(source: .official, fetchedAt: Date(), failure: .missingCLI),nil) }
+        let session = StdioSession(executable: path, arguments: arguments ?? ["app-server", "--stdio"],accountOnly:accountOnly)
         lock.lock(); active = session; lock.unlock()
         let result = session.run(timeout: timeout)
         lock.lock(); if active === session { active = nil }; lock.unlock()
-        return result
+        return (result,result.failure == nil ? session.accountInfo:nil)
     }
 }
 
@@ -27,7 +36,10 @@ private final class StdioSession {
     let done = DispatchSemaphore(value: 0)
     let lock = NSLock()
     var result: QuotaSnapshot?
-    init(executable: URL, arguments: [String]) {
+    private(set) var accountInfo:CodexAccountInfo?
+    let accountOnly:Bool
+    init(executable: URL, arguments: [String],accountOnly:Bool=false) {
+        self.accountOnly=accountOnly
         process.executableURL = executable
         process.arguments = arguments
         process.standardInput = input
@@ -55,9 +67,13 @@ private final class StdioSession {
         if object["error"] != nil { fail(.unavailable); return }
         if id == 1, object["result"] != nil {
             try send(["method": "initialized", "params": [:]])
-            try send(["id": 2, "method": "account/rateLimits/read", "params": [:]])
+            if accountOnly { try send(["id":2,"method":"account/read","params":["refreshToken":false]]) }
+            else { try send(["id": 2, "method": "account/rateLimits/read", "params": [:]]) }
         } else if id == 2, let payload = object["result"] as? [String: Any] {
-            finish(QuotaParser.parse(payload))
+            if accountOnly {
+                accountInfo=CodexAccountInfo.parse(payload)
+                finish(QuotaSnapshot(source:.official,fetchedAt:Date()))
+            } else { finish(QuotaParser.parse(payload)) }
         }
     }
     func run(timeout: TimeInterval) -> QuotaSnapshot {
@@ -72,7 +88,8 @@ private final class StdioSession {
             try? output.fileHandleForWriting.close()
             try? input.fileHandleForReading.close()
             let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
-            try send(["id": 1, "method": "initialize", "params": ["clientInfo": ["name": "codex_quota_ring", "title": "CodexRing", "version": version]]])
+            let params:[String:Any] = ["clientInfo": ["name": "codex_quota_ring", "title": "CodexRing", "version": version]]
+            try send(["id": 1, "method": "initialize", "params": params])
         } catch { fail(.connection) }
         if process.isRunning {
             DispatchQueue.global(qos: .utility).async { [self] in
