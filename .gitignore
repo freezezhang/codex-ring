@@ -1,0 +1,25 @@
+.DS_Store
+.build/
+.swiftpm/
+build/
+.env
+.env.*
+!.env.example
+*.log
+*.sample.txt
+*.dSYM/
+*.xcuserstate
+xcuserdata/
+auth.json
+cookies*.json
+*.pem
+*.key
+__pycache__/
+
+# Generated from the approved source image by build.sh.
+assets/AppIcon.iconset/
+assets/AppIcon.png
+assets/AppIcon.icns
+
+# Machine-specific acceptance record, kept locally.
+VALIDATION.md

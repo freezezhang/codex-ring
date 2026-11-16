@@ -1,0 +1,30 @@
+name: Bug report / 问题反馈
+description: Report a reproducible issue without account details or credentials.
+body:
+  - type: markdown
+    attributes:
+      value: 请勿附 API Key、Cookie、账号邮箱或未脱敏截图。安全问题请按 SECURITY.md 私密报告。
+  - type: input
+    id: version
+    attributes:
+      label: CodexRing version
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: macOS version and Mac chip
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce / 复现步骤
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual behavior / 预期与实际表现
+    validations:
+      required: true

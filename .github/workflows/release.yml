@@ -1,0 +1,183 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Read version from tag or VERSION
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$(cat VERSION)"
+          fi
+          if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo 'Use a stable version tag such as v0.1.1.' >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: macos-26-intel
+          - arch: arm64
+            runner: macos-26
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    env:
+      CODEXRING_VERSION: ${{ needs.version.outputs.version }}
+      CODEXRING_BUILD_NUMBER: ${{ github.run_number }}
+      TARGET_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Check native architecture and toolchain
+        run: |
+          test "$(uname -m)" = "$TARGET_ARCH"
+          swift --version
+          xcodebuild -version
+      - name: Run tests on native hardware
+        run: zsh test.sh
+      - name: Build and package native app
+        run: |
+          set -euo pipefail
+          app="$PWD/build/$TARGET_ARCH/CodexRing.app"
+          zsh build.sh "$app" "$TARGET_ARCH"
+          test "$(lipo -archs "$app/Contents/MacOS/CodexRing")" = "$TARGET_ARCH"
+          test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$CODEXRING_VERSION"
+          test "$(plutil -extract CFBundleIconName raw "$app/Contents/Info.plist")" = AppIcon
+          test -s "$app/Contents/Resources/Assets.car"
+          test -s "$app/Contents/Resources/AppIcon.icns"
+          mkdir -p build/native
+          archive="build/native/CodexRing-$CODEXRING_VERSION-macOS-$TARGET_ARCH.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
+          unzip -tq "$archive"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: native-${{ matrix.arch }}
+          path: build/native/*.zip
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  assemble:
+    needs: [version, build]
+    runs-on: macos-26
+    timeout-minutes: 10
+    env:
+      CODEXRING_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: native-*
+          path: build/native
+          merge-multiple: true
+      - name: Assemble universal app and verify all packages
+        run: zsh scripts/assemble-release.sh "$CODEXRING_VERSION" build/native build/release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-packages
+          path: |
+            build/release/*.zip
+            build/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [version, assemble]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+      CODEXRING_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: release-packages
+          path: release
+      - name: Upload, verify and publish release
+        shell: bash
+        working-directory: release
+        run: |
+          set -euo pipefail
+          sha256sum -c SHA256SUMS.txt
+          cat > release-notes.md <<'NOTES'
+          原生 macOS Codex 额度悬浮窗。
+
+          | 下载包后缀 | 适用设备 |
+          | --- | --- |
+          | `x86_64.zip` | Intel Mac |
+          | `arm64.zip` | Apple 芯片 Mac |
+          | `universal.zip` | Intel 和 Apple 芯片通用版 |
+
+          三个版本功能相同，只需下载一个；不确定芯片类型时可选择通用版。
+          下载后解压，将 CodexRing.app 放入“应用程序”，退出旧版后打开，原有设置会保留。
+
+          构建最低目标为 macOS 13.0，需安装并登录对应版本支持的官方 Codex，并满足所用 Codex 版本的系统要求。程序查找范围及桌面版／CLI 支持以该标签的 README 为准。
+          Intel 和 Apple 芯片各自运行自动测试；三个包均验证版本、架构、签名和 ZIP 完整性，SHA256SUMS.txt 提供校验值。界面、全屏及旧系统兼容性仍需用户在目标设备验收。
+          应用采用本地 ad-hoc 签名，未进行 Apple Developer ID 签名或公证，首次打开可能受到 macOS 安全检查限制。
+          NOTES
+          if [[ -f ../.github/RELEASE_NOTES.md ]] && grep -q "^## $RELEASE_TAG$" ../.github/RELEASE_NOTES.md; then
+            cat ../.github/RELEASE_NOTES.md release-notes.md > combined-notes.md
+            mv combined-notes.md release-notes.md
+          fi
+          packages=(
+            "CodexRing-$CODEXRING_VERSION-macOS-x86_64.zip"
+            "CodexRing-$CODEXRING_VERSION-macOS-arm64.zip"
+            "CodexRing-$CODEXRING_VERSION-macOS-universal.zip"
+            SHA256SUMS.txt
+          )
+          if is_draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [[ "$is_draft" != true ]]; then
+              echo 'This tag already has a published release; use a new version tag.' >&2
+              exit 1
+            fi
+            gh release upload "$RELEASE_TAG" "${packages[@]}" --clobber
+            gh release edit "$RELEASE_TAG" --title "CodexRing $RELEASE_TAG" --notes-file release-notes.md
+          else
+            gh release create "$RELEASE_TAG" "${packages[@]}" --verify-tag \
+              --title "CodexRing $RELEASE_TAG" --notes-file release-notes.md --generate-notes --draft
+          fi
+          gh release download "$RELEASE_TAG" --dir downloaded
+          cmp SHA256SUMS.txt downloaded/SHA256SUMS.txt
+          (cd downloaded && sha256sum -c ../SHA256SUMS.txt)
+          gh release edit "$RELEASE_TAG" --draft=false
