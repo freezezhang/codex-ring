@@ -23,8 +23,7 @@ final class RingAboutWindow:NSWindowController {
         let name=NSTextField(labelWithString:"CodexRing")
         name.font=NSFont.systemFont(ofSize:22,weight:.semibold)
         let version=Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "开发版本"
-        let build=Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String
-        let versionLabel=NSTextField(labelWithString:"版本 \(version)"+(build.map { " (\($0))" } ?? ""))
+        let versionLabel=NSTextField(labelWithString:"版本 \(version)")
         versionLabel.font=NSFont.systemFont(ofSize:13);versionLabel.textColor = .secondaryLabelColor
         let stack=NSStackView(views:[icon,name,versionLabel])
         stack.orientation = .vertical;stack.alignment = .centerX;stack.spacing=12

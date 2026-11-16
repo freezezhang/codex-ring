@@ -14,6 +14,19 @@ public struct QuotaMenuRow:Equatable,Identifiable {
     public let remainingText:String
     public let statusText:String
     public let resetText:String
+    public let resetsAt:Date?
+    public func resetCountdown(at now:Date)->String {
+        guard let resetsAt else { return "重置时间未提供" }
+        let interval=resetsAt.timeIntervalSince(now)
+        guard interval.isFinite else { return "重置时间未提供" }
+        guard interval>0 else { return "等待重置" }
+        let seconds=Int64(min(ceil(interval),315_576_000_000))
+        var text=""
+        if seconds>=86400 { text += "\(seconds/86400)天" }
+        if seconds>=3600 { text += "\((seconds%86400)/3600)小时" }
+        if seconds>=60 { text += "\((seconds%3600)/60)分" }
+        return text+"\(seconds%60)秒 后重置"
+    }
     public var band:UsageBand? { used.map(UsageBand.init(used:)) }
 }
 
@@ -56,7 +69,7 @@ public struct QuotaMenuPresentation:Equatable {
                 : metadata.display(selectedID:metadataPool,period:period,now:now).quota?.resetsAt
             return QuotaMenuRow(period:period,used:used.value,usedText:used.text,
                                 remainingText:remaining.text,statusText:display.subtitle,
-                                resetText:reset.map { QuotaDateText.string($0) } ?? "未提供")
+                                resetText:reset.map { QuotaDateText.string($0) } ?? "未提供",resetsAt:reset)
         }
         updatedText=lastRefreshedAt.map { "刷新于 "+QuotaDateText.string($0,includeSeconds:true,includeDate:false) } ?? "尚未刷新"
         cardsSummary=metadata.resetCards.map { $0.availableCount.map { "\($0) 张可用" } ?? "数量未知" } ?? "未提供"

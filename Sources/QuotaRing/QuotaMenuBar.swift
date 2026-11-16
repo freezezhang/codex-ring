@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import QuotaCore
 
-final class QuotaMenuBar:NSObject {
+final class QuotaMenuBar:NSObject,NSPopoverDelegate {
     private let model:SettingsModel
     private var item:NSStatusItem?
     private let popover=NSPopover()
@@ -16,6 +16,7 @@ final class QuotaMenuBar:NSObject {
         self.model=model
         super.init()
         popover.behavior = .transient;popover.animates=false
+        popover.delegate=self
         popover.appearance=NSAppearance(named:.darkAqua)
         popover.contentViewController=NSHostingController(rootView:QuotaMenuView(model:model,
             contentSizeChanged:{ [weak self] in
@@ -48,6 +49,8 @@ final class QuotaMenuBar:NSObject {
         }
     }
     func close() { popover.performClose(nil) }
+    func popoverDidShow(_ notification:Notification) { model.menuPanelVisible=true }
+    func popoverWillClose(_ notification:Notification) { model.menuPanelVisible=false }
     private func fitPanel() {
         guard let view=popover.contentViewController?.view else { return }
         view.layoutSubtreeIfNeeded()
@@ -207,7 +210,13 @@ private struct QuotaMenuView:View {
             HStack(alignment:.firstTextBaseline,spacing:8) {
                 Text(row.used == nil ? row.statusText:"剩余 "+row.remainingText)
                 Spacer(minLength:0)
-                Text("重置于 "+row.resetText).monospacedDigit().fixedSize()
+                if model.menuPanelVisible {
+                    TimelineView(.periodic(from:.now,by:1)) { context in
+                        Text(row.resetCountdown(at:context.date)).monospacedDigit().fixedSize()
+                    }
+                } else {
+                    Text(row.resetCountdown(at:Date())).monospacedDigit().fixedSize()
+                }
             }.font(.system(size:11)).foregroundStyle(.secondary)
         }
     }

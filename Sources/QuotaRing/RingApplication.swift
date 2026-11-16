@@ -45,6 +45,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private var debugWindow:RingDebugWindow?
     private var aboutWindow:RingAboutWindow?
     private var debugState=QuotaDebugState()
+    private var debugFallbackFiveHourReset:Date?
     private var lastRefreshedAt:Date?
     private var model: SettingsModel!
     private var snapshot = QuotaSnapshot(source: .official, fetchedAt: Date(), loading: true)
@@ -58,7 +59,9 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private var generation = 0
     private var capabilities=QuotaCapabilities()
     private var fiveHourSupport:Bool? { debugState.isEnabled ? true:capabilities.support(for:preferences.bucketID) }
-    private var displaySnapshot:QuotaSnapshot { debugState.snapshot(live:snapshot,selectedID:preferences.bucketID) }
+    private var displaySnapshot:QuotaSnapshot {
+        debugState.snapshot(live:snapshot,selectedID:preferences.bucketID,fallbackFiveHourReset:debugFallbackFiveHourReset)
+    }
     private var details:QuotaDetailsPresentation {
         QuotaDetailsPresentation(snapshot:displaySnapshot,metadataSnapshot:snapshot,preferences:preferences,
                                  fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt)
@@ -621,6 +624,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         let wasEnabled=debugState.isEnabled
         debugState=value
         if value.isEnabled != wasEnabled {
+            debugFallbackFiveHourReset=value.isEnabled ? Date().addingTimeInterval(3600):nil
             generation += 1;client.cancel();fetching=false
         }
         redraw()

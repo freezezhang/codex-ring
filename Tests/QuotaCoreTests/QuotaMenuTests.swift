@@ -2,6 +2,36 @@ import XCTest
 @testable import QuotaCore
 
 final class QuotaMenuTests:XCTestCase {
+    func testResetCountdownUpdatesFromAbsoluteDeadlineAcrossDayAndSecondBoundaries() throws {
+        let row=try XCTUnwrap(data(live()).rows.first(where:{$0.period == .week}))
+        XCTAssertEqual(row.resetCountdown(at:now),"1天0小时0分0秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(1)),"23小时59分59秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(82800)),"1小时0分0秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(82801)),"59分59秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(86338)),"1分2秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(86340)),"1分0秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(86341)),"59秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(86399.5)),"1秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(86400)),"等待重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(86401)),"等待重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(-93784)),"2天2小时3分4秒 后重置")
+    }
+    func testUnknownResetDoesNotInventCountdown() throws {
+        let snapshot=QuotaSnapshot(source:.official,fetchedAt:now,quotas:[WeeklyQuota(id:"codex/secondary",label:"Codex",remaining:50,resetsAt:nil)])
+        let row=try XCTUnwrap(data(snapshot,support:false).rows.first)
+        XCTAssertEqual(row.resetCountdown(at:now),"重置时间未提供")
+    }
+    func testDebugCountdownKeepsFallbackDeadlineAcrossRedrawsAndPrefersRealReset() throws {
+        let state=QuotaDebugState(isEnabled:true)
+        let deadline=now.addingTimeInterval(3600)
+        for elapsed:TimeInterval in [0,5,60] {
+            let time=now.addingTimeInterval(elapsed)
+            let debug=state.snapshot(live:live(five:false),now:time,fallbackFiveHourReset:deadline)
+            XCTAssertEqual(debug.display(period:.fiveHours,now:time).quota?.resetsAt,deadline)
+        }
+        let debug=state.snapshot(live:live(),now:now,fallbackFiveHourReset:now.addingTimeInterval(7200))
+        XCTAssertEqual(debug.display(period:.fiveHours,now:now).quota?.resetsAt,deadline)
+    }
     let now=Date(timeIntervalSince1970:1793700000)
     func live(five:Bool=true)->QuotaSnapshot {
         var rows=[WeeklyQuota(id:"codex/secondary",label:"Codex",remaining:55,resetsAt:now.addingTimeInterval(86400))]

@@ -15,6 +15,7 @@ final class SettingsModel:ObservableObject {
     @Published var overlayAuthorizationNotice:String?
     @Published var overlayStatus=""
     @Published var menuPresentation:QuotaMenuPresentation?
+    @Published var menuPanelVisible=false
     @Published var debugState=QuotaDebugState() { didSet { onDebugState?(debugState) } }
     var onPreferences:((RingPreferences)->Void)?
     var onDebugState:((QuotaDebugState)->Void)?
