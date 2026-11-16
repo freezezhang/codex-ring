@@ -2,6 +2,10 @@
 
 一个轻量的原生 macOS Codex 额度悬浮窗。
 
+A lightweight native macOS quota ring for Codex, with optional OpenAI API cost tracking. Community maintained; not affiliated with OpenAI.
+
+采用 [MIT 许可证](LICENSE)。欢迎参与开发，见 [贡献指南](CONTRIBUTING.md)；漏洞报告及数据边界见 [安全说明](SECURITY.md)。第三方版权及许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
 <img src="assets/AppIcon-source.png" width="160" alt="CodexRing 图标">
 
 ## 功能
@@ -118,7 +122,7 @@ git push origin v0.1.1
 
 ## 数据和权限
 
-应用不读取、复制或记录认证令牌，不保存额度响应；只保存本应用的外观和位置等偏好，最近一次确认获辅助功能授权时的签名指纹，以及提醒事件的去重标识和时间（35天内，含额度池、周期重置时间或卡片到期时间，不含完整额度响应）。签名已变化且当前未授权时，会在权限状态下方显示“应用已更新，旧授权可能已失效，请删除旧版本授权，重新授权。”；没有历史记录时不推断旧授权失效，不读取系统权限数据库。使用官方 App Server 时，现有登录会话可能由官方组件刷新。重置卡只展示，没有使用或兑换入口。
+应用不读取或复制 Codex 登录令牌文件，不持久化额度响应。可选 API 功能会从本机钥匙串读取用户配置的 Admin API Key，用于官方 Costs API 请求，不把 Key 写入偏好或日志。外观、位置、API 周期与预算等配置、最近一次确认获辅助功能授权时的签名指纹，以及提醒事件的去重标识和时间保存在本机（去重记录保留35天，含额度池、周期重置时间或卡片到期时间，不含完整额度响应）。签名已变化且当前未授权时，会在权限状态下方显示“应用已更新，旧授权可能已失效，请删除旧版本授权，重新授权。”；没有历史记录时不推断旧授权失效，不读取系统权限数据库。使用官方 App Server 时，现有登录会话可能由官方组件刷新。重置卡只展示，没有使用或兑换入口。
 
 应用不修改 Codex 应用包，不注入进程，不安装后台服务。普通跟随无需辅助功能权限；仅开启“覆盖 Codex 额度控件”时请求辅助功能权限。官方 Codex 的现有登录由其自身管理。
 

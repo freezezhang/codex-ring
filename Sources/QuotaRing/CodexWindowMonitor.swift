@@ -19,7 +19,7 @@ final class CodexWindowMonitor {
     var tracksUsageControl=false { didSet { if oldValue != tracksUsageControl { invalidate() } } }
     private var lastTrusted:Bool?
     private let usageLocator=CodexUsageLocator()
-    private let bundleIdentifier:String
+    private let applicationRegistry:CodexApplicationRegistry
     private let accessibilityTrusted:()->Bool
     private var timer:Timer?
     private var busy=false
@@ -30,18 +30,23 @@ final class CodexWindowMonitor {
     private var hasObservedWindow=false
     private let queue=DispatchQueue(label:"local.freeze.codex-ring.window-monitor",qos:.userInitiated)
     init(bundleIdentifier:String = "com.openai.codex",accessibilityTrusted:@escaping ()->Bool = { AXIsProcessTrusted() }) {
-        self.bundleIdentifier=bundleIdentifier;self.accessibilityTrusted=accessibilityTrusted
+        self.applicationRegistry=CodexApplicationRegistry(bundleIdentifier:bundleIdentifier)
+        self.accessibilityTrusted=accessibilityTrusted
+        applicationRegistry.onChange = { [weak self] in self?.invalidate() }
     }
     func start() {
         guard timer == nil else { return }
+        applicationRegistry.start()
         last=nil
         let timer=Timer(timeInterval:0.2,repeats:true) { [weak self] _ in self?.sample() }
         self.timer=timer;RunLoop.main.add(timer,forMode:.common);sample()
     }
     func stop() {
         timer?.invalidate();timer=nil;revision += 1;last=nil;knownWindows=[];emptySince=nil;hasObservedWindow=false
+        applicationRegistry.stop()
         queue.async { [usageLocator] in usageLocator.reset() }
     }
+    deinit { timer?.invalidate() }
     func invalidate() {
         revision += 1;last=nil
         queue.async { [usageLocator] in usageLocator.reset() }
@@ -75,7 +80,7 @@ final class CodexWindowMonitor {
         if lastTrusted != trusted { lastTrusted=trusted;onAccessibilityChange?(trusted) }
         // Losing permission can disable overlay tracking in the callback.
         guard timer != nil else { return }
-        let apps=NSWorkspace.shared.runningApplications.filter { $0.bundleIdentifier == bundleIdentifier }
+        let apps=applicationRegistry.applications
         // Hiding/backgrounding the app does not close its windows. Never turn
         // that into a free desktop ring merely because the app is not visible.
         if !apps.isEmpty,apps.allSatisfy(\.isHidden) { emptySince=nil;publish(.waiting);return }
