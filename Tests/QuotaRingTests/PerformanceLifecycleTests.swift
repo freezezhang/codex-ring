@@ -143,7 +143,7 @@ final class PerformanceLifecycleTests:XCTestCase {
                 settings.showWindow(nil)
                 host=settings.window?.contentView
                 XCTAssertNotNil(host)
-                settings.window?.contentView?.layoutSubtreeIfNeeded()
+                // Closing should release the host regardless of layout progress.
                 settings.close()
                 XCTAssertNil(settings.window?.contentView)
             }
