@@ -61,10 +61,13 @@ final class RingSettingsWindow:NSWindowController,NSWindowDelegate {
     required init?(coder:NSCoder) { fatalError("init(coder:) is not used") }
     func applyLanguage() { window?.title=L10n.string("settings.windowTitle") }
     override func showWindow(_ sender:Any?) {
+        prepareWindowContent()
+        super.showWindow(sender)
+    }
+    func prepareWindowContent() {
         if !(window?.contentView is NSHostingView<RingSettingsView>) {
             window?.contentView=NSHostingView(rootView:RingSettingsView(model:model,state:state,onDone:{ [weak self] in self?.close() }))
         }
-        super.showWindow(sender)
     }
     func windowWillClose(_ notification:Notification) {
         window?.contentView=nil

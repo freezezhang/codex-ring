@@ -128,7 +128,7 @@ final class PerformanceLifecycleTests:XCTestCase {
         XCTAssertEqual(changes,1)
         withExtendedLifetime(subscription) {}
     }
-    func testSettingsReleaseViewsAndKeepDraftsAcrossPageAndWindowChanges() {
+    func testSettingsReleaseViewsAndKeepDraftsAcrossPageAndWindowChanges() throws {
         _ = NSApplication.shared
         let model=SettingsModel(preferences:RingPreferences(),apiUsage:controller(TestKeyStore()))
         let settings=RingSettingsWindow(model:model,onClose:{})
@@ -136,16 +136,19 @@ final class PerformanceLifecycleTests:XCTestCase {
         settings.state.apiDraft.project="proj_draft"
         settings.state.apiDraft.budget="123"
         settings.state.apiDraft.startDay=19
+        let window=try XCTUnwrap(settings.window)
+        let closeNotification=Notification(name:NSWindow.willCloseNotification,object:window)
         for page in SettingsPage.allCases {
             settings.state.selected=page
             weak var host:NSView?
             autoreleasepool {
-                settings.showWindow(nil)
-                host=settings.window?.contentView
+                settings.prepareWindowContent()
+                host=window.contentView
                 XCTAssertNotNil(host)
-                // Closing should release the host regardless of layout progress.
-                settings.close()
-                XCTAssertNil(settings.window?.contentView)
+                // Deliver the close event offscreen to test release and draft
+                // behavior independently of the window server's rendering.
+                window.delegate?.windowWillClose?(closeNotification)
+                XCTAssertNil(window.contentView)
             }
             pump { host == nil }
             XCTAssertEqual(settings.state.selected,page)
