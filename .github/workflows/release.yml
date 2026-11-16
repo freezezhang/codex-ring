@@ -2,9 +2,13 @@ name: Build and release
 
 on:
   push:
-    branches: [main]
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      notarize:
+        description: Sign and notarize a test build from main
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -54,6 +58,7 @@ jobs:
       CODEXRING_VERSION: ${{ needs.version.outputs.version }}
       CODEXRING_BUILD_NUMBER: ${{ github.run_number }}
       TARGET_ARCH: ${{ matrix.arch }}
+      NSUnbufferedIO: 'YES'
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -106,7 +111,7 @@ jobs:
         run: zsh scripts/assemble-release.sh "$CODEXRING_VERSION" build/native build/release
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: release-packages
+          name: test-packages
           path: |
             build/release/*.zip
             build/release/SHA256SUMS.txt
@@ -114,9 +119,43 @@ jobs:
           retention-days: 7
           compression-level: 0
 
+  notarize:
+    if: (github.event_name == 'push' && github.ref_type == 'tag') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.notarize)
+    needs: [version, assemble]
+    runs-on: macos-26
+    timeout-minutes: 45
+    environment: apple-signing
+    env:
+      CODEXRING_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: test-packages
+          path: build/release
+      - name: Sign with Developer ID and notarize all packages
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_NOTARY_KEY_BASE64: ${{ secrets.APPLE_NOTARY_KEY_BASE64 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: zsh scripts/notarize-release.sh "$CODEXRING_VERSION" build/release build/notarized
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-packages
+          path: |
+            build/notarized/*.zip
+            build/notarized/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
   publish:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [version, assemble]
+    needs: [version, notarize]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -154,7 +193,7 @@ jobs:
 
           构建最低目标为 macOS 13.0，需安装并登录对应版本支持的官方 Codex，并满足所用 Codex 版本的系统要求。程序查找范围及桌面版／CLI 支持以该标签的 README 为准。
           Intel 和 Apple 芯片各自运行自动测试；三个包均验证版本、架构、签名和 ZIP 完整性，SHA256SUMS.txt 提供校验值。界面、全屏及旧系统兼容性仍需用户在目标设备验收。
-          应用采用本地 ad-hoc 签名，未进行 Apple Developer ID 签名或公证，首次打开可能受到 macOS 安全检查限制。
+          三个安装包均使用 Apple Developer ID 签名，并附带 Apple 公证票据。
           NOTES
           if [[ -f ../.github/RELEASE_NOTES.md ]] && grep -q "^## $RELEASE_TAG$" ../.github/RELEASE_NOTES.md; then
             cat ../.github/RELEASE_NOTES.md release-notes.md > combined-notes.md

@@ -38,7 +38,13 @@ for target_arch in x86_64 arm64 universal; do
     archive_name="CodexRing-$release_version-macOS-$target_arch.zip"
     unzip -tq "$archive_name"
     ditto -x -k "$archive_name" "$work_dir/verify-$target_arch"
-    codesign --verify --deep --strict "$work_dir/verify-$target_arch/CodexRing.app"
+    app_path="$work_dir/verify-$target_arch/CodexRing.app"
+    codesign --verify --deep --strict "$app_path"
+    test "$(plutil -extract LSMinimumSystemVersion raw "$app_path/Contents/Info.plist")" = 13.0
+    for arch in $(lipo -archs "$app_path/Contents/MacOS/CodexRing"); do
+        minimum=$(xcrun vtool -arch "$arch" -show-build "$app_path/Contents/MacOS/CodexRing" | awk '$1 == "minos" {print $2}')
+        test "$minimum" = 13.0
+    done
 done
 shasum -a 256 "CodexRing-$release_version-macOS-"{x86_64,arm64,universal}.zip > SHA256SUMS.txt
 shasum -a 256 -c SHA256SUMS.txt

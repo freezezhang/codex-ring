@@ -1,0 +1,54 @@
+name: Swift checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: swift-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Swift tests (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: macos-26-intel
+          - arch: arm64
+            runner: macos-26
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 12
+    env:
+      EXPECTED_ARCH: ${{ matrix.arch }}
+      NSUnbufferedIO: 'YES'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Check native toolchain
+        run: |
+          test "$(uname -m)" = "$EXPECTED_ARCH"
+          swift --version
+          xcodebuild -version
+      - name: Build and test
+        run: zsh test.sh
+
+  required:
+    name: Swift validation
+    if: always()
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      TEST_RESULT: ${{ needs.test.result }}
+    steps:
+      - run: test "$TEST_RESULT" = success

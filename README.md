@@ -26,7 +26,7 @@ CodexRing is an independent, open-source project and is not affiliated with Open
 3. Unzip the download, drag `CodexRing.app` into **Applications**, and open it. When upgrading, quit the current CodexRing first, then replace the app. Your settings carry over.
 4. Wait for the first quota refresh. Click the CodexRing icon in the menu bar to open the panel, then click its gear icon to open Settings. You can also click the regular floating ring to open Settings.
 
-The app targets **macOS 13.0 or later**. Your Mac also needs to meet the requirements of your Codex version. To verify the download, run `shasum -a 256 <downloaded ZIP>` and compare the result with the matching entry in `SHA256SUMS.txt`. Downloads are ad hoc signed and macOS may report that the app is not notarized. Verify the source and checksum before proceeding. [Apple’s guide to opening apps safely](https://support.apple.com/en-us/102445)
+The app targets **macOS 13.0 or later**. Automated runtime tests currently run on macOS 26 on Intel and Apple silicon. Your Mac also needs to meet the requirements of your Codex version. To verify the download, run `shasum -a 256 <downloaded ZIP>` and compare the result with the matching entry in `SHA256SUMS.txt`. Version 0.7.6 and earlier use ad hoc signing, so macOS may report that the app is not notarized. Verify the source and checksum before proceeding. [Apple’s guide to opening apps safely](https://support.apple.com/en-us/102445)
 
 Choose where you want to see your quota.
 
@@ -170,10 +170,10 @@ CodexRing reads quota and display information from the official Codex App Server
 | Launch at login | CodexRing registers a macOS login item when you turn it on. If macOS asks for approval, use **General → Login Items Settings**. |
 | OpenAI API costs | The Admin API key is read from macOS Keychain when API costs are queried. |
 
-[Security policy (Chinese)](SECURITY.md)
+[Security policy](SECURITY.md)
 
 ## Building and contributing
 
-On macOS with a Swift toolchain, run `zsh build.sh` to create `build/CodexRing.app` and `zsh test.sh` to run the test suite. Use Xcode 26 or later to compile the native macOS 26 icon resources. The developer guide covers build options, localization, tests, and the release workflow. [Developer guide (Chinese)](docs/development.md)
+On macOS with a Swift toolchain, run `zsh build.sh` to create `build/CodexRing.app` and `zsh test.sh` to run the test suite. Use Xcode 26 or later to compile the native macOS 26 icon resources. The developer guide covers build options, localization, tests, and the release workflow. [Developer guide](docs/development.en.md)
 
 CodexRing is available under the [MIT License](LICENSE). See the [contribution guide](CONTRIBUTING.md) before submitting changes. Usage pacing and related features draw on CodexBar. [Third-party notices](THIRD_PARTY_NOTICES.md) · [Changelog](CHANGELOG.md)

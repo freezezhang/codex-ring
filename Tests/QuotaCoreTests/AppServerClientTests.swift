@@ -1,6 +1,9 @@
 import XCTest
 @testable import QuotaCore
 final class AppServerClientTests: XCTestCase {
+    // Include child process startup and scheduling on a cold CI runner.
+    private let fixtureTimeout: TimeInterval = 20
+
     private func withServer(_ script: String, _ body: (URL) -> Void) throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -26,7 +29,7 @@ final class AppServerClientTests: XCTestCase {
         """) { path in
             setenv("QUOTA_RING_TEST_SECRET", "synthetic-test-only", 1)
             defer { unsetenv("QUOTA_RING_TEST_SECRET") }
-            let s = AppServerClient().fetch(executable: URL(fileURLWithPath: "/usr/bin/python3"), arguments: [path.path], timeout: 5)
+            let s = AppServerClient().fetch(executable: URL(fileURLWithPath: "/usr/bin/python3"), arguments: [path.path], timeout: fixtureTimeout)
             XCTAssertNil(s.failure); XCTAssertEqual(s.display().remaining, 69)
             XCTAssertFalse(String(reflecting: s).contains("private-test-value"))
         }
@@ -44,7 +47,7 @@ final class AppServerClientTests: XCTestCase {
         print(json.dumps({'id':2,'result':{'account':{'type':'chatgpt','planType':'prolite','email':'private-test-value','token':'private-test-value'}}}),flush=True)
         sys.stdin.read()
         """) { path in
-            let plan=AppServerClient().fetchAccountPlan(executable:URL(fileURLWithPath:"/usr/bin/python3"),arguments:[path.path],timeout:5)
+            let plan=AppServerClient().fetchAccountPlan(executable:URL(fileURLWithPath:"/usr/bin/python3"),arguments:[path.path],timeout:fixtureTimeout)
             XCTAssertEqual(plan,.prolite);XCTAssertEqual(plan?.expectedAPICredits,100)
             XCTAssertFalse(String(reflecting:plan).contains("private-test-value"))
         }
@@ -60,7 +63,7 @@ final class AppServerClientTests: XCTestCase {
         print(json.dumps({'id':2,'result':{'account':{'type':'chatgpt','email':'user@example.com','planType':'prolite','accessToken':'secret-test-token'}}}),flush=True)
         sys.stdin.read()
         """) { path in
-            let info=AppServerClient().fetchAccountInfo(executable:URL(fileURLWithPath:"/usr/bin/python3"),arguments:[path.path],timeout:5)
+            let info=AppServerClient().fetchAccountInfo(executable:URL(fileURLWithPath:"/usr/bin/python3"),arguments:[path.path],timeout:fixtureTimeout)
             XCTAssertEqual(info?.email,"user@example.com");XCTAssertEqual(info?.plan,.prolite)
             XCTAssertFalse(String(reflecting:info).contains("secret-test-token"))
         }
@@ -72,7 +75,7 @@ final class AppServerClientTests: XCTestCase {
         print(json.dumps({'id':1,'error':{'code':401,'message':'private-test-value'}}),flush=True)
         sys.stdin.read()
         """) { path in
-            let plan=AppServerClient().fetchAccountPlan(executable:URL(fileURLWithPath:"/usr/bin/python3"),arguments:[path.path],timeout:5)
+            let plan=AppServerClient().fetchAccountPlan(executable:URL(fileURLWithPath:"/usr/bin/python3"),arguments:[path.path],timeout:fixtureTimeout)
             XCTAssertNil(plan)
         }
     }
@@ -83,7 +86,7 @@ final class AppServerClientTests: XCTestCase {
         print('private-test-value-not-json', flush=True)
         sys.stdin.read()
         """) { path in
-            let s = AppServerClient().fetch(executable: URL(fileURLWithPath: "/usr/bin/python3"), arguments: [path.path], timeout: 5)
+            let s = AppServerClient().fetch(executable: URL(fileURLWithPath: "/usr/bin/python3"), arguments: [path.path], timeout: fixtureTimeout)
             XCTAssertEqual(s.failure, .protocolError); XCTAssertTrue(s.quotas.isEmpty)
         }
     }
@@ -94,7 +97,7 @@ final class AppServerClientTests: XCTestCase {
         print(json.dumps({'id':1,'error':{'code':401,'message':'private-test-value'}}), flush=True)
         sys.stdin.read()
         """) { path in
-            let s = AppServerClient().fetch(executable: URL(fileURLWithPath: "/usr/bin/python3"), arguments: [path.path], timeout: 5)
+            let s = AppServerClient().fetch(executable: URL(fileURLWithPath: "/usr/bin/python3"), arguments: [path.path], timeout: fixtureTimeout)
             XCTAssertEqual(s.failure, .unavailable); XCTAssertFalse(String(reflecting: s).contains("private-test-value"))
         }
     }
@@ -105,7 +108,7 @@ final class AppServerClientTests: XCTestCase {
         print(json.dumps({'id':'external','method':'account/chatgptAuthTokens/refresh','params':{}}), flush=True)
         assert sys.stdin.read() == ''
         """) { path in
-            let s = AppServerClient().fetch(executable: URL(fileURLWithPath: "/usr/bin/python3"), arguments: [path.path], timeout: 5)
+            let s = AppServerClient().fetch(executable: URL(fileURLWithPath: "/usr/bin/python3"), arguments: [path.path], timeout: fixtureTimeout)
             XCTAssertEqual(s.failure, .unavailable)
         }
     }

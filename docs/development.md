@@ -1,5 +1,7 @@
 # CodexRing 开发说明
 
+[English](development.en.md)
+
 用户操作、下载和界面介绍见 [中文 README](../README.zh-CN.md)。
 
 ## 构建
@@ -51,6 +53,15 @@ zsh test.sh
 
 拖动手感、贴边恢复、系统主题切换、普通最大化、原生全屏及桌面切换仍需在目标机器手动验收；离屏测试不等同于这些界面项目通过。验收：普通桌面 1 启动并固定圆圈，切到普通桌面 2 后应不显示，切回后位置保持；在其他应用进入全屏后检查圆圈、设置及调试窗口，退出全屏后确认原桌面位置；分别检查展开、贴边隐藏、跨屏、刷新期间的行为。
 
+### 最低 macOS 版本验收
+
+打包检查会分别确认 Info.plist 及各架构的 Mach-O 最低目标均为 macOS 13.0。GitHub 托管的原生测试目前运行在 macOS 26。实际安装和启动需在有图形会话的 macOS 13 设备或虚拟机上验收。
+
+1. 下载候选版的对应架构或通用 ZIP，对照 `SHA256SUMS.txt`。
+2. 退出测试设备上运行的 CodexRing，解压后复制到「应用程序」。对 Developer ID 签名的版本先执行 `spctl --assess --type execute --verbose=2 /Applications/CodexRing.app`，再从访达打开。
+3. 检查菜单栏图标和圆环能显示，用量面板和设置能打开和关闭，修改一项设置后退出并重开，核对设置是否保留。
+4. 如果有兼容该系统的官方 Codex，验证刷新与窗口跟随。记录 macOS 构建号、芯片架构、CodexRing 版本、ZIP 的 SHA-256 和未覆盖项目。
+
 ## 自动发布
 
 推送 `v主版本.次版本.修订版本` 格式的标签即可自动创建 GitHub Release，例如：
@@ -60,10 +71,10 @@ git tag -a v0.1.1 -m "CodexRing v0.1.1"
 git push origin v0.1.1
 ```
 
-标签必须指向包含 `.github/workflows/release.yml` 的提交。只在本地创建标签不会触发发布。标签直接决定应用内的版本号及下载文件名，无需先修改 `VERSION`；`VERSION` 仅作为普通本地构建和主分支构建的默认版本。
+标签必须指向 `main` 上已验证的提交。标签决定应用版本号及下载文件名。`VERSION` 提供本地构建及手动工作流的默认版本。
 
-流程会在 GitHub 的 macOS 26 Intel 和 Apple 芯片机器上分别运行测试、生成原生包，再合成通用包并验证解压后的签名。全部成功后上传三个 ZIP 和 `SHA256SUMS.txt`，重新下载核验后才公开 Release。失败时不会公开不完整的版本；已有草稿可重跑恢复，已公开版本不会覆盖，需使用新标签。
+GitHub 在 Intel 和 Apple 芯片的 macOS 26 环境运行测试并构建，再合成通用包。三个安装包经 Developer ID 签名，启用 Hardened Runtime，分别提交 Apple 公证，附上公证票据并通过 Gatekeeper 校验。发布任务先上传三个 ZIP 和校验文件到草稿，再下载复核，最后公开。启用 GitHub 不可变发布后，新发布的附件和标签会锁定。已发布的安装包需要修正时，使用新的版本号和标签。
 
-推送 `main` 或在 Actions 页面手动运行同一流程时，只测试和构建，可从运行结果下载 `release-packages`，不会创建 Release。当前仅接受稳定版本标签（如 `v0.1.1`），不接受 `v0.1.1-beta`。
+推送 `main` 或打开 PR 时运行 Swift 测试和隐私检查。在 Actions 手动运行 **Build and release** 可得到 ad-hoc 签名的 `test-packages`。在 `main` 勾选 **Sign and notarize a test build from main** 可验证 Apple 签名流程并下载 `release-packages`。这两种手动运行都只产出构建文件。
 
-发布使用 GitHub 自动提供的 `GITHUB_TOKEN`，仅发布任务获得 `contents: write`，无需另配个人令牌或 Apple 证书。应用仍为本地 ad-hoc 签名，未进行 Developer ID 签名或公证。
+Apple 签名使用 GitHub Actions 的 `apple-signing` 环境，限定 `main` 和 `v*` 发布标签。按[签名凭证说明](development.en.md#apple-credentials)配置五项环境密钥。凭证缺失或公证失败时，标签运行会在公开前停止。

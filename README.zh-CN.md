@@ -26,7 +26,7 @@ CodexRing 是独立的开源项目，与 OpenAI 无隶属关系。
 3. 解压后将 `CodexRing.app` 拖入「应用程序」并打开。升级时先退出当前运行的 CodexRing，再替换应用。外观、位置和 API 等设置会保留。
 4. 等待首次额度刷新。点击菜单栏的 CodexRing 图标打开详情，点面板底部的齿轮进入设置。也可以直接点击普通悬浮圆环进入设置。
 
-应用的构建最低目标为 **macOS 13.0**，还需满足所用 Codex 版本的系统要求。Release 提供 `SHA256SUMS.txt`，可用 `shasum -a 256 <下载的 ZIP>` 算出校验值并对照。安装包采用 ad-hoc 签名，首次打开时 macOS 可能提示未公证。确认下载来源和校验值后，可参考 [Apple 的安全打开说明](https://support.apple.com/zh-cn/102445)。
+应用的构建最低目标为 **macOS 13.0**，还需满足所用 Codex 版本的系统要求。自动运行测试目前覆盖 macOS 26 上的 Intel 和 Apple 芯片。Release 提供 `SHA256SUMS.txt`，可用 `shasum -a 256 <下载的 ZIP>` 算出校验值并对照。0.7.6 及更早版本采用 ad-hoc 签名，首次打开时 macOS 可能提示未公证。确认下载来源和校验值后，可参考 [Apple 的安全打开说明](https://support.apple.com/zh-cn/102445)。
 
 启动后可按自己的使用方式选择入口。
 
@@ -172,10 +172,10 @@ CodexRing 使用本机官方 Codex App Server 读取额度和账号显示信息�
 | 登录时启动 | 打开开关时登记 macOS 登录项。系统需要批准时，从「通用 → 登录项设置」进入。 |
 | OpenAI API 费用 | 查询费用时从本机钥匙串读取 Admin API Key。 |
 
-更多数据边界和漏洞报告方式见 [安全说明](SECURITY.md)。
+更多数据边界和漏洞报告方式见 [安全说明](SECURITY.zh-CN.md)。
 
 ## 构建与贡献
 
 在 macOS 上准备 Swift 工具链，运行 `zsh build.sh` 得到 `build/CodexRing.app`，运行 `zsh test.sh` 执行单元测试。对于 macOS 26 的原生图标构建，使用 Xcode 26 或更新版本。完整开发、测试、本地化及 Release 流程见 [开发说明](docs/development.md)。
 
-采用 [MIT 许可证](LICENSE)。欢迎提交变更，请先阅读 [贡献指南](CONTRIBUTING.md)。用量节奏等功能参考了 CodexBar，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。历史版本改动见 [更新记录](CHANGELOG.md)。
+采用 [MIT 许可证](LICENSE)。欢迎提交变更，请先阅读 [贡献指南](CONTRIBUTING.zh-CN.md)。用量节奏等功能参考了 CodexBar，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。历史版本改动见 [更新记录](CHANGELOG.md)。
