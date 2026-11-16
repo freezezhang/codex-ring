@@ -13,25 +13,25 @@ public struct QuotaPace:Equatable {
     public var markerPercent:Double? { position == .balanced ? nil:expectedUsed }
     public var paceText:String {
         switch position {
-        case .balanced:return "节奏正常"
-        case .ahead:return "超额 \(Int(abs(delta).rounded()))%"
-        case .behind:return "余量 \(Int(abs(delta).rounded()))%"
+        case .balanced:return L10n.string("pace.balanced")
+        case .ahead:return L10n.format("pace.ahead",Int(abs(delta).rounded()))
+        case .behind:return L10n.format("pace.behind",Int(abs(delta).rounded()))
         }
     }
     public var forecastText:String {
-        guard !lastsUntilReset,let seconds=secondsToExhaustion else { return "预计可用至重置" }
+        guard !lastsUntilReset,let seconds=secondsToExhaustion else { return L10n.string("pace.lastsUntilReset") }
         let minutes=Int(seconds/60)
         let duration:String
-        if minutes>=1440 { duration="\(minutes/1440)天\((minutes%1440)/60)小时" }
-        else if minutes>=60 { duration="\(minutes/60)小时\(minutes%60)分" }
-        else if minutes>0 { duration="\(minutes)分钟" }
-        else { duration="不足1分钟" }
-        return "预计 \(duration) 后耗尽"
+        if minutes>=1440 { duration=L10n.format("pace.duration.daysHours",minutes/1440,(minutes%1440)/60) }
+        else if minutes>=60 { duration=L10n.format("pace.duration.hoursMinutes",minutes/60,minutes%60) }
+        else if minutes>0 { duration=L10n.format("unit.minutes",minutes) }
+        else { duration=L10n.string("pace.duration.underMinute") }
+        return L10n.format("pace.forecast",duration)
     }
     public var summary:String { paceText+" · "+forecastText }
     public var explanation:String {
-        let basis=workDays.map { "按每周\($0)个工作日（从周一起、系统时区）及平均用量估算。" } ?? "按本周期已用额度和已过时间估算。"
-        return basis+"超额／余量表示相对均匀使用进度的百分点差，不代表额外收费；后续使用速度变化会影响预测。"
+        let basis=workDays.map { L10n.format("pace.basis.workDays",$0) } ?? L10n.string("pace.basis.elapsed")
+        return L10n.format("pace.explanation",basis)
     }
     public init?(used:Double,period:QuotaPeriod,resetsAt:Date?,now:Date,
                  workDays:Int?=nil,calendar:Calendar = .current) {

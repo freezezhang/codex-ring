@@ -55,7 +55,8 @@ public struct QuotaAlertEngine {
             let old=previous[period]
             guard old == nil || snapshot.fetchedAt>old!.fetched else { continue }
             previous[period]=Observation(remaining:remaining,reset:reset,fetched:snapshot.fetchedAt)
-            let name=period == .week ? "本周额度":"5小时额度"
+            let name=period.quotaName
+            let percent=Int(remaining.rounded())
             // A missing deadline gets a session-independent identity. Metadata
             // returning later is treated as a new known cycle, not a reset.
             let boundary=reset.map { String(Int($0.timeIntervalSince1970)) } ?? "unknown"
@@ -69,29 +70,31 @@ public struct QuotaAlertEngine {
                     if receipts[key] == nil {
                         receipts[key]=now
                         if notify && options.restored {
-                            result.alerts.append(QuotaAlert(kind:.restored,key:key,title:"\(name)已恢复",body:"当前剩余 \(Int(remaining.rounded()))%。"))
+                            result.alerts.append(QuotaAlert(kind:.restored,key:key,title:L10n.format("alert.restored.title",name),
+                                                            body:L10n.format("alert.restored.body",percent)))
                         }
                         if preferences.resetConfetti { result.celebrate=true }
                     }
                 }
             }
             if notify && options.lowQuota && remaining<Double(options.remainingThreshold) {
-                append(.low,key:"low/\(cycle)",title:"\(name)不足",body:"当前剩余 \(Int(remaining.rounded()))%，低于 \(options.remainingThreshold)%。",now:now,to:&result)
+                append(.low,key:"low/\(cycle)",title:L10n.format("alert.low.title",name),
+                       body:L10n.format("alert.low.body",percent,options.remainingThreshold),now:now,to:&result)
             }
             if notify && options.predictedExhaustion && remaining>0,
                let eta=QuotaPace(used:100-remaining,period:period,resetsAt:reset,now:now,
                                  workDays:preferences.quotaPanel.weeklySchedule.workDays)?.secondsToExhaustion,
                eta<=Double(options.predictionMinutes)*60 {
-                append(.prediction,key:"prediction/\(cycle)",title:"\(name)预计即将耗尽",
-                       body:"按当前用量节奏，预计约 \(max(1,Int(ceil(eta/60)))) 分钟后耗尽。",now:now,to:&result)
+                append(.prediction,key:"prediction/\(cycle)",title:L10n.format("alert.prediction.title",name),
+                       body:L10n.format("alert.prediction.body",max(1,Int(ceil(eta/60)))),now:now,to:&result)
             }
         }
         if notify && options.resetCards {
             for card in snapshot.resetCards?.details ?? [] where card.available {
                 guard let expiry=card.expiresAt,expiry>now,expiry.timeIntervalSince(now)<=Double(options.cardDays)*86400 else { continue }
                 // Cards expiring together form one event; no fabricated identity.
-                append(.card,key:"card/\(selected)/\(Int(expiry.timeIntervalSince1970))",title:"重置卡即将到期",
-                       body:"重置卡将于 \(QuotaDateText.string(expiry)) 到期。",now:now,to:&result)
+                append(.card,key:"card/\(selected)/\(Int(expiry.timeIntervalSince1970))",title:L10n.string("alert.card.title"),
+                       body:L10n.format("alert.card.body",QuotaDateText.string(expiry)),now:now,to:&result)
             }
         }
         return result

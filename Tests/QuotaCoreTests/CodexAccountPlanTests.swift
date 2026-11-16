@@ -27,7 +27,7 @@ final class CodexAccountPlanTests:XCTestCase {
             XCTAssertEqual(plan?.expectedAPICredits,amount)
             XCTAssertFalse(String(reflecting:plan).contains("private-test-value"))
         }
-        XCTAssertEqual(CodexAccountPlan.prolite.title,"Pro 5x")
+        XCTAssertEqual(CodexAccountPlan.prolite.title,"Pro 100")
     }
     func testUnknownBusinessAndAPIKeyAccountsDoNotInventAllowance() {
         for raw in ["free","plus","business","team","self_serve_business_prolite","future_pro"] {

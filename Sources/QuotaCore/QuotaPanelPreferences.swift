@@ -2,18 +2,22 @@ import Foundation
 
 public enum WeeklyPaceSchedule:Int,Codable,CaseIterable {
     case automatic=0,four=4,five=5,six=6,seven=7
-    public var title:String { self == .automatic ? "自动（按7天）":"\(rawValue)天" }
+    public var title:String { self == .automatic ? L10n.string("schedule.automatic"):L10n.format("schedule.days",rawValue) }
     public var workDays:Int? { self == .automatic ? nil:rawValue }
 }
 public enum QuotaTickStyle:String,Codable,CaseIterable {
     case hidden,subtle,highContrast
     public var title:String {
-        switch self { case .hidden:return "隐藏";case .subtle:return "柔和";case .highContrast:return "高对比度" }
+        switch self {
+        case .hidden:return L10n.string("tick.hidden")
+        case .subtle:return L10n.string("tick.subtle")
+        case .highContrast:return L10n.string("tick.highContrast")
+        }
     }
 }
 public enum QuotaResetStyle:String,Codable,CaseIterable {
     case countdown,dateTime
-    public var title:String { self == .countdown ? "倒计时":"日期时间" }
+    public var title:String { self == .countdown ? L10n.string("resetStyle.countdown"):L10n.string("resetStyle.dateTime") }
 }
 public struct QuotaPanelPreferences:Codable,Equatable {
     public var showPace=true

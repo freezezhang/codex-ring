@@ -11,17 +11,18 @@ public struct QuotaMenuCardRow:Equatable {
         guard let expiresAt else { return text }
         let remaining=expiresAt.timeIntervalSince(now)
         guard remaining.isFinite else { return text }
-        guard remaining>0 else { return "已过期" }
+        guard remaining>0 else { return L10n.string("cards.expired") }
         guard expiryBand(at:now) == .red else { return text }
         let seconds=Int(ceil(remaining))
-        return "\(seconds/3600)时\((seconds%3600)/60)分\(seconds%60)秒"
+        return [L10n.format("duration.hours",seconds/3600),L10n.format("duration.minutes",(seconds%3600)/60),
+                L10n.format("duration.seconds",seconds%60)].joined(separator:L10n.string("duration.separator"))
     }
 }
 
 public struct QuotaMenuRow:Equatable,Identifiable {
     public let period:QuotaPeriod
     public var id:String { period.rawValue }
-    public var title:String { period == .week ? "本周":"5小时" }
+    public var title:String { period.shortName }
     public let used:Double?
     public let usedText:String
     public let remainingText:String
@@ -37,26 +38,27 @@ public struct QuotaMenuRow:Equatable,Identifiable {
     }
     public func progressPosition(_ usedPercent:Double)->Double { metric == .used ? usedPercent:100-usedPercent }
     public var progressPercent:Double? { used.map(progressPosition) }
-    public var progressText:String { metric.shortTitle+" "+(metric == .used ? usedText:remainingText) }
+    public var progressText:String { metric.value(metric == .used ? usedText:remainingText) }
     public var divisionMarkers:[Double] {
         panel.tickStyle == .hidden ? []:QuotaPace.divisions(for:period,workDays:panel.weeklySchedule.workDays).map(progressPosition).sorted()
     }
     public func resetDescription(at now:Date)->String {
         guard panel.resetStyle == .dateTime else { return resetCountdown(at:now) }
-        guard let resetsAt,resetsAt.timeIntervalSince1970.isFinite else { return "重置时间未提供" }
-        return resetsAt>now ? "重置于 "+resetText:"等待重置"
+        guard let resetsAt,resetsAt.timeIntervalSince1970.isFinite else { return L10n.string("reset.timeMissing") }
+        return resetsAt>now ? L10n.format("reset.at",resetText):L10n.string("reset.waiting")
     }
     public func resetCountdown(at now:Date)->String {
-        guard let resetsAt else { return "重置时间未提供" }
+        guard let resetsAt else { return L10n.string("reset.timeMissing") }
         let interval=resetsAt.timeIntervalSince(now)
-        guard interval.isFinite else { return "重置时间未提供" }
-        guard interval>0 else { return "等待重置" }
+        guard interval.isFinite else { return L10n.string("reset.timeMissing") }
+        guard interval>0 else { return L10n.string("reset.waiting") }
         let seconds=Int64(min(ceil(interval),315_576_000_000))
-        var text=""
-        if seconds>=86400 { text += "\(seconds/86400)天" }
-        if seconds>=3600 { text += "\((seconds%86400)/3600)时" }
-        if seconds>=60 { text += "\((seconds%3600)/60)分" }
-        return text+"\(seconds%60)秒 后重置"
+        var parts:[String]=[]
+        if seconds>=86400 { parts.append(L10n.format("duration.days",seconds/86400)) }
+        if seconds>=3600 { parts.append(L10n.format("duration.hours",(seconds%86400)/3600)) }
+        if seconds>=60 { parts.append(L10n.format("duration.minutes",(seconds%3600)/60)) }
+        parts.append(L10n.format("duration.seconds",seconds%60))
+        return L10n.format("reset.countdown",parts.joined(separator:L10n.string("duration.separator")))
     }
     public var band:UsageBand? { used.map(UsageBand.init(used:)) }
 }
@@ -84,10 +86,10 @@ public struct QuotaMenuPresentation:Equatable {
         if let inner=composition.inner,let period=composition.innerPeriod { selected.append((period,inner)) }
         title=selected.map { $0.1.text }.joined(separator:" | ")
         selectionText=selected.map { period,item in
-            (period == .week ? "本周":"5小时")+preferences.metric.shortTitle+" "+item.text
+            period.value(preferences.metric.value(item.text))
         }.joined(separator:" · ")
-        help="CodexRing · "+(isDebug ? "调试 · ":"")+selected.map { period,item in
-            (period == .week ? "本周":"5小时")+preferences.metric.shortTitle+" "+item.text+(item.value == nil ? " · "+item.display.subtitle:"")
+        help="CodexRing · "+(isDebug ? L10n.string("debug.badge")+" · ":"")+selected.map { period,item in
+            period.value(preferences.metric.value(item.text))+(item.value == nil ? " · "+item.display.subtitle:"")
         }.joined(separator:" | ")
         let pool=snapshot.selectedPoolID(preferences.bucketID)
         let metadataPool=metadata.selectedPoolID(preferences.bucketID)
@@ -100,20 +102,20 @@ public struct QuotaMenuPresentation:Equatable {
                 : metadata.display(selectedID:metadataPool,period:period,now:now).quota?.resetsAt
             return QuotaMenuRow(period:period,used:used.value,usedText:used.text,
                                 remainingText:remaining.text,statusText:display.subtitle,
-                                resetText:reset.map { QuotaDateText.string($0) } ?? "未提供",resetsAt:reset,
+                                resetText:reset.map { QuotaDateText.string($0) } ?? L10n.string("common.notProvided"),resetsAt:reset,
                                 paceValidUntil:snapshot.source == .debug ? nil:snapshot.fetchedAt.addingTimeInterval(300),
                                 panel:preferences.quotaPanel,metric:preferences.metric)
         }
-        updatedText=lastRefreshedAt.map { "刷新于 "+QuotaDateText.string($0,includeSeconds:true,includeDate:false) } ?? "尚未刷新"
-        cardsSummary=metadata.resetCards.map { $0.availableCount.map { "\($0) 张可用" } ?? "数量未知" } ?? "未提供"
+        updatedText=lastRefreshedAt.map { L10n.format("menu.refreshedAt",QuotaDateText.string($0,includeSeconds:true,includeDate:false)) }
+            ?? L10n.string("common.neverRefreshed")
+        cardsSummary=metadata.resetCards.map { QuotaDetailsPresentation.cardCount($0.availableCount) } ?? L10n.string("common.notProvided")
         showsResetCards=metadata.resetCards.map { cards in
             cards.availableCount.map { $0>0 } ?? (cards.details?.contains(where: \.available) ?? false)
         } ?? false
         let details=QuotaDetailsPresentation(snapshot:snapshot,metadataSnapshot:metadata,preferences:preferences,
                                             fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt,now:now)
         // Preserve unknown, expired and partially available metadata notices.
-        let cardLines=showsResetCards ? details.resetMenuLines.filter { $0.hasPrefix("重置卡过期 ") }
-            .map { String($0.dropFirst("重置卡过期 ".count)) }:[]
+        let cardLines=showsResetCards ? details.cardExpiryTexts:[]
         // The detail presentation emits available cards in metadata order,
         // followed by any missing-detail notice, which has no expiry date.
         let available=metadata.resetCards?.details?.filter(\.available) ?? []

@@ -1,0 +1,368 @@
+/* CodexRing 界面文案。参数使用 %@ 或 %1$@，百分号写作 %%。 */
+
+/* 通用 */
+"common.done" = "完成";
+"common.settings" = "设置";
+"common.refresh" = "刷新";
+"common.refreshing" = "正在刷新…";
+"common.notProvided" = "未提供";
+"common.neverRefreshed" = "尚未刷新";
+"punctuation.listSeparator" = "；";
+"punctuation.sentenceEnd" = "。";
+"unit.minutes" = "%@分钟";
+"unit.hours" = "%@小时";
+"duration.days" = "%@天";
+"duration.hours" = "%@时";
+"duration.minutes" = "%@分";
+"duration.seconds" = "%@秒";
+"duration.separator" = "";
+"debug.badge" = "调试";
+
+/* 额度周期与显示项 */
+"period.week.title" = "1周";
+"period.fiveHours.title" = "5小时";
+"period.week.short" = "本周";
+"period.fiveHours.short" = "5小时";
+"period.week.quota" = "本周额度";
+"period.fiveHours.quota" = "5小时额度";
+"quota.periodValue" = "%1$@%2$@";
+"metric.remaining.title" = "剩余额度";
+"metric.used.title" = "已用额度";
+"metric.remaining.short" = "剩余";
+"metric.used.short" = "已用";
+"metric.remaining.value" = "剩余 %@";
+"metric.used.value" = "已用 %@";
+"metric.remaining.compactValue" = "剩余%@";
+"metric.used.compactValue" = "已用%@";
+
+/* 额度状态 */
+"status.paused" = "查询已暂停";
+"status.debug" = "调试模式";
+"status.loading" = "正在读取真实额度";
+"status.available" = "额度已更新";
+"status.unavailable" = "额度不可用，请确认 Codex 已登录";
+"status.stale" = "数据已过期";
+"status.expired" = "等待重新查询";
+"status.connection" = "连接失败";
+"status.timeout" = "查询超时";
+"status.protocolError" = "接口不可用";
+"status.missingCLI" = "未找到 Codex";
+
+/* 圆环副标题 */
+"caption.loading" = "加载中";
+"caption.stale" = "过期";
+"caption.offline" = "离线";
+"caption.timeout" = "超时";
+"caption.paused" = "暂停";
+"caption.unknown" = "未知";
+"caption.unavailable" = "不可用";
+"caption.notConnected" = "未连接";
+"ring.caption.week" = "周%@";
+"ring.caption.fiveHours" = "5h%@";
+
+/* 用量颜色 */
+"band.normal" = "正常";
+"band.yellow" = "黄色提醒";
+"band.orange" = "橙色提醒";
+"band.red" = "红色提醒";
+"band.unknown" = "额度未知";
+
+/* 圆环无障碍 */
+"a11y.debugPrefix" = "调试模式；";
+"a11y.ring.single" = "%1$@：%2$@";
+"a11y.ring.outer" = "外圈%1$@：%2$@";
+"a11y.ring.inner" = "；内圈%1$@：%2$@";
+"a11y.ring.center" = "；中心数字仅表示%@额度。";
+"a11y.ring.presentation" = "CodexRing %1$@，%2$@，%3$@，%4$@，%5$@。点击打开设置。";
+"a11y.clockwise" = "顺时针";
+"a11y.counterclockwise" = "逆时针";
+"ring.unavailable.a11y" = "CodexRing 额度不可用";
+"ring.help.overlay" = "覆盖 Codex 用量，点击打开 Codex 用量菜单；右键或菜单栏打开 CodexRing 设置。";
+"ring.help.follow" = "跟随 Codex 窗口，可在窗口内拖动；点击打开设置。";
+"ring.help.free" = "自由移动：拖动移动，贴边隐藏，移入边缘恢复；点击打开设置。";
+"ring.help.overlayLocked" = "覆盖模式下位置已锁定，关闭覆盖后可调整固定状态。";
+"ring.help.locked" = "位置已固定，右键菜单取消固定可解锁。";
+"ring.hover.center" = "中心数字：%@";
+"hover.windowTitle" = "CodexRing 额度详情";
+"hover.periodStatus" = "%1$@ %2$@";
+
+/* 额度详情与重置信息 */
+"details.periodLine" = "%1$@：%2$@";
+"details.center" = "中心数字：%1$@ · %2$@";
+"details.autoReset" = "%1$@系统自动重置：%2$@";
+"details.cards" = "重置卡：%@";
+"details.cardLine" = "%1$@　%2$@";
+"details.cardsExpiryMissing" = "重置卡到期时间未提供";
+"details.lastRefreshed" = "上次刷新时间：%@";
+"metadata.failed" = "重置信息：刷新失败";
+"metadata.loading" = "重置信息：正在加载";
+"metadata.stale" = "重置信息：数据已过期";
+"cards.available" = "%@ 张可用";
+"cards.countUnknown" = "数量未知";
+"cards.timeMissing" = "时间未提供";
+"cards.none" = "无可用卡";
+"cards.partialTimeMissing" = "部分时间未提供";
+"cards.expired" = "已过期";
+"card.fullReset" = "完全重置";
+"card.defaultTitle" = "额度重置卡";
+"card.expiryUnknown" = "到期时间未知";
+"card.expiredOn" = "已于 %@ 到期";
+"card.expiresOn" = "将于 %@ 到期";
+"menu.resetAt" = "%1$@重置于 %2$@";
+"menu.cardExpiry" = "重置卡过期 %@";
+"menu.cardExpired" = "%@（已过期）";
+"menu.refreshedAt" = "刷新于 %@";
+"reset.timeMissing" = "重置时间未提供";
+"reset.at" = "重置于 %@";
+"reset.waiting" = "等待重置";
+"reset.countdown" = "%@ 后重置";
+
+/* 用量节奏 */
+"pace.balanced" = "节奏正常";
+"pace.ahead" = "超额 %@%%";
+"pace.behind" = "余量 %@%%";
+"pace.lastsUntilReset" = "预计可用至重置";
+"pace.duration.daysHours" = "%1$@天%2$@小时";
+"pace.duration.hoursMinutes" = "%1$@小时%2$@分";
+"pace.duration.underMinute" = "不足1分钟";
+"pace.forecast" = "预计 %@ 后耗尽";
+"pace.basis.workDays" = "按每周%@个工作日（从周一起、系统时区）及平均用量估算。";
+"pace.basis.elapsed" = "按本周期已用额度和已过时间估算。";
+"pace.explanation" = "%@超额／余量表示相对均匀使用进度的百分点差，不代表额外收费；后续使用速度变化会影响预测。";
+
+/* 面板偏好 */
+"schedule.automatic" = "自动（按7天）";
+"schedule.days" = "%@天";
+"tick.hidden" = "隐藏";
+"tick.subtle" = "柔和";
+"tick.highContrast" = "高对比度";
+"resetStyle.countdown" = "倒计时";
+"resetStyle.dateTime" = "日期时间";
+"theme.system" = "跟随系统";
+"theme.light" = "浅色";
+"theme.dark" = "深色";
+
+/* 通知 */
+"alert.restored.title" = "%@已恢复";
+"alert.restored.body" = "当前剩余 %@%%。";
+"alert.low.title" = "%@不足";
+"alert.low.body" = "当前剩余 %1$@%%，低于 %2$@%%。";
+"alert.prediction.title" = "%@预计即将耗尽";
+"alert.prediction.body" = "按当前用量节奏，预计约 %@ 分钟后耗尽。";
+"alert.card.title" = "重置卡即将到期";
+"alert.card.body" = "重置卡将于 %@ 到期。";
+"notification.sendFailed" = "发送失败";
+
+/* 权限与登录项 */
+"permission.granted" = "已授权";
+"permission.denied" = "未授权";
+"permission.notRequested" = "未申请";
+"permission.requestFailed" = "授权失败";
+"login.enabled" = "已启用";
+"login.requiresApproval" = "待批准";
+"login.disabled" = "未启用";
+"login.unknown" = "未知";
+
+/* 覆盖 Codex */
+"overlay.controlMissing" = "未找到 Codex 额度控件，已暂时显示普通圆环。请确认头像上方的用量控件可见；找到后会自动恢复覆盖。";
+"overlay.updateNotice" = "应用已更新，旧授权可能已失效，请删除旧版本授权，重新授权。";
+"overlay.pressFailed" = "暂时无法打开 Codex 用量菜单，请稍后重试。";
+
+/* 右键与菜单栏菜单 */
+"menu.refreshNow" = "立即刷新";
+"menu.refreshQuota" = "刷新额度";
+"menu.settings" = "设置…";
+"menu.resetInfo" = "重置信息";
+"menu.pin" = "固定位置";
+"menu.pin.locked" = "已固定";
+"menu.pin.unlocked" = "未固定";
+"menu.pin.overlay" = "覆盖模式自动锁定位置";
+"menu.quitShort" = "退出";
+"menu.quit" = "退出 CodexRing";
+"menu.disableOverlay" = "关闭覆盖 Codex 额度";
+
+/* 菜单栏面板 */
+"panel.account" = "账号";
+"panel.account.loading" = "正在读取账号…";
+"panel.account.missing" = "账号未提供";
+"panel.account.help" = "读取当前 Codex 登录账号";
+"panel.account.a11y" = "用户账号：%@";
+"panel.plan.missing" = "订阅类型未提供";
+"panel.plan.a11y" = "订阅类型：%@";
+"panel.subscription" = "OpenAI 订阅";
+"panel.resetCards" = "重置卡";
+"panel.card.help" = "到期时间：%@";
+"panel.card.a11y" = "重置卡：%@";
+"panel.pace.a11y" = "%1$@。%2$@";
+"panel.refresh" = "刷新额度与账号";
+"panel.bar.a11y" = "%1$@%2$@";
+"panel.bar.value" = "%1$@，%2$@";
+"panel.ticks.week" = "细刻度按每周工作日划分";
+"panel.ticks.fiveHours" = "细刻度为每小时进度";
+"panel.ticks.pace" = "红／绿标记为当前时间的均匀用量进度";
+
+/* OpenAI API 使用 */
+"api.budgetMissing" = "未识别到总额度，请在设置中填写";
+"api.error.authorization" = "Key 无效或已过期";
+"api.error.permission" = "需要有查询权限的 Admin API Key";
+"api.error.rateLimited" = "请求过于频繁，请稍后刷新";
+"api.error.server" = "OpenAI 服务暂不可用";
+"api.error.invalidResponse" = "费用数据格式异常";
+"api.error.invalidProject" = "项目 ID 格式不正确";
+"api.error.incomplete" = "费用数据不完整，请重新刷新";
+"api.status.notConfigured" = "未配置 Admin API Key";
+"api.status.invalidBudget" = "总额度需填写大于 0 的美元金额";
+"api.status.keyWhitespace" = "Key 不能包含空格或换行";
+"api.status.keyRequired" = "请填写 Admin API Key";
+"api.status.keychainUnavailable" = "无法访问钥匙串";
+"api.status.keychainDeleteFailed" = "无法删除钥匙串中的 Key";
+"api.status.saved" = "配置已保存";
+"api.status.configureKey" = "请在设置中配置 Admin API Key";
+"api.status.connected" = "已连接";
+"api.status.connectionFailed" = "连接失败，请稍后重试";
+"api.plan.detecting" = "正在识别…";
+"api.plan.unknown" = "未识别";
+"api.budget.automatic" = "自动 · %@";
+"api.budget.prompt" = "留空自动识别套餐";
+"api.settings.show" = "显示 API 使用进度";
+"api.settings.show.help" = "仅在菜单面板显示。按自定义月度周期统计，每5分钟刷新；官方统计可能延迟。";
+"api.settings.connection" = "连接";
+"api.settings.key" = "Admin API Key";
+"api.settings.key.prompt" = "留空保留已保存的 Key";
+"api.settings.key.help" = "需要有费用查询权限的 OpenAI Admin API Key，普通模型 Key 不适用。仅存储在本机钥匙串。";
+"api.settings.project" = "项目 ID";
+"api.settings.project.prompt" = "留空统计整个组织";
+"api.settings.project.help" = "填写 proj_ 开头的项目 ID，只统计该项目费用；留空统计组织总费用。";
+"api.settings.status" = "连接状态";
+"api.settings.cycle" = "周期与额度";
+"api.settings.startDay" = "周期起始日";
+"api.settings.startDay.option" = "每月 %@ 日";
+"api.settings.startDay.help" = "按系统时区的零点开始；当月没有该日期时取月底。订阅扣款日无法自动读取。";
+"api.settings.plan" = "订阅套餐";
+"api.settings.plan.refresh" = "重新识别订阅套餐";
+"api.settings.budget" = "总额度（美元）";
+"api.settings.budget.help" = "留空按已识别的 Pro 套餐使用完整周期的预期 API 额度；输入金额可手动覆盖，清空恢复自动。需要已领取福利并绑定当前 API 组织。首次领取按剩余时间折算，可手动修正；这里不是实际余额。Business 套餐需手动填写。";
+"api.settings.save" = "保存并刷新";
+"api.settings.deleteKey" = "删除 Key";
+"api.panel.organization" = "整个组织";
+"api.panel.organization.help" = "统计整个 API 组织的费用";
+"api.panel.project" = "项目";
+"api.panel.stale" = "数据已过期，请刷新";
+"api.panel.total" = "总额度 %@";
+"api.panel.spent" = "本期已用 %@";
+"api.panel.progress.a11y" = "API 总额度进度";
+"api.panel.noBudget" = "未设置总额度";
+"api.panel.total.manual.help" = "使用手动设置的周期额度；不是实际余额。";
+"api.panel.total.estimated.help" = "按订阅套餐估算的完整周期额度；首次领取可能折算，不代表已到账或剩余余额。";
+"api.panel.period.help" = "统计周期；刷新于 %@";
+
+/* 设置窗口 */
+"settings.windowTitle" = "CodexRing 设置";
+"settings.sidebar.a11y" = "设置分类";
+"settings.page.general" = "通用";
+"settings.page.appearance" = "显示";
+"settings.page.ring" = "圆环";
+"settings.page.subscription" = "订阅";
+"settings.page.api" = "API";
+"settings.page.alerts" = "提醒";
+"settings.page.about" = "关于";
+"settings.startup.section" = "启动";
+"settings.startup.launchAtLogin" = "登录时启动";
+"settings.startup.status" = "登录项状态";
+"settings.startup.status.help" = "与系统登录项状态同步。";
+"settings.startup.failed" = "设置失败";
+"settings.startup.failed.detail" = "设置失败：%@";
+"settings.startup.loginItems" = "登录项设置";
+"settings.language.section" = "语言";
+"settings.language.picker" = "界面语言";
+"settings.language.system" = "跟随系统";
+"settings.language.help" = "切换后立即生效。“跟随系统”按 macOS 首选语言顺序匹配，没有支持的语言时使用英文。系统提供的窗口与通知，以及已发送的通知，仍保持原语言。";
+"settings.refresh.section" = "刷新";
+"settings.refresh.interval" = "刷新间隔";
+"settings.quota.status" = "额度状态";
+"settings.quota.pool" = "额度池";
+"settings.quota.pool.automatic" = "自动选择";
+"settings.appearance.section" = "外观与菜单栏";
+"settings.menuBar.toggle" = "菜单栏显示额度";
+"settings.menuBar.help" = "按圆环分类中勾选的本周、5小时额度显示百分比，双选时用 | 分隔；点击打开额度进度面板。";
+"settings.metric.picker" = "显示项";
+"settings.metric.remaining" = "剩余";
+"settings.metric.used" = "已用";
+"settings.metric.hint" = "已用从顶部顺时针，剩余从顶部逆时针；颜色按实际已用比例的70%%、80%%、90%%变化。";
+"settings.theme.picker" = "主题";
+"settings.panel.section" = "进度与重置";
+"settings.panel.pace" = "显示用量节奏";
+"settings.panel.pace.help" = "显示红／绿进度标记、超额／余量和预计耗尽时间。";
+"settings.panel.workDays" = "每周工作日";
+"settings.panel.workDays.help" = "4／5／6天从周一起计算，按系统时区划分；用于本周节奏和耗尽预测。自动按完整7天计算，不显示每日刻度。5小时额度不受影响。";
+"settings.panel.ticks" = "周期刻度外观";
+"settings.panel.ticks.help" = "控制每周工作日及5小时额度的小时刻度。隐藏刻度不会停止节奏预测。";
+"settings.panel.resetStyle" = "重置时间";
+"settings.ring.section" = "额度与行为";
+"settings.ring.fiveHours.missing" = "账户未提供5小时窗口。";
+"settings.ring.fiveHours.hint" = "双圈时外圈本周、内圈5小时；中心数字可单独选择。";
+"settings.ring.center" = "中心数字";
+"settings.ring.center.lower" = "较低项";
+"settings.ring.center.help" = "较低项优先显示已耗尽或预计更早耗尽的额度；无法预测时显示剩余额度更低的一项。双圈和菜单栏仍分别显示两种额度。";
+"settings.ring.center.automatic" = "%@（自动）";
+"settings.ring.size" = "圆圈大小";
+"settings.ring.size.avatar" = "小号 · 26 点";
+"settings.ring.size.tiny" = "紧凑 · 32 点";
+"settings.ring.size.small" = "中号 · 56 点";
+"settings.ring.size.compact" = "标准 · 64 点";
+"settings.ring.size.large" = "大号 · 76 点";
+"settings.ring.size.hint" = "26和32点只显示数字，表示所选百分比。无有效数据时显示横线。";
+"settings.ring.autoHide" = "贴边自动隐藏";
+"settings.ring.autoHide.help" = "自由移动时贴近屏幕边缘自动收起；跟随 Codex 窗口时保持显示在窗口内。";
+"settings.ring.animations" = "展开与收起动画";
+"settings.ring.follow" = "跟随 Codex 移动";
+"settings.ring.follow.help" = "圆圈跟随 Codex 窗口，支持普通窗口和全屏；没有 Codex 窗口时恢复自由位置。";
+"settings.ring.overlay" = "覆盖 Codex 额度控件";
+"settings.ring.overlay.help" = "自动缩为小号并覆盖头像上方的用量圆环；点击仍打开 Codex 用量菜单。关闭后恢复原来的大小和位置。";
+"settings.ring.overlay.permission" = "需要辅助功能权限";
+"settings.ring.overlay.permission.help" = "开启覆盖功能需要辅助功能权限。授权后请重新开启覆盖。";
+"settings.ring.overlay.accessibilitySettings" = "辅助功能设置";
+"settings.ring.overlay.status" = "覆盖状态";
+"settings.ring.overlay.unavailable" = "暂不可用";
+"settings.alerts.section" = "通知与彩带";
+"settings.alerts.toggle" = "额度与重置卡通知";
+"settings.alerts.toggle.help" = "按刷新间隔检查真实额度；同一周期、同类事件只提醒一次。预测沿用每周工作日设置。";
+"settings.alerts.permission" = "需要通知权限";
+"settings.alerts.permission.help" = "开启提醒时申请通知权限；未授权时可在系统通知设置中允许 CodexRing。";
+"settings.alerts.notificationSettings" = "通知设置";
+"settings.alerts.low" = "剩余额度不足";
+"settings.alerts.low.threshold" = "低于 %@%%";
+"settings.alerts.prediction" = "预计即将耗尽";
+"settings.alerts.prediction.lead" = "提前提醒";
+"settings.alerts.restored" = "额度恢复";
+"settings.alerts.card.days" = "提前 %@ 天";
+"settings.alerts.confetti" = "额度恢复时播放彩带";
+"settings.alerts.confetti.help" = "检测到额度重置或从耗尽恢复时播放；不会因打开应用或调试数值触发。遵守系统减少动态效果设置。";
+"settings.alerts.confetti.preview" = "预览彩带";
+
+/* 关于 */
+"about.windowTitle" = "关于 CodexRing";
+"about.icon.a11y" = "CodexRing 图标";
+"about.version" = "版本 %@";
+"about.devVersion" = "开发版本";
+
+/* 调试窗口 */
+"debug.windowTitle" = "CodexRing 调试";
+"debug.enable" = "启用调试";
+"debug.enable.help" = "调试值仅本次运行生效，关闭后恢复真实额度。";
+"debug.used.section" = "已用额度";
+"debug.used.week" = "1周已用";
+"debug.used.fiveHours" = "5小时已用";
+"debug.percentage.a11y" = "%@百分比";
+"debug.periods.section" = "显示周期";
+"debug.periods.week" = "显示1周额度";
+"debug.periods.fiveHours" = "显示5小时额度";
+"debug.window.section" = "窗口信息";
+"debug.window.diagnostics" = "显示窗口诊断信息";
+"diagnostics.window" = "自身窗口：%1$@\n全局中心点（左上原点）：%2$@,%3$@\n当前空间：%4$@，可见：%5$@，未被遮挡：%6$@，已收起：%7$@\n显示环境：%8$@\n全屏识别：%9$@";
+"diagnostics.surface.follow" = "跟随 Codex";
+"diagnostics.surface.fullscreen" = "全屏";
+"diagnostics.surface.desktop" = "普通桌面";
+"diagnostics.evidence.none" = "无";
+"diagnostics.evidence.window" = "窗口覆盖屏幕";
+"diagnostics.evidence.systemFlag" = "系统全屏标志";

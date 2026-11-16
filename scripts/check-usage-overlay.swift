@@ -71,7 +71,7 @@ final class OverlayCheck:NSObject,NSApplicationDelegate {
             }
             guard let view=window.contentView?.subviews.first?.subviews.first as? RingView,
                   !view.coversNativeUsage,
-                  view.hoverDetails.contains("未找到 Codex 额度控件") else {
+                  view.hoverDetails.contains(L10n.string("overlay.controlMissing")) else {
                 finish("fallback still forwards clicks or lacks explanation",false);return false
             }
             return true
@@ -107,11 +107,11 @@ final class OverlayCheck:NSObject,NSApplicationDelegate {
         let event=NSEvent.enterExitEvent(with:.mouseEntered,location:.zero,modifierFlags:[],timestamp:0,windowNumber:window.windowNumber,context:nil,eventNumber:0,trackingNumber:0,userData:nil)!
         view.mouseEntered(with:event)
         after(0.6) { [self] in
-            guard NSApp.windows.contains(where:{$0.title == "CodexRing 额度详情" && $0.isVisible}),pressCount == 0 else { finish("hover missing or unexpectedly clicked",false);return }
+            guard NSApp.windows.contains(where:{$0.title == L10n.string("hover.windowTitle") && $0.isVisible}),pressCount == 0 else { finish("hover missing or unexpectedly clicked",false);return }
             print("PASS hover shows own tip without clicking native control")
             _=view.accessibilityPerformPress()
             after(0.7) { [self] in
-                guard pressCount == 1,!NSApp.windows.contains(where:{$0.title == "CodexRing 额度详情" && $0.isVisible}) else { finish("click was not forwarded once or hover stayed visible",false);return }
+                guard pressCount == 1,!NSApp.windows.contains(where:{$0.title == L10n.string("hover.windowTitle") && $0.isVisible}) else { finish("click was not forwarded once or hover stayed visible",false);return }
                 let saved=PreferencesStore(defaults:UserDefaults(suiteName:suite)!).load()
                 guard saved.codexAnchor == preferences.codexAnchor else { finish("click modified normal follow position",false);return }
                 print("PASS click forwarded once; hover dismissed; normal anchor preserved")
@@ -124,7 +124,7 @@ final class OverlayCheck:NSObject,NSApplicationDelegate {
         for controlClick in [false,true] {
             var opened:NSMenu?,wasStable=false
             let observer=NotificationCenter.default.addObserver(forName:NSMenu.didBeginTrackingNotification,object:nil,queue:nil) { notification in
-                guard let menu=notification.object as? NSMenu,menu.item(withTitle:"重置信息") != nil else { return }
+                guard let menu=notification.object as? NSMenu,menu.item(withTitle:L10n.string("menu.resetInfo")) != nil else { return }
                 opened=menu
                 // App activation caused by a background context menu must not
                 // hide/reparent the panel while its native menu tracks input.

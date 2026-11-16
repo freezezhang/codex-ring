@@ -35,10 +35,12 @@ public enum RingPainter {
         title.draw(at:NSPoint(x:center.x-textSize.width/2,y:center.y-textSize.height/2+(compact ? 0:4)),withAttributes:attributes)
         guard !compact else { return }
         let caption:String
-        if primary?.display.source == .debug { caption="调试" }
-        else if let primary,primary.display.status == .available,dual { caption=(composition?.centerPeriod == .fiveHours ? "5h":"周")+primary.metric.shortTitle }
-        else if let primary,primary.display.status == .available,composition?.outerPeriod == .fiveHours { caption="5h"+primary.metric.shortTitle }
-        else { caption=primary?.caption ?? "未连接" }
+        if primary?.display.source == .debug { caption=L10n.string("debug.badge") }
+        else if let primary,primary.display.status == .available,dual {
+            caption=L10n.format(composition?.centerPeriod == .fiveHours ? "ring.caption.fiveHours":"ring.caption.week",primary.metric.shortTitle)
+        }
+        else if let primary,primary.display.status == .available,composition?.outerPeriod == .fiveHours { caption=L10n.format("ring.caption.fiveHours",primary.metric.shortTitle) }
+        else { caption=primary?.caption ?? L10n.string("caption.notConnected") }
         let sub:[NSAttributedString.Key:Any]=[.font:NSFont.systemFont(ofSize:max(8,diameter*0.13),weight:.medium),.foregroundColor:foreground.withAlphaComponent(0.68)]
         let size=caption.size(withAttributes:sub)
         caption.draw(at:NSPoint(x:center.x-size.width/2,y:center.y-diameter*0.29),withAttributes:sub)

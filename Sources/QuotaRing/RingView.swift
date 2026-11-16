@@ -2,7 +2,7 @@ import AppKit
 import QuotaCore
 import RingDrawing
 final class RingView:NSView {
-    var composition:RingComposition? { didSet { needsDisplay=true;setAccessibilityLabel(composition?.accessibilityText ?? "CodexRing 额度不可用") } }
+    var composition:RingComposition? { didSet { needsDisplay=true;setAccessibilityLabel(composition?.accessibilityText ?? L10n.string("ring.unavailable.a11y")) } }
     var onDragStart:(()->Void)?,onDragEnd:(()->Void)?,onEnter:(()->Void)?,onExit:(()->Void)?,onClick:(()->Void)?
     var onMenu:((NSEvent?)->Void)?
     private var dragPoint=NSPoint.zero,dragOrigin=NSPoint.zero

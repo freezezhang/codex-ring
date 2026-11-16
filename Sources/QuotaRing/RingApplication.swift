@@ -24,7 +24,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private var overlayNoticeShown=false
     private var overlayNoticeGeneration=0
     private let onOverlayUnavailable:(()->Void)?
-    private let overlayMissingMessage="未找到 Codex 额度控件，已暂时显示普通圆环。请确认头像上方的用量控件可见；找到后会自动恢复覆盖。"
+    private var overlayMissingMessage:String { L10n.string("overlay.controlMissing") }
     private let signingFingerprint=SigningFingerprint.current()
     private var quotaMenuBar:QuotaMenuBar?
     private var activeContextMenu:NSMenu?
@@ -37,7 +37,17 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private var spaceRevision=0
     private var spaceChangedAt=Date.distantPast
     private var fullscreenScreen:NSScreen?
-    private var fullscreenEvidence="无"
+    private enum FullscreenEvidence {
+        case none,windowCoversScreen,systemFlag
+        var text:String {
+            switch self {
+            case .none:return L10n.string("diagnostics.evidence.none")
+            case .windowCoversScreen:return L10n.string("diagnostics.evidence.window")
+            case .systemFlag:return L10n.string("diagnostics.evidence.systemFlag")
+            }
+        }
+    }
+    private var fullscreenEvidence=FullscreenEvidence.none
     private var lastSpaceDiagnostic=""
     private var showingFullscreen:Bool { panel != nil && panel === fullscreenPanel }
     // Only the temporary fullscreen surface joins Spaces. The desktop anchor
@@ -86,6 +96,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         preferences = store.load()
+        L10n.apply(languageCode:preferences.languageCode)
         overlayAccessibilityGranted=AXIsProcessTrusted()
         if preferences.overlayCodexUsage && !overlayAccessibilityGranted {
             preferences.reconcileOverlayPermission(granted:false)
@@ -290,7 +301,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             // app's native fullscreen window. Inspect only public window bounds
             // for the foreground PID; never capture images or read window titles.
             fullscreenScreen=fullscreenDisplay(for:front.processIdentifier)
-            fullscreenEvidence=fullscreenScreen != nil ? "窗口覆盖屏幕":(presentationIsFullscreen ? "系统全屏标志":"无")
+            fullscreenEvidence=fullscreenScreen != nil ? .windowCoversScreen:(presentationIsFullscreen ? .systemFlag:.none)
             if fullscreenScreen == nil,presentationIsFullscreen {
                 fullscreenScreen=NSScreen.screens.first(where:{$0.frame.contains(NSEvent.mouseLocation)}) ?? NSScreen.main
             }
@@ -514,25 +525,27 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         ring.positionLocked = preferences.effectivePositionLocked
         ring.coversNativeUsage=followingCodex && coveringUsage
         let information=details
-        var accessibilityHelp = information.tooltip + (coveringUsage ? "\n覆盖 Codex 用量，点击打开 Codex 用量菜单；右键或菜单栏打开 CodexRing 设置。":(followingCodex ? "\n跟随 Codex 窗口，可在窗口内拖动；点击打开设置。":"\n自由移动：拖动移动，贴边隐藏，移入边缘恢复；点击打开设置。"))
-        if preferences.overlayCodexUsage { accessibilityHelp += "\n覆盖模式下位置已锁定，关闭覆盖后可调整固定状态。" }
-        else if preferences.positionLocked { accessibilityHelp += "\n位置已固定，右键菜单取消固定可解锁。" }
+        var accessibilityHelp = information.tooltip + "\n" + (coveringUsage ? L10n.string("ring.help.overlay"):(followingCodex ? L10n.string("ring.help.follow"):L10n.string("ring.help.free")))
+        if preferences.overlayCodexUsage { accessibilityHelp += "\n" + L10n.string("ring.help.overlayLocked") }
+        else if preferences.positionLocked { accessibilityHelp += "\n" + L10n.string("ring.help.locked") }
         let top = NSScreen.screens.first?.frame.maxY ?? 0
-        let diagnostics = "自身窗口：\(NSStringFromRect(panel.frame))\n全局中心点（左上原点）：\(Int(panel.frame.midX)),\(Int(top - panel.frame.midY))\n当前空间：\(panel.isOnActiveSpace)，可见：\(panel.isVisible)，未被遮挡：\(panel.occlusionState.contains(.visible))，已收起：\(isTucked)\n显示环境：\(followingCodex ? "跟随 Codex":(showingFullscreen ? "全屏":"普通桌面"))\n全屏识别：\(fullscreenEvidence)"
+        let surface=followingCodex ? L10n.string("diagnostics.surface.follow"):(showingFullscreen ? L10n.string("diagnostics.surface.fullscreen"):L10n.string("diagnostics.surface.desktop"))
+        let diagnostics = L10n.format("diagnostics.window",NSStringFromRect(panel.frame),Int(panel.frame.midX),Int(top - panel.frame.midY),
+                                      panel.isOnActiveSpace,panel.isVisible,panel.occlusionState.contains(.visible),isTucked,surface,fullscreenEvidence.text)
         if ProcessInfo.processInfo.arguments.contains("--space-diagnostics"),diagnostics != lastSpaceDiagnostic {
             lastSpaceDiagnostic=diagnostics
             FileHandle.standardError.write(Data(("[space] "+diagnostics.replacingOccurrences(of:"\n",with:" | ")+"\n").utf8))
         }
         if model.diagnostics { accessibilityHelp += "\n" + diagnostics }
         if overlayActive && overlayControlMissing { accessibilityHelp += "\n"+overlayMissingMessage }
-        ring.hoverDetails=information.hoverCardText + (preferences.automaticCenter && composition.inner != nil ? "\n中心数字：\(composition.centerPeriod == .week ? "本周":"5小时")":"") + (overlayActive && overlayControlMissing ? "\n"+overlayMissingMessage:"")
+        ring.hoverDetails=information.hoverCardText + (preferences.automaticCenter && composition.inner != nil ? "\n"+L10n.format("ring.hover.center",composition.centerPeriod.shortName):"") + (overlayActive && overlayControlMissing ? "\n"+overlayMissingMessage:"")
         ring.setAccessibilityHelp(accessibilityHelp)
         panel.title = "CodexRing"
         model.snapshot = visible; model.source = visible.source; model.isRefreshing = fetching
         model.fiveHourSupport=fiveHourSupport
         model.overlayAccessibilityGranted=overlayAccessibilityGranted
         model.overlayAuthorizationNotice=store.observeAccessibilityTrust(overlayAccessibilityGranted,fingerprint:signingFingerprint)
-            ? "应用已更新，旧授权可能已失效，请删除旧版本授权，重新授权。":nil
+            ? L10n.string("overlay.updateNotice"):nil
         model.overlayStatus=overlayActive && overlayControlMissing ? overlayMissingMessage:""
         model.updatedText = dateText(lastRefreshedAt)
         if model.debugState != debugState { model.debugState=debugState }
@@ -565,6 +578,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         if !value.autoHide { reveal(animated: false) }
         if old.refreshInterval != value.refreshInterval { configureRefreshTimer() }
         if old.theme != value.theme { applyTheme() }
+        if L10n.apply(languageCode:value.languageCode) { applyLanguage() }
         if old.followCodex != value.followCodex || old.overlayCodexUsage != value.overlayCodexUsage {
             codexAction = overlayActive ? .hidden:.free
             codexMonitor.tracksUsageControl=value.overlayCodexUsage
@@ -573,6 +587,12 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         }
         if old.followCodex != value.followCodex || old.overlayCodexUsage != value.overlayCodexUsage || (followingCodex && old.size != value.size) { synchronizeSpace() }
         store.save(preferences); redraw()
+    }
+    private func applyLanguage() {
+        settings?.applyLanguage();debugWindow?.applyLanguage();aboutWindow?.applyLanguage()
+        notifications.refreshStatus()
+        model.loginStatus=LaunchAtLogin.statusText
+        model.objectWillChange.send();model.apiUsage.objectWillChange.send()
     }
     private func resizeCircle() {
         reveal(animated:false)
@@ -709,7 +729,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         ring.dismissHover()
         guard panel.isVisible,panel.isOnActiveSpace,let target=codexTarget else { return }
         codexMonitor.pressUsageControl(windowID:target.id) { [weak self] success in
-            if !success { self?.model.overlayStatus="暂时无法打开 Codex 用量菜单，请稍后重试。" }
+            if !success { self?.model.overlayStatus=L10n.string("overlay.pressFailed") }
         }
     }
     private func openAbout() {
@@ -747,13 +767,13 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         for entry in RingMenuSpec.entries(for:preferences) {
             let item:NSMenuItem
             switch entry {
-            case .refresh:item=NSMenuItem(title:"立即刷新",action:#selector(refreshFromMenu),keyEquivalent:"r");item.image=NSImage(systemSymbolName:"arrow.clockwise",accessibilityDescription:"刷新");item.isEnabled = !fetching && !debugState.isEnabled
-            case .settings:item=NSMenuItem(title:"设置…",action:#selector(openSettings),keyEquivalent:",")
-            case .reset:item=NSMenuItem(title:"重置信息",action:nil,keyEquivalent:"");item.image=NSImage(systemSymbolName:"arrow.counterclockwise",accessibilityDescription:"重置信息");item.submenu=resetMenu()
-            case .positionLock(let locked):item=NSMenuItem(title:"固定位置",action:#selector(togglePositionLock),keyEquivalent:"");item.image=NSImage(systemSymbolName:locked ? "pin.fill":"pin",accessibilityDescription:locked ? "已固定":"未固定")
+            case .refresh:item=NSMenuItem(title:L10n.string("menu.refreshNow"),action:#selector(refreshFromMenu),keyEquivalent:"r");item.image=NSImage(systemSymbolName:"arrow.clockwise",accessibilityDescription:L10n.string("common.refresh"));item.isEnabled = !fetching && !debugState.isEnabled
+            case .settings:item=NSMenuItem(title:L10n.string("menu.settings"),action:#selector(openSettings),keyEquivalent:",")
+            case .reset:item=NSMenuItem(title:L10n.string("menu.resetInfo"),action:nil,keyEquivalent:"");item.image=NSImage(systemSymbolName:"arrow.counterclockwise",accessibilityDescription:L10n.string("menu.resetInfo"));item.submenu=resetMenu()
+            case .positionLock(let locked):item=NSMenuItem(title:L10n.string("menu.pin"),action:#selector(togglePositionLock),keyEquivalent:"");item.image=NSImage(systemSymbolName:locked ? "pin.fill":"pin",accessibilityDescription:locked ? L10n.string("menu.pin.locked"):L10n.string("menu.pin.unlocked"))
                 item.isEnabled=preferences.canTogglePositionLock
-                if !item.isEnabled { item.toolTip="覆盖模式自动锁定位置" }
-            case .quit:menu.addItem(.separator());item=NSMenuItem(title:"退出",action:#selector(quit),keyEquivalent:"q")
+                if !item.isEnabled { item.toolTip=L10n.string("menu.pin.overlay") }
+            case .quit:menu.addItem(.separator());item=NSMenuItem(title:L10n.string("menu.quitShort"),action:#selector(quit),keyEquivalent:"q")
             }
             item.target=self;menu.addItem(item)
         }
@@ -766,7 +786,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         }
     }
     private func resetMenu()->NSMenu {
-        let menu=NSMenu(title:"重置信息");menu.autoenablesItems=false
+        let menu=NSMenu(title:L10n.string("menu.resetInfo"));menu.autoenablesItems=false
         let font=NSFont.menuFont(ofSize:0)
         let dateFont=NSFont.monospacedDigitSystemFont(ofSize:12,weight:.regular)
         let pattern=try! NSRegularExpression(pattern:#"\d{4}[.-]\d{2}[.-]\d{2} \d{2}:\d{2}"#)

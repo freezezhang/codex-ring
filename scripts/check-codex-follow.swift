@@ -46,11 +46,11 @@ final class FollowCheck:NSObject,NSApplicationDelegate,NSWindowDelegate {
         let event=NSEvent.enterExitEvent(with:.mouseEntered,location:.zero,modifierFlags:[],timestamp:0,windowNumber:owner.windowNumber,context:nil,eventNumber:0,trackingNumber:0,userData:nil)!
         view.mouseEntered(with:event)
         after(1) { [self] in
-            guard let tip=NSApp.windows.first(where:{$0.title == "CodexRing 额度详情" && $0.isVisible}),
+            guard let tip=NSApp.windows.first(where:{$0.title == L10n.string("hover.windowTitle") && $0.isVisible}),
                   let label=tip.contentView?.subviews.compactMap({$0 as? NSTextField}).first else {
                 finish("hover: card did not appear",success:false);return
             }
-            for text in ["本周"] {
+            for text in [QuotaPeriod.week.shortName] {
                 guard label.stringValue.contains(text) else { finish("hover missing \(text)",success:false);return }
             }
             guard NSApp.isActive == wasActive,NSApp.keyWindow === keyBefore else {

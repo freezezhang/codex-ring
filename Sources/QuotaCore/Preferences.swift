@@ -2,19 +2,25 @@ import Foundation
 
 public enum DisplayMetric: String, Codable, CaseIterable {
     case remaining, used
-    public var title: String { self == .remaining ? "剩余额度" : "已用额度" }
-    public var shortTitle: String { self == .remaining ? "剩余" : "已用" }
+    public var title: String { self == .remaining ? L10n.string("metric.remaining.title") : L10n.string("metric.used.title") }
+    public var shortTitle: String { self == .remaining ? L10n.string("metric.remaining.short") : L10n.string("metric.used.short") }
+    /// A percentage labelled with this metric, e.g. "80% left".
+    public func value(_ text:String)->String { L10n.format(self == .remaining ? "metric.remaining.value":"metric.used.value",text) }
+    /// The tooltip form; Chinese omits the space.
+    public func compactValue(_ text:String)->String { L10n.format(self == .remaining ? "metric.remaining.compactValue":"metric.used.compactValue",text) }
 }
 public enum RingSize: Int, Codable, CaseIterable {
     case avatar = 26, tiny = 32, small = 56, compact = 64, large = 76
     public var numberOnly: Bool { rawValue <= 32 }
 }
 public enum RefreshInterval:Int,Codable,CaseIterable { case oneMinute=60,twoMinutes=120,fiveMinutes=300
-    public var title:String { "\(rawValue/60)分钟" }
+    public var title:String { L10n.format("unit.minutes",rawValue/60) }
 }
 public enum ThemePreference:String,Codable,CaseIterable {
     case system,light,dark
-    public var title:String { switch self { case .system:return "跟随系统";case .light:return "浅色";case .dark:return "深色" } }
+    public var title:String {
+        switch self { case .system:return L10n.string("theme.system");case .light:return L10n.string("theme.light");case .dark:return L10n.string("theme.dark") }
+    }
     public func isDark(systemIsDark:Bool)->Bool { self == .system ? systemIsDark:self == .dark }
 }
 public struct PanelPosition: Codable, Equatable {
@@ -43,6 +49,8 @@ public struct RingPreferences: Codable, Equatable {
     public var theme:ThemePreference = .system
     public var bucketID: String? = nil
     public var position: PanelPosition? = nil
+    /// A registered `AppLanguage.code`; `nil` follows the system languages.
+    public var languageCode: String? = nil
     /// Overlay locking is derived; preserve the user's normal-mode preference.
     public var effectivePositionLocked:Bool { positionLocked || overlayCodexUsage }
     public var canTogglePositionLock:Bool { !overlayCodexUsage }
@@ -54,7 +62,7 @@ public struct RingPreferences: Codable, Equatable {
         if !granted { overlayCodexUsage=false }
     }
     public init() {}
-    private enum CodingKeys:String,CodingKey { case alerts,resetConfetti,automaticCenter,metric,size,autoHide,animations,positionLocked,followCodex,overlayCodexUsage,showMenuBar,quotaPanel,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position }
+    private enum CodingKeys:String,CodingKey { case alerts,resetConfetti,automaticCenter,metric,size,autoHide,animations,positionLocked,followCodex,overlayCodexUsage,showMenuBar,quotaPanel,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position,languageCode }
     public init(from decoder:Decoder) throws {
         let c=try decoder.container(keyedBy:CodingKeys.self)
         metric=(try? c.decode(DisplayMetric.self,forKey:.metric)) ?? .remaining
@@ -79,6 +87,7 @@ public struct RingPreferences: Codable, Equatable {
         theme=(try? c.decode(ThemePreference.self,forKey:.theme)) ?? .system
         bucketID=try? c.decodeIfPresent(String.self,forKey:.bucketID)
         position=try? c.decodeIfPresent(PanelPosition.self,forKey:.position)
+        languageCode=try? c.decodeIfPresent(String.self,forKey:.languageCode)
     }
 }
 
@@ -111,8 +120,12 @@ public struct RingComposition {
         inner=periods.count>1 ? RingPresentation(display:snapshot.display(selectedID:pool,period:periods[1],now:now),metric:preferences.metric):nil
     }
     public var accessibilityText:String {
-        var text="\(outer.display.source == .debug ? "调试模式；":"")\(inner == nil ? "":"外圈")\(outerPeriod.title)：\(outer.accessibilityText)"
-        if let inner,let innerPeriod { text += "；内圈\(innerPeriod.title)：\(inner.accessibilityText)；中心数字仅表示\(centerPeriod.title)额度。" }
+        var text=(outer.display.source == .debug ? L10n.string("a11y.debugPrefix"):"")
+            + L10n.format(inner == nil ? "a11y.ring.single":"a11y.ring.outer",outerPeriod.title,outer.accessibilityText)
+        if let inner,let innerPeriod {
+            text += L10n.format("a11y.ring.inner",innerPeriod.title,inner.accessibilityText)
+            text += L10n.format("a11y.ring.center",centerPeriod.title)
+        }
         return text
     }
 }
@@ -160,7 +173,12 @@ public enum UsageBand: String, CaseIterable {
         switch self { case .normal: return 0x69B5F6; case .yellow: return 0xF2CE58; case .orange: return 0xF4A24D; case .red: return 0xF2727D }
     }
     public var accessibleName: String {
-        switch self { case .normal: return "正常"; case .yellow: return "黄色提醒"; case .orange: return "橙色提醒"; case .red: return "红色提醒" }
+        switch self {
+        case .normal: return L10n.string("band.normal")
+        case .yellow: return L10n.string("band.yellow")
+        case .orange: return L10n.string("band.orange")
+        case .red: return L10n.string("band.red")
+        }
     }
 }
 public struct RingPresentation {
@@ -179,17 +197,19 @@ public struct RingPresentation {
     public var arcEndAngle:Double? { value.map { 90 + (clockwise ? -1:1) * 3.6 * $0 } }
     public var caption: String {
         switch display.status {
-        case .loading: return "加载中"
+        case .loading: return L10n.string("caption.loading")
         case .available: return metric.shortTitle
-        case .stale, .expired: return "过期"
-        case .connection: return "离线"
-        case .timeout: return "超时"
-        case .unavailable: return display.source == .disconnected ? "暂停" : "未知"
-        case .protocolError: return "不可用"
-        case .missingCLI: return "未连接"
+        case .stale, .expired: return L10n.string("caption.stale")
+        case .connection: return L10n.string("caption.offline")
+        case .timeout: return L10n.string("caption.timeout")
+        case .unavailable: return display.source == .disconnected ? L10n.string("caption.paused") : L10n.string("caption.unknown")
+        case .protocolError: return L10n.string("caption.unavailable")
+        case .missingCLI: return L10n.string("caption.notConnected")
         }
     }
     public var accessibilityText: String {
-        return "CodexRing \(metric.title)，\(text)，\(clockwise ? "顺时针":"逆时针")，\(display.subtitle)，\(band?.accessibleName ?? "额度未知")。点击打开设置。"
+        L10n.format("a11y.ring.presentation",metric.title,text,
+                    clockwise ? L10n.string("a11y.clockwise"):L10n.string("a11y.counterclockwise"),
+                    display.subtitle,band?.accessibleName ?? L10n.string("band.unknown"))
     }
 }

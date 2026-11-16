@@ -2,6 +2,7 @@ import XCTest
 @testable import QuotaCore
 
 final class DateAndCardPresentationTests:XCTestCase {
+    override func setUp() { super.setUp();L10n.apply(languageCode:"zh-Hans") }
     func date(_ text:String)throws->Date { try XCTUnwrap(ISO8601DateFormatter().date(from:text)) }
     func testDatesUseOneDottedFormatAndBeijingMinutePrecision()throws {
         let cases=[

@@ -2,6 +2,7 @@ import XCTest
 @testable import QuotaCore
 
 final class QuotaPaceTests:XCTestCase {
+    override func setUp() { super.setUp();L10n.apply(languageCode:"zh-Hans") }
     let now=Date(timeIntervalSince1970:1_800_000_000)
     func testWeeklyAverageProjectsExhaustionBeforeReset() throws {
         // Three days elapsed, half consumed: the remaining half lasts three days.

@@ -2,6 +2,7 @@ import XCTest
 import CoreGraphics
 @testable import QuotaCore
 final class PreferencesTests: XCTestCase {
+    override func setUp() { super.setUp();L10n.apply(languageCode:"zh-Hans") }
     func presentation(used: Double, metric: DisplayMetric) -> RingPresentation {
         let s = QuotaSnapshot(source: .official, fetchedAt: Date(), quotas: [WeeklyQuota(id: "codex/primary", label: "codex", remaining: 100 - used, resetsAt: Date().addingTimeInterval(3600))])
         return RingPresentation(display: s.display(), metric: metric)

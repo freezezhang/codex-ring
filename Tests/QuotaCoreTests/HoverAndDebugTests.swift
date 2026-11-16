@@ -2,6 +2,7 @@ import XCTest
 @testable import QuotaCore
 
 final class HoverAndDebugTests:XCTestCase {
+    override func setUp() { super.setUp();L10n.apply(languageCode:"zh-Hans") }
     let now=Date(timeIntervalSince1970:1793700000)
     func live(five:Bool=true,cards:ResetCards?=nil)->QuotaSnapshot {
         var quotas=[WeeklyQuota(id:"codex/secondary",label:"Codex",remaining:68,resetsAt:now.addingTimeInterval(86400))]

@@ -5,7 +5,11 @@ public enum QuotaSource: String { case official, disconnected, debug }
 public enum QuotaFailure: String, Error { case unavailable, connection, timeout, protocolError, missingCLI }
 public enum DisplayStatus: String { case loading, available, unavailable, stale, expired, connection, timeout, protocolError, missingCLI }
 public enum QuotaPeriod:String,Codable,CaseIterable { case week,fiveHours
-    public var title:String { self == .week ? "1周":"5小时" }
+    public var title:String { self == .week ? L10n.string("period.week.title"):L10n.string("period.fiveHours.title") }
+    public var shortName:String { self == .week ? L10n.string("period.week.short"):L10n.string("period.fiveHours.short") }
+    public var quotaName:String { self == .week ? L10n.string("period.week.quota"):L10n.string("period.fiveHours.quota") }
+    /// A period name followed by a metric value, e.g. "Weekly 80% left".
+    public func value(_ metricValue:String)->String { L10n.format("quota.periodValue",shortName,metricValue) }
 }
 public struct WeeklyQuota: Equatable {
     public let id: String
@@ -34,18 +38,18 @@ public struct QuotaDisplay {
         return abs(rounded - remaining) < 0.05 ? "\(Int(rounded))%" : String(format: "%.1f%%", remaining)
     }
     public var subtitle: String {
-        if source == .disconnected { return "查询已暂停" }
-        if source == .debug { return "调试模式" }
+        if source == .disconnected { return L10n.string("status.paused") }
+        if source == .debug { return L10n.string("status.debug") }
         switch status {
-        case .loading: return "正在读取真实额度"
-        case .available: return "额度已更新"
-        case .unavailable: return "额度不可用，请确认 Codex 已登录"
-        case .stale: return "数据已过期"
-        case .expired: return "等待重新查询"
-        case .connection: return "连接失败"
-        case .timeout: return "查询超时"
-        case .protocolError: return "接口不可用"
-        case .missingCLI: return "未找到 Codex"
+        case .loading: return L10n.string("status.loading")
+        case .available: return L10n.string("status.available")
+        case .unavailable: return L10n.string("status.unavailable")
+        case .stale: return L10n.string("status.stale")
+        case .expired: return L10n.string("status.expired")
+        case .connection: return L10n.string("status.connection")
+        case .timeout: return L10n.string("status.timeout")
+        case .protocolError: return L10n.string("status.protocolError")
+        case .missingCLI: return L10n.string("status.missingCLI")
         }
     }
 }

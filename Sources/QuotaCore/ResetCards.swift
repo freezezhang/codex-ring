@@ -19,14 +19,14 @@ public struct ResetCard:Equatable {
     public var displayTitle:String {
         let text=title.split(whereSeparator:\.isWhitespace).joined(separator:" ")
         switch text.lowercased() {
-        case "full reset","full_reset":return "完全重置"
-        case "":return "额度重置卡"
+        case "full reset","full_reset":return L10n.string("card.fullReset")
+        case "":return L10n.string("card.defaultTitle")
         default:return text
         }
     }
     public func expiryText(now:Date = Date())->String {
-        guard let expiresAt else { return "到期时间未知" }
-        return "\(expiresAt<=now ? "已于":"将于") \(QuotaDateText.string(expiresAt)) 到期"
+        guard let expiresAt else { return L10n.string("card.expiryUnknown") }
+        return L10n.format(expiresAt<=now ? "card.expiredOn":"card.expiresOn",QuotaDateText.string(expiresAt))
     }
 }
 public struct ResetCards:Equatable {
@@ -47,7 +47,7 @@ public enum ResetCardsParser {
                 let d=n.doubleValue
                 if d.isFinite && d>0 && d<253402300800 { expiry=Date(timeIntervalSince1970:d) }
             }
-            let title=(row["title"] as? String).flatMap { $0.isEmpty ? nil:$0 } ?? "额度重置卡"
+            let title=row["title"] as? String ?? ""
             return ResetCard(title:title,expiresAt:expiry,status:row["status"] as? String ?? "unknown")
         }
         return ResetCards(availableCount:count,details:details)

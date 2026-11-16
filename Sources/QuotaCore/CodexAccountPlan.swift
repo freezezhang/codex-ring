@@ -10,9 +10,9 @@ public enum CodexAccountPlan:String,Equatable {
         case .free:return "Free"
         case .go:return "Go"
         case .plus:return "Plus"
-        case .prolite:return "Pro 5x"
-        case .pro:return "Pro $200"
-        case .promax:return "Pro $500"
+        case .prolite:return "Pro 100"
+        case .pro:return "Pro 200"
+        case .promax:return "Pro 500"
         case .team,.business:return "Business"
         case .businessPremium:return "Business Premium"
         }

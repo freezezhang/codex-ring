@@ -2,6 +2,7 @@ import XCTest
 @testable import QuotaCore
 
 final class QuotaPanelSettingsTests:XCTestCase {
+    override func setUp() { super.setUp();L10n.apply(languageCode:"zh-Hans") }
     let now=Date(timeIntervalSince1970:1_800_000_000)
     func row(_ options:QuotaPanelPreferences,period:QuotaPeriod = .week,metric:DisplayMetric = .used)->QuotaMenuRow {
         var p=RingPreferences();p.quotaPanel=options;p.metric=metric

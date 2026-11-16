@@ -2,6 +2,7 @@ import XCTest
 @testable import QuotaCore
 
 final class QuotaMenuTests:XCTestCase {
+    override func setUp() { super.setUp();L10n.apply(languageCode:"zh-Hans") }
     func testResetCountdownUpdatesFromAbsoluteDeadlineAcrossDayAndSecondBoundaries() throws {
         let row=try XCTUnwrap(data(live()).rows.first(where:{$0.period == .week}))
         XCTAssertEqual(row.resetCountdown(at:now),"1天0时0分0秒 后重置")

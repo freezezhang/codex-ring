@@ -11,7 +11,7 @@ final class SettingsModel:ObservableObject {
     @Published var updatedText="—"
     @Published var diagnosticText=""
     @Published var diagnostics=false
-    @Published var notificationStatus="未申请"
+    @Published var notificationStatus=L10n.string("permission.notRequested")
     @Published var launchAtLogin=false
     @Published var loginStatus=""
     @Published var loginError:String?
@@ -42,15 +42,17 @@ final class RingSettingsWindow:NSWindowController,NSWindowDelegate {
     init(model:SettingsModel,onClose:@escaping ()->Void) {
         self.onClose=onClose
         let window=NSWindow(contentRect:NSRect(x:0,y:0,width:780,height:620),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
-        window.title="CodexRing 设置";window.isReleasedWhenClosed=false
+        window.isReleasedWhenClosed=false
         window.titlebarAppearsTransparent=true
         window.contentMinSize=NSSize(width:720,height:520)
         window.setFrameAutosaveName("CodexRingSidebarSettings")
         window.collectionBehavior=[.moveToActiveSpace,.fullScreenAuxiliary,.canJoinAllApplications,.ignoresCycle]
         super.init(window:window);window.delegate=self
+        applyLanguage()
         window.contentView=NSHostingView(rootView:RingSettingsView(model:model,onDone:{ [weak self] in self?.close() }));window.center()
     }
     required init?(coder:NSCoder) { fatalError("init(coder:) is not used") }
+    func applyLanguage() { window?.title=L10n.string("settings.windowTitle") }
     func windowWillClose(_ notification:Notification) { onClose() }
 }
 private enum SettingsPage:String,CaseIterable,Identifiable {
@@ -58,13 +60,13 @@ private enum SettingsPage:String,CaseIterable,Identifiable {
     var id:String { rawValue }
     var title:String {
         switch self {
-        case .general:return "通用"
-        case .appearance:return "显示"
-        case .ring:return "圆环"
-        case .panel:return "订阅"
-        case .api:return "API"
-        case .alerts:return "提醒"
-        case .about:return "关于"
+        case .general:return L10n.string("settings.page.general")
+        case .appearance:return L10n.string("settings.page.appearance")
+        case .ring:return L10n.string("settings.page.ring")
+        case .panel:return L10n.string("settings.page.subscription")
+        case .api:return L10n.string("settings.page.api")
+        case .alerts:return L10n.string("settings.page.alerts")
+        case .about:return L10n.string("settings.page.about")
         }
     }
     var icon:String {
@@ -91,6 +93,8 @@ private enum SettingsPage:String,CaseIterable,Identifiable {
     }
 }
 
+// Native picker items are cached by SwiftUI. Recreate only the pickers when
+// the language changes, preserving the page selection and unsaved API fields.
 private struct RingSettingsView:View {
     @ObservedObject var model:SettingsModel
     let onDone:()->Void
@@ -109,7 +113,7 @@ private struct RingSettingsView:View {
                         Text(page.title).font(.system(size:13,weight:.medium)).foregroundStyle(.primary)
                     }.padding(.vertical,4).tag(page)
                 }.listStyle(.sidebar).scrollContentBackground(.hidden)
-                    .accessibilityLabel("设置分类")
+                    .accessibilityLabel(L10n.string("settings.sidebar.a11y"))
             }.frame(width:184).background(Color.primary.opacity(0.025))
             Divider()
             VStack(alignment:.leading,spacing:0) {
@@ -130,13 +134,14 @@ private struct RingSettingsView:View {
                 Divider()
                 HStack {
                     Spacer()
-                    Button("完成",action:onDone).keyboardShortcut(.defaultAction)
+                    Button(L10n.string("common.done"),action:onDone).keyboardShortcut(.defaultAction)
                 }.padding(.horizontal,24).padding(.vertical,14)
             }.frame(maxWidth:.infinity,maxHeight:.infinity)
         }.frame(minWidth:720,minHeight:520)
             .background(Color(nsColor:.windowBackgroundColor))
             .toggleStyle(.switch)
             .preferredColorScheme(colorScheme)
+            .environment(\.locale,Locale(identifier:L10n.language.code))
             .onChange(of:selected) { value in if value == nil { selected = .general } }
     }
     @ViewBuilder private func settingsPane(_ page:SettingsPage)->some View {
@@ -145,9 +150,9 @@ private struct RingSettingsView:View {
                 Image(nsImage:NSApp.applicationIconImage).resizable().scaledToFit()
                     .frame(width:88,height:88).contentShape(Rectangle())
                     .onTapGesture(count:5) { model.onOpenDebug?() }
-                    .accessibilityLabel("CodexRing 图标")
+                    .accessibilityLabel(L10n.string("about.icon.a11y"))
                 Text("CodexRing").font(.system(size:26,weight:.semibold))
-                Text("版本 "+(Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "开发版本"))
+                Text(RingAboutWindow.versionText)
                     .font(.body).foregroundStyle(.secondary)
             }.frame(maxWidth:.infinity,maxHeight:.infinity)
         } else {
@@ -155,10 +160,11 @@ private struct RingSettingsView:View {
                 switch page {
                 case .general:
                     generalSection
-                    Section("刷新") {
-                        Picker("刷新间隔",selection:$model.preferences.refreshInterval) {
+                    languageSection
+                    Section(L10n.string("settings.refresh.section")) {
+                        Picker(L10n.string("settings.refresh.interval"),selection:$model.preferences.refreshInterval) {
                             ForEach(RefreshInterval.allCases,id:\.rawValue) { Text($0.title).tag($0) }
-                        }.pickerStyle(.menu)
+                        }.pickerStyle(.menu).id("refresh-interval."+L10n.language.code)
                     }
                     quotaStatusSection
                 case .appearance:appearanceSection
@@ -173,55 +179,67 @@ private struct RingSettingsView:View {
             }.formStyle(.grouped).scrollContentBackground(.hidden)
         }
     }
+    private var languageSection:some View {
+        Section(L10n.string("settings.language.section")) {
+            Picker(L10n.string("settings.language.picker"),selection:$model.preferences.languageCode) {
+                Text(L10n.string("settings.language.system")).tag(Optional<String>.none)
+                ForEach(AppLanguage.supported) { language in Text(language.displayName).tag(Optional(language.code)) }
+            }.pickerStyle(.menu).id("interface-language."+L10n.language.code)
+                .help(L10n.string("settings.language.help"))
+        }
+    }
     private var appearanceSection:some View {
-        Section("外观与菜单栏") {
-            Toggle("菜单栏显示额度",isOn:$model.preferences.showMenuBar)
-                .help("按圆环分类中勾选的本周、5小时额度显示百分比，双选时用 | 分隔；点击打开额度进度面板。")
-            Picker("显示项",selection:$model.preferences.metric) {
-                Text("剩余").tag(DisplayMetric.remaining);Text("已用").tag(DisplayMetric.used)
-            }.pickerStyle(.segmented)
-                .accessibilityHint("已用从顶部顺时针，剩余从顶部逆时针；颜色按实际已用比例的70%、80%、90%变化。")
-            Picker("主题",selection:$model.preferences.theme) {
+        Section(L10n.string("settings.appearance.section")) {
+            Toggle(L10n.string("settings.menuBar.toggle"),isOn:$model.preferences.showMenuBar)
+                .help(L10n.string("settings.menuBar.help"))
+            Picker(L10n.string("settings.metric.picker"),selection:$model.preferences.metric) {
+                Text(L10n.string("settings.metric.remaining")).tag(DisplayMetric.remaining)
+                Text(L10n.string("settings.metric.used")).tag(DisplayMetric.used)
+            }.pickerStyle(.segmented).id("display-metric."+L10n.language.code)
+                .accessibilityHint(L10n.string("settings.metric.hint"))
+            Picker(L10n.string("settings.theme.picker"),selection:$model.preferences.theme) {
                 ForEach(ThemePreference.allCases,id:\.rawValue) { Text($0.title).tag($0) }
-            }.pickerStyle(.menu)
+            }.pickerStyle(.menu).id("theme."+L10n.language.code)
         }
     }
     private var quotaPanelSection:some View {
-        Section("进度与重置") {
-            Toggle("显示用量节奏",isOn:$model.preferences.quotaPanel.showPace)
-                .help("显示红／绿进度标记、超额／余量和预计耗尽时间。")
-            Picker("每周工作日",selection:$model.preferences.quotaPanel.weeklySchedule) {
+        Section(L10n.string("settings.panel.section")) {
+            Toggle(L10n.string("settings.panel.pace"),isOn:$model.preferences.quotaPanel.showPace)
+                .help(L10n.string("settings.panel.pace.help"))
+            Picker(L10n.string("settings.panel.workDays"),selection:$model.preferences.quotaPanel.weeklySchedule) {
                 ForEach(WeeklyPaceSchedule.allCases,id:\.rawValue) { Text($0.title).tag($0) }
-            }.pickerStyle(.menu)
-                .help("4／5／6天从周一起计算，按系统时区划分；用于本周节奏和耗尽预测。自动按完整7天计算，不显示每日刻度。5小时额度不受影响。")
-            Picker("周期刻度外观",selection:$model.preferences.quotaPanel.tickStyle) {
+            }.pickerStyle(.menu).id("workdays."+L10n.language.code)
+                .help(L10n.string("settings.panel.workDays.help"))
+            Picker(L10n.string("settings.panel.ticks"),selection:$model.preferences.quotaPanel.tickStyle) {
                 ForEach(QuotaTickStyle.allCases,id:\.rawValue) { Text($0.title).tag($0) }
-            }.pickerStyle(.menu)
-                .help("控制每周工作日及5小时额度的小时刻度。隐藏刻度不会停止节奏预测。")
-            Picker("重置时间",selection:$model.preferences.quotaPanel.resetStyle) {
+            }.pickerStyle(.menu).id("tick-style."+L10n.language.code)
+                .help(L10n.string("settings.panel.ticks.help"))
+            Picker(L10n.string("settings.panel.resetStyle"),selection:$model.preferences.quotaPanel.resetStyle) {
                 ForEach(QuotaResetStyle.allCases,id:\.rawValue) { Text($0.title).tag($0) }
-            }.pickerStyle(.segmented)
+            }.pickerStyle(.segmented).id("reset-style."+L10n.language.code)
         }
     }
     private var ringSection:some View {
-        Section("额度与行为") {
+        Section(L10n.string("settings.ring.section")) {
             quotaControls
-            Picker("圆圈大小",selection:$model.preferences.size) {
-                Text("小号 · 26 点").tag(RingSize.avatar);Text("紧凑 · 32 点").tag(RingSize.tiny)
-                Text("中号 · 56 点").tag(RingSize.small);Text("标准 · 64 点").tag(RingSize.compact);Text("大号 · 76 点").tag(RingSize.large)
-            }.pickerStyle(.menu)
-                .accessibilityHint("26和32点只显示数字，表示所选百分比。无有效数据时显示横线。")
-            Toggle("贴边自动隐藏",isOn:$model.preferences.autoHide)
-                .help("自由移动时贴近屏幕边缘自动收起；跟随 Codex 窗口时保持显示在窗口内。")
-            Toggle("展开与收起动画",isOn:$model.preferences.animations)
-            Toggle("跟随 Codex 移动",isOn:$model.preferences.followCodex)
+            Picker(L10n.string("settings.ring.size"),selection:$model.preferences.size) {
+                Text(L10n.string("settings.ring.size.avatar")).tag(RingSize.avatar);Text(L10n.string("settings.ring.size.tiny")).tag(RingSize.tiny)
+                Text(L10n.string("settings.ring.size.small")).tag(RingSize.small);Text(L10n.string("settings.ring.size.compact")).tag(RingSize.compact)
+                Text(L10n.string("settings.ring.size.large")).tag(RingSize.large)
+            }.pickerStyle(.menu).id("ring-size."+L10n.language.code)
+                .accessibilityHint(L10n.string("settings.ring.size.hint"))
+            Toggle(L10n.string("settings.ring.autoHide"),isOn:$model.preferences.autoHide)
+                .help(L10n.string("settings.ring.autoHide.help"))
+            Toggle(L10n.string("settings.ring.animations"),isOn:$model.preferences.animations)
+            Toggle(L10n.string("settings.ring.follow"),isOn:$model.preferences.followCodex)
                 .disabled(model.preferences.overlayCodexUsage)
-                .help("圆圈跟随 Codex 窗口，支持普通窗口和全屏；没有 Codex 窗口时恢复自由位置。")
+                .help(L10n.string("settings.ring.follow.help"))
             VStack(alignment:.leading,spacing:0) {
-                Toggle("覆盖 Codex 额度控件",isOn:$model.preferences.overlayCodexUsage)
-                    .help("自动缩为小号并覆盖头像上方的用量圆环；点击仍打开 Codex 用量菜单。关闭后恢复原来的大小和位置。")
-                valueRow("需要辅助功能权限",value:model.overlayAccessibilityGranted ? "已授权":"未授权")
-                    .help(model.overlayAuthorizationNotice ?? "开启覆盖功能需要辅助功能权限。授权后请重新开启覆盖。")
+                Toggle(L10n.string("settings.ring.overlay"),isOn:$model.preferences.overlayCodexUsage)
+                    .help(L10n.string("settings.ring.overlay.help"))
+                valueRow(L10n.string("settings.ring.overlay.permission"),
+                         value:model.overlayAccessibilityGranted ? L10n.string("permission.granted"):L10n.string("permission.denied"))
+                    .help(model.overlayAuthorizationNotice ?? L10n.string("settings.ring.overlay.permission.help"))
                     .padding(.leading,16)
                     .padding(.top,12)
                 if let notice=model.overlayAuthorizationNotice {
@@ -229,10 +247,10 @@ private struct RingSettingsView:View {
                         .fixedSize(horizontal:false,vertical:true)
                         .padding(.leading,16).padding(.top,8)
                 }
-                Button("辅助功能设置") { model.onOpenAccessibilitySettings?() }
+                Button(L10n.string("settings.ring.overlay.accessibilitySettings")) { model.onOpenAccessibilitySettings?() }
                     .padding(.leading,16).padding(.top,8)
                 if !model.overlayStatus.isEmpty {
-                    valueRow("覆盖状态",value:"暂不可用",warning:true)
+                    valueRow(L10n.string("settings.ring.overlay.status"),value:L10n.string("settings.ring.overlay.unavailable"),warning:true)
                         .help(model.overlayStatus)
                         .padding(.leading,16).padding(.top,8)
                 }
@@ -240,71 +258,72 @@ private struct RingSettingsView:View {
         }
     }
     @ViewBuilder private var quotaControls:some View {
-        Toggle("本周额度",isOn:Binding(get:{model.fiveHourSupport == false ? true:model.preferences.showWeek},set:{model.preferences.showWeek=$0}))
+        Toggle(QuotaPeriod.week.quotaName,isOn:Binding(get:{model.fiveHourSupport == false ? true:model.preferences.showWeek},set:{model.preferences.showWeek=$0}))
             .disabled(model.fiveHourSupport == false || (model.preferences.showWeek && !model.preferences.showFiveHours))
-        Toggle("5小时额度",isOn:Binding(get:{model.fiveHourSupport == false ? false:model.preferences.showFiveHours},set:{model.preferences.showFiveHours=$0}))
+        Toggle(QuotaPeriod.fiveHours.quotaName,isOn:Binding(get:{model.fiveHourSupport == false ? false:model.preferences.showFiveHours},set:{model.preferences.showFiveHours=$0}))
             .disabled(model.fiveHourSupport != true || (model.preferences.showFiveHours && !model.preferences.showWeek))
-            .accessibilityHint(model.fiveHourSupport == false ? "账户未提供5小时窗口。":"双圈时外圈本周、内圈5小时；中心数字可单独选择。")
+            .accessibilityHint(model.fiveHourSupport == false ? L10n.string("settings.ring.fiveHours.missing"):L10n.string("settings.ring.fiveHours.hint"))
         if model.composition.inner != nil {
-            Picker("中心数字",selection:Binding(get:{ model.preferences.automaticCenter ? "auto":model.preferences.centerPeriod.rawValue },set:{ value in
+            Picker(L10n.string("settings.ring.center"),selection:Binding(get:{ model.preferences.automaticCenter ? "auto":model.preferences.centerPeriod.rawValue },set:{ value in
                 var preferences=model.preferences
                 preferences.automaticCenter=value == "auto"
                 if let period=QuotaPeriod(rawValue:value) { preferences.centerPeriod=period }
                 model.preferences=preferences
             })) {
-                Text("本周").tag(QuotaPeriod.week.rawValue)
-                Text("5小时").tag(QuotaPeriod.fiveHours.rawValue)
-                Text("较低项").tag("auto")
-            }.pickerStyle(.segmented)
-                .help("较低项优先显示已耗尽或预计更早耗尽的额度；无法预测时显示剩余额度更低的一项。双圈和菜单栏仍分别显示两种额度。")
+                Text(QuotaPeriod.week.shortName).tag(QuotaPeriod.week.rawValue)
+                Text(QuotaPeriod.fiveHours.shortName).tag(QuotaPeriod.fiveHours.rawValue)
+                Text(L10n.string("settings.ring.center.lower")).tag("auto")
+            }.pickerStyle(.segmented).id("center-number."+L10n.language.code)
+                .help(L10n.string("settings.ring.center.help"))
         } else {
-            valueRow("中心数字",value:model.composition.centerPeriod == .week ? "本周额度（自动）":"5小时额度（自动）")
+            valueRow(L10n.string("settings.ring.center"),value:L10n.format("settings.ring.center.automatic",model.composition.centerPeriod.quotaName))
         }
     }
     private var alertsSection:some View {
-        Section("通知与彩带") {
+        Section(L10n.string("settings.alerts.section")) {
             VStack(alignment:.leading,spacing:0) {
-                Toggle("额度与重置卡通知",isOn:$model.preferences.alerts.enabled)
-                    .help("按刷新间隔检查真实额度；同一周期、同类事件只提醒一次。预测沿用每周工作日设置。")
-                valueRow("需要通知权限",value:model.notificationStatus)
-                    .help("开启提醒时申请通知权限；未授权时可在系统通知设置中允许 CodexRing。")
+                Toggle(L10n.string("settings.alerts.toggle"),isOn:$model.preferences.alerts.enabled)
+                    .help(L10n.string("settings.alerts.toggle.help"))
+                valueRow(L10n.string("settings.alerts.permission"),value:model.notificationStatus)
+                    .help(L10n.string("settings.alerts.permission.help"))
                     .padding(.leading,16).padding(.top,12)
-                Button("通知设置") { model.onNotificationSettings?() }
+                Button(L10n.string("settings.alerts.notificationSettings")) { model.onNotificationSettings?() }
                     .padding(.leading,16).padding(.top,8)
             }
             if model.preferences.alerts.enabled {
-                Toggle("剩余额度不足",isOn:$model.preferences.alerts.lowQuota)
+                Toggle(L10n.string("settings.alerts.low"),isOn:$model.preferences.alerts.lowQuota)
                 if model.preferences.alerts.lowQuota {
-                    Stepper("低于 \(model.preferences.alerts.remainingThreshold)%",value:$model.preferences.alerts.remainingThreshold,in:1...99,step:1).padding(.leading,16)
+                    Stepper(L10n.format("settings.alerts.low.threshold",model.preferences.alerts.remainingThreshold),value:$model.preferences.alerts.remainingThreshold,in:1...99,step:1).padding(.leading,16)
                 }
-                Toggle("预计即将耗尽",isOn:$model.preferences.alerts.predictedExhaustion)
+                Toggle(L10n.string("settings.alerts.prediction"),isOn:$model.preferences.alerts.predictedExhaustion)
                 if model.preferences.alerts.predictedExhaustion {
-                    Picker("提前提醒",selection:$model.preferences.alerts.predictionMinutes) {
-                        Text("15分钟").tag(15);Text("30分钟").tag(30);Text("1小时").tag(60);Text("2小时").tag(120)
-                    }.padding(.leading,16)
+                    Picker(L10n.string("settings.alerts.prediction.lead"),selection:$model.preferences.alerts.predictionMinutes) {
+                        Text(L10n.format("unit.minutes",15)).tag(15);Text(L10n.format("unit.minutes",30)).tag(30)
+                        Text(L10n.format("unit.hours",1)).tag(60);Text(L10n.format("unit.hours",2)).tag(120)
+                    }.id("alert-lead."+L10n.language.code).padding(.leading,16)
                 }
-                Toggle("额度恢复",isOn:$model.preferences.alerts.restored)
-                Toggle("重置卡即将到期",isOn:$model.preferences.alerts.resetCards)
+                Toggle(L10n.string("settings.alerts.restored"),isOn:$model.preferences.alerts.restored)
+                Toggle(L10n.string("alert.card.title"),isOn:$model.preferences.alerts.resetCards)
                 if model.preferences.alerts.resetCards {
-                    Stepper("提前 \(model.preferences.alerts.cardDays) 天",value:$model.preferences.alerts.cardDays,in:1...30).padding(.leading,16)
+                    Stepper(L10n.format("settings.alerts.card.days",model.preferences.alerts.cardDays),value:$model.preferences.alerts.cardDays,in:1...30).padding(.leading,16)
                 }
             }
-            Toggle("额度恢复时播放彩带",isOn:$model.preferences.resetConfetti)
-                .help("检测到额度重置或从耗尽恢复时播放；不会因打开应用或调试数值触发。遵守系统减少动态效果设置。")
+            Toggle(L10n.string("settings.alerts.confetti"),isOn:$model.preferences.resetConfetti)
+                .help(L10n.string("settings.alerts.confetti.help"))
             if model.preferences.resetConfetti {
-                Button("预览彩带") { model.onPreviewConfetti?() }
+                Button(L10n.string("settings.alerts.confetti.preview")) { model.onPreviewConfetti?() }
                     .padding(.leading,16)
             }
         }
     }
     private var generalSection:some View {
-        Section("启动") {
+        Section(L10n.string("settings.startup.section")) {
             VStack(alignment:.leading,spacing:0) {
-                Toggle("登录时启动",isOn:Binding(get:{model.launchAtLogin},set:{model.onLoginChange?($0)}))
-                valueRow("登录项状态",value:model.loginError == nil ? model.loginStatus:"设置失败")
-                    .help(model.loginError ?? "与系统登录项状态同步。")
+                Toggle(L10n.string("settings.startup.launchAtLogin"),isOn:Binding(get:{model.launchAtLogin},set:{model.onLoginChange?($0)}))
+                valueRow(L10n.string("settings.startup.status"),value:model.loginError == nil ? model.loginStatus:L10n.string("settings.startup.failed"))
+                    .help(model.loginError.map { L10n.format("settings.startup.failed.detail",$0) } ?? L10n.string("settings.startup.status.help"))
                     .padding(.leading,16).padding(.top,12)
-                Button("登录项设置") { model.onLoginSettings?() }
+                Button(L10n.string("settings.startup.loginItems")) { model.onLoginSettings?() }
                     .padding(.leading,16).padding(.top,8)
             }
         }
@@ -313,13 +332,13 @@ private struct RingSettingsView:View {
         if model.display.status != .available || model.pools.count>1 {
             Section {
                 if model.display.status != .available {
-                    valueRow("额度状态",value:model.display.subtitle)
+                    valueRow(L10n.string("settings.quota.status"),value:model.display.subtitle)
                 }
                 if model.pools.count>1 {
-                    Picker("额度池",selection:$model.preferences.bucketID) {
-                        Text("自动选择").tag(Optional<String>.none)
+                    Picker(L10n.string("settings.quota.pool"),selection:$model.preferences.bucketID) {
+                        Text(L10n.string("settings.quota.pool.automatic")).tag(Optional<String>.none)
                         ForEach(model.pools,id:\.poolID) { q in Text(q.label).tag(Optional(q.poolID)) }
-                    }.pickerStyle(.menu)
+                    }.pickerStyle(.menu).id("quota-pool."+L10n.language.code)
                 }
             }
         }

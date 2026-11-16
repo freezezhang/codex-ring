@@ -19,16 +19,15 @@ public struct OpenAIUsageSnapshot:Equatable {
     public let fetchedAt:Date
     public let periodStart:Date
     public let periodEnd:Date
-    public let budgetNotice:String?
+    public var budgetNotice:String? { budget == nil ? L10n.string("api.budgetMissing"):nil }
     public var usedPercent:Double? { budget.flatMap { $0>0 ? max(0,spent)/$0*100:nil } }
-    public init(spent:Double,budget:Double?,manualBudget:Bool,fetchedAt:Date,periodStart:Date,periodEnd:Date,budgetNotice:String?=nil) {
+    public init(spent:Double,budget:Double?,manualBudget:Bool,fetchedAt:Date,periodStart:Date,periodEnd:Date) {
         self.spent=spent;self.budget=budget;self.manualBudget=manualBudget;self.fetchedAt=fetchedAt
-        self.periodStart=periodStart;self.periodEnd=periodEnd;self.budgetNotice=budgetNotice
+        self.periodStart=periodStart;self.periodEnd=periodEnd
     }
     public func isCurrent(at now:Date)->Bool { now>=periodStart && now<periodEnd && now.timeIntervalSince(fetchedAt)<900 }
     public func withExpectedAmount(_ amount:Double?,manual:Bool)->Self {
-        Self(spent:spent,budget:amount,manualBudget:manual,fetchedAt:fetchedAt,periodStart:periodStart,periodEnd:periodEnd,
-             budgetNotice:amount == nil ? "未识别到总额度，请在设置中填写":nil)
+        Self(spent:spent,budget:amount,manualBudget:manual,fetchedAt:fetchedAt,periodStart:periodStart,periodEnd:periodEnd)
     }
     public static func money(_ value:Double)->String { String(format:"$%.2f",locale:Locale(identifier:"en_US_POSIX"),value) }
 }
@@ -37,13 +36,13 @@ public enum OpenAIUsageError:Error,LocalizedError {
     case authorization,permission,rateLimited,server,invalidResponse,invalidProject,incomplete
     public var errorDescription:String? {
         switch self {
-        case .authorization:return "Key 无效或已过期"
-        case .permission:return "需要有查询权限的 Admin API Key"
-        case .rateLimited:return "请求过于频繁，请稍后刷新"
-        case .server:return "OpenAI 服务暂不可用"
-        case .invalidResponse:return "费用数据格式异常"
-        case .invalidProject:return "项目 ID 格式不正确"
-        case .incomplete:return "费用数据不完整，请重新刷新"
+        case .authorization:return L10n.string("api.error.authorization")
+        case .permission:return L10n.string("api.error.permission")
+        case .rateLimited:return L10n.string("api.error.rateLimited")
+        case .server:return L10n.string("api.error.server")
+        case .invalidResponse:return L10n.string("api.error.invalidResponse")
+        case .invalidProject:return L10n.string("api.error.invalidProject")
+        case .incomplete:return L10n.string("api.error.incomplete")
         }
     }
 }
@@ -99,9 +98,8 @@ public struct OpenAIUsageClient {
         }
         guard total.isFinite else { throw OpenAIUsageError.invalidResponse }
         let budget=configuration.expectedAmount(plan:plan)
-        let notice:String?=budget == nil ? "未识别到总额度，请在设置中填写":nil
         try Task.checkCancellation()
-        return OpenAIUsageSnapshot(spent:total,budget:budget,manualBudget:configuration.manualBudget != nil,fetchedAt:now,periodStart:period.start,periodEnd:period.end,budgetNotice:notice)
+        return OpenAIUsageSnapshot(spent:total,budget:budget,manualBudget:configuration.manualBudget != nil,fetchedAt:now,periodStart:period.start,periodEnd:period.end)
     }
     private func request(_ path:String,query:[URLQueryItem]=[],key:String) async throws -> (Data,HTTPURLResponse) {
         var components=URLComponents(string:"https://api.openai.com/v1/"+path)!

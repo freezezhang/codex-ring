@@ -1,6 +1,7 @@
 import XCTest
 @testable import QuotaCore
 final class PeriodAndCardsTests:XCTestCase {
+    override func setUp() { super.setUp();L10n.apply(languageCode:"zh-Hans") }
     let now=Date(timeIntervalSince1970:1793700000)
     func payload(five:Bool=true,plan:String="pro")->[String:Any] {
         var bucket:[String:Any]=["planType":plan,"secondary":["usedPercent":91,"windowDurationMins":10080,"resetsAt":1793800000]]

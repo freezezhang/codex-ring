@@ -2,6 +2,7 @@ import XCTest
 @testable import QuotaCore
 
 final class CenterPeriodTests:XCTestCase {
+    override func setUp() { super.setUp();L10n.apply(languageCode:"zh-Hans") }
     let now=Date(timeIntervalSince1970:1793700000)
     func snapshot(expiredFiveHours:Bool=false)->QuotaSnapshot {
         QuotaSnapshot(source:.official,fetchedAt:now,quotas:[

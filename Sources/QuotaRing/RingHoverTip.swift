@@ -1,4 +1,5 @@
 import AppKit
+import QuotaCore
 
 /// A nonactivating hover card works even while Codex is the active application.
 /// It never intercepts the mouse or changes keyboard focus.
@@ -7,7 +8,6 @@ final class RingHoverTip {
     private let label=NSTextField(wrappingLabelWithString:"")
     init() {
         panel=NSPanel(contentRect:.zero,styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
-        panel.title="CodexRing 额度详情"
         panel.isOpaque=false;panel.backgroundColor = .clear;panel.hasShadow=true
         panel.hidesOnDeactivate=false;panel.ignoresMouseEvents=true;panel.isReleasedWhenClosed=false
         panel.level = .statusBar
@@ -23,6 +23,7 @@ final class RingHoverTip {
     var isVisible:Bool { panel.isVisible }
     func show(text:String,beside owner:NSWindow) {
         guard !text.isEmpty,owner.isVisible,owner.isOnActiveSpace else { hide();return }
+        panel.title=L10n.string("hover.windowTitle")
         let screen=owner.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? owner.frame
         let paragraph=NSMutableParagraphStyle();paragraph.lineSpacing=4
         let styled=NSMutableAttributedString(string:text,attributes:[.font:NSFont.systemFont(ofSize:12),.foregroundColor:NSColor.labelColor,.paragraphStyle:paragraph])

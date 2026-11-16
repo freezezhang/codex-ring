@@ -114,14 +114,14 @@ final class QuotaMenuBar:NSObject {
         if let event=NSApp.currentEvent,event.type == .rightMouseUp {
             close()
             let menu=NSMenu()
-            for (title,action) in [("刷新额度",#selector(refresh)),("设置…",#selector(settings))] {
+            for (title,action) in [(L10n.string("menu.refreshQuota"),#selector(refresh)),(L10n.string("menu.settings"),#selector(settings))] {
                 let entry=NSMenuItem(title:title,action:action,keyEquivalent:"");entry.target=self;menu.addItem(entry)
             }
             if model.preferences.overlayCodexUsage {
-                let entry=NSMenuItem(title:"关闭覆盖 Codex 额度",action:#selector(disableOverlay),keyEquivalent:"");entry.target=self;menu.addItem(entry)
+                let entry=NSMenuItem(title:L10n.string("menu.disableOverlay"),action:#selector(disableOverlay),keyEquivalent:"");entry.target=self;menu.addItem(entry)
             }
             menu.addItem(.separator())
-            let quit=NSMenuItem(title:"退出 CodexRing",action:#selector(quit),keyEquivalent:"");quit.target=self;menu.addItem(quit)
+            let quit=NSMenuItem(title:L10n.string("menu.quit"),action:#selector(quit),keyEquivalent:"");quit.target=self;menu.addItem(quit)
             NSMenu.popUpContextMenu(menu,with:event,for:button)
             return
         }
@@ -168,13 +168,13 @@ private struct QuotaMenuView:View {
                     model.apiUsage.refreshAccountPlan();refresh()
                 } label: {
                     Image(systemName:"arrow.clockwise").frame(width:28,height:28)
-                }.help("刷新额度与账号").accessibilityLabel("刷新额度与账号").disabled(model.isRefreshing)
+                }.help(L10n.string("panel.refresh")).accessibilityLabel(L10n.string("panel.refresh")).disabled(model.isRefreshing)
                 Button(action:settings) {
                     Image(systemName:"gearshape").frame(width:28,height:28)
-                }.help("设置").accessibilityLabel("设置")
+                }.help(L10n.string("common.settings")).accessibilityLabel(L10n.string("common.settings"))
                 Button(action:quit) {
                     Image(systemName:"power").frame(width:28,height:28)
-                }.help("退出 CodexRing").accessibilityLabel("退出 CodexRing")
+                }.help(L10n.string("menu.quit")).accessibilityLabel(L10n.string("menu.quit"))
             }.buttonStyle(.borderless).font(.system(size:14,weight:.medium)).padding(.horizontal,20).padding(.vertical,10)
         }.frame(width:320).fixedSize(horizontal:false,vertical:true)
             .preferredColorScheme(.dark)
@@ -185,7 +185,7 @@ private struct QuotaMenuView:View {
             VStack(alignment:.leading,spacing:12) {
                 QuotaSectionCard {
                     VStack(alignment:.leading,spacing:16) {
-                        Text("OpenAI 订阅").font(.system(size:15,weight:.bold))
+                        Text(L10n.string("panel.subscription")).font(.system(size:15,weight:.bold))
                         ForEach(data.rows) { row in quota(row) }
                         if data.showsResetCards {
                             Divider().overlay(Color.white.opacity(0.03))
@@ -221,7 +221,7 @@ private struct QuotaMenuView:View {
     private func cards(_ data:QuotaMenuPresentation,at now:Date)->some View {
         VStack(alignment:.leading,spacing:8) {
             HStack {
-                Text("重置卡").font(.system(size:12,weight:.medium)).foregroundStyle(.secondary)
+                Text(L10n.string("panel.resetCards")).font(.system(size:12,weight:.medium)).foregroundStyle(.secondary)
                 Spacer()
                 Text(data.cardsSummary).font(.system(size:11)).foregroundStyle(.secondary)
             }
@@ -246,8 +246,8 @@ private struct QuotaMenuView:View {
             Image(systemName:"clock").foregroundStyle(color ?? .secondary)
             Text(text).font(.system(size:12)).monospacedDigit().foregroundStyle(color ?? .secondary)
             Spacer(minLength:0)
-        }.help("到期时间："+row.text)
-            .accessibilityElement(children:.ignore).accessibilityLabel("重置卡："+text)
+        }.help(L10n.format("panel.card.help",row.text))
+            .accessibilityElement(children:.ignore).accessibilityLabel(L10n.format("panel.card.a11y",text))
     }
     @ViewBuilder private func quota(_ row:QuotaMenuRow)->some View {
         if model.menuPanelVisible && (row.panel.showPace || row.panel.resetStyle == .countdown) {
@@ -277,7 +277,7 @@ private struct QuotaMenuView:View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal:false,vertical:true)
                     .help(pace.explanation)
-                    .accessibilityLabel(pace.summary+"。"+pace.explanation)
+                    .accessibilityLabel(L10n.format("panel.pace.a11y",pace.summary,pace.explanation))
             }
         }
     }
@@ -290,24 +290,24 @@ private struct QuotaMenuHeader:View {
         VStack(spacing:8) {
             HStack(alignment:.lastTextBaseline,spacing:12) {
                 HStack(alignment:.lastTextBaseline,spacing:6) {
-                    Text("账号").font(.system(size:15,weight:.bold))
+                    Text(L10n.string("panel.account")).font(.system(size:15,weight:.bold))
                     if model.menuPresentation?.isDebug == true {
-                        Text("调试").font(.caption).foregroundStyle(.orange)
+                        Text(L10n.string("debug.badge")).font(.caption).foregroundStyle(.orange)
                     }
                 }.fixedSize(horizontal:true,vertical:false)
                 Spacer(minLength:0)
-                Text(account.accountEmail ?? (account.planRefreshing ? "正在读取账号…":"账号未提供"))
+                Text(account.accountEmail ?? (account.planRefreshing ? L10n.string("panel.account.loading"):L10n.string("panel.account.missing")))
                     .font(.system(size:15,weight:.medium)).lineLimit(1).truncationMode(.middle)
-                    .help(account.accountEmail ?? "读取当前 Codex 登录账号")
-                    .accessibilityLabel("用户账号："+(account.accountEmail ?? "未提供"))
+                    .help(account.accountEmail ?? L10n.string("panel.account.help"))
+                    .accessibilityLabel(L10n.format("panel.account.a11y",account.accountEmail ?? L10n.string("common.notProvided")))
             }
             HStack(alignment:.lastTextBaseline,spacing:12) {
-                Text(model.isRefreshing ? "正在刷新…":model.menuPresentation?.updatedText ?? "尚未刷新")
+                Text(model.isRefreshing ? L10n.string("common.refreshing"):model.menuPresentation?.updatedText ?? L10n.string("common.neverRefreshed"))
                     .font(.system(size:11)).foregroundStyle(.secondary).monospacedDigit()
                 Spacer(minLength:0)
-                Text(account.accountPlan?.title ?? "订阅类型未提供")
+                Text(account.accountPlan?.title ?? L10n.string("panel.plan.missing"))
                     .font(.system(size:12,weight:.medium)).foregroundStyle(.secondary).lineLimit(1)
-                    .accessibilityLabel("订阅类型："+(account.accountPlan?.title ?? "未提供"))
+                    .accessibilityLabel(L10n.format("panel.plan.a11y",account.accountPlan?.title ?? L10n.string("common.notProvided")))
             }
         }
     }
@@ -347,15 +347,16 @@ struct QuotaProgressBar:View {
                 }
             }.clipShape(Capsule())
         }.frame(height:7).accessibilityElement(children:.ignore)
-            .accessibilityLabel(row.title+row.metric.shortTitle+"额度")
-            .accessibilityValue(row.used == nil ? row.statusText:row.progressText+(pace.map { "，"+$0.summary } ?? ""))
+            .accessibilityLabel(quotaName)
+            .accessibilityValue(row.used == nil ? row.statusText:pace.map { L10n.format("panel.bar.value",row.progressText,$0.summary) } ?? row.progressText)
             .help(markerHelp)
     }
+    private var quotaName:String { L10n.format("panel.bar.a11y",row.title,row.metric.title) }
     private var markerHelp:String {
         var items:[String]=[]
-        if !row.divisionMarkers.isEmpty { items.append(row.period == .week ? "细刻度按每周工作日划分":"细刻度为每小时进度") }
-        if pace?.markerPercent != nil { items.append("红／绿标记为当前时间的均匀用量进度") }
-        return items.isEmpty ? row.title+row.metric.shortTitle+"额度":items.joined(separator:"；")+"。"
+        if !row.divisionMarkers.isEmpty { items.append(row.period == .week ? L10n.string("panel.ticks.week"):L10n.string("panel.ticks.fiveHours")) }
+        if pace?.markerPercent != nil { items.append(L10n.string("panel.ticks.pace")) }
+        return items.isEmpty ? quotaName:items.joined(separator:L10n.string("punctuation.listSeparator"))+L10n.string("punctuation.sentenceEnd")
     }
     private func barColor(_ band:UsageBand?)->Color {
         switch band {

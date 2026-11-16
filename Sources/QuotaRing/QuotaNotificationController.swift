@@ -24,9 +24,9 @@ final class QuotaNotificationController:NSObject,UNUserNotificationCenterDelegat
                 self.allowed=settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
                 let text:String
                 switch settings.authorizationStatus {
-                case .authorized,.provisional:text="已授权"
-                case .denied:text="未授权"
-                default:text="未申请"
+                case .authorized,.provisional:text=L10n.string("permission.granted")
+                case .denied:text=L10n.string("permission.denied")
+                default:text=L10n.string("permission.notRequested")
                 }
                 self.onStatus?(text)
             }
@@ -35,7 +35,7 @@ final class QuotaNotificationController:NSObject,UNUserNotificationCenterDelegat
     func requestPermission() {
         center.requestAuthorization(options:[.alert,.sound]) { [weak self] _,error in
             DispatchQueue.main.async {
-                if error != nil { self?.onStatus?("授权失败") }
+                if error != nil { self?.onStatus?(L10n.string("permission.requestFailed")) }
                 else { self?.refreshStatus() }
             }
         }
@@ -48,7 +48,7 @@ final class QuotaNotificationController:NSObject,UNUserNotificationCenterDelegat
             let content=UNMutableNotificationContent()
             content.title=alert.title;content.body=alert.body;content.sound = .default
             center.add(UNNotificationRequest(identifier:alert.key,content:content,trigger:nil)) { [weak self] error in
-                if error != nil { DispatchQueue.main.async { self?.onStatus?("发送失败") } }
+                if error != nil { DispatchQueue.main.async { self?.onStatus?(L10n.string("notification.sendFailed")) } }
             }
         }
         if result.celebrate { onCelebrate?() }
