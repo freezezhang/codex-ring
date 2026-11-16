@@ -1,10 +1,10 @@
 import Foundation
 import CoreFoundation
 
-public enum QuotaSource: String { case official, disconnected }
+public enum QuotaSource: String { case official, disconnected, debug }
 public enum QuotaFailure: String, Error { case unavailable, connection, timeout, protocolError, missingCLI }
 public enum DisplayStatus: String { case loading, available, unavailable, stale, expired, connection, timeout, protocolError, missingCLI }
-public enum QuotaPeriod:String,CaseIterable { case week,fiveHours
+public enum QuotaPeriod:String,Codable,CaseIterable { case week,fiveHours
     public var title:String { self == .week ? "1周":"5小时" }
 }
 public struct WeeklyQuota: Equatable {
@@ -35,6 +35,7 @@ public struct QuotaDisplay {
     }
     public var subtitle: String {
         if source == .disconnected { return "查询已暂停" }
+        if source == .debug { return "调试模式" }
         switch status {
         case .loading: return "正在读取真实额度"
         case .available: return "额度已更新"
@@ -62,6 +63,13 @@ public struct QuotaSnapshot {
         self.capabilitiesKnown=capabilitiesKnown ?? !quotas.isEmpty
         self.resetCards=resetCards
     }
+    public func selectedPoolID(_ selectedID:String?)->String? {
+        if let selectedID {
+            return selectedID.hasSuffix("/primary") || selectedID.hasSuffix("/secondary")
+                ? selectedID.split(separator:"/").dropLast().joined(separator:"/"):selectedID
+        }
+        return quotas.first(where:{$0.poolID == "codex"})?.poolID ?? quotas.map(\.poolID).sorted().first
+    }
     public func display(selectedID: String? = nil,period:QuotaPeriod = .week, now: Date = Date()) -> QuotaDisplay {
         let candidates=quotas.filter { $0.period == period }
         let selectedPool=selectedID.map { id in id.hasSuffix("/primary") || id.hasSuffix("/secondary") ? id.split(separator:"/").dropLast().joined(separator:"/"):id }
@@ -71,8 +79,8 @@ public struct QuotaSnapshot {
         var status: DisplayStatus = .available
         if loading { status = .loading }
         else if let failure { status = DisplayStatus(rawValue: failure.rawValue) ?? .unavailable }
-        else if now.timeIntervalSince(fetchedAt) > 300 || fetchedAt.timeIntervalSince(now) > 60 { status = .stale }
-        else if let reset = quota?.resetsAt, reset <= now { status = .expired }
+        else if source != .debug && (now.timeIntervalSince(fetchedAt) > 300 || fetchedAt.timeIntervalSince(now) > 60) { status = .stale }
+        else if source != .debug, let reset = quota?.resetsAt, reset <= now { status = .expired }
         else if quota?.remaining == nil { status = .unavailable }
         return QuotaDisplay(status: status, remaining: status == .available ? quota?.remaining : nil,
                             quota: quota, fetchedAt: fetchedAt, source: source)

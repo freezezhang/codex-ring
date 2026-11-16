@@ -13,6 +13,15 @@ public enum Docking {
         CGRect(x: min(max(frame.minX, screen.minX), screen.maxX - frame.width),
                y: min(max(frame.minY, screen.minY), screen.maxY - frame.height), width: frame.width, height: frame.height)
     }
+    public static func relocated(_ frame:CGRect,from source:CGRect,to target:CGRect)->CGRect {
+        if source == target { return clamped(frame,to:target) }
+        guard source.width>0,source.height>0 else { return clamped(frame,to:target) }
+        let x=min(1,max(0,(frame.midX-source.minX)/source.width))
+        let y=min(1,max(0,(frame.midY-source.minY)/source.height))
+        return clamped(CGRect(x:target.minX+target.width*x-frame.width/2,
+                              y:target.minY+target.height*y-frame.height/2,
+                              width:frame.width,height:frame.height),to:target)
+    }
     public static func nearestEdge(_ frame: CGRect, screen: CGRect, threshold: CGFloat = 16) -> DockEdge? {
         let distances: [(DockEdge, CGFloat)] = [(.left, abs(frame.minX - screen.minX)), (.right, abs(frame.maxX - screen.maxX)),
                                                (.top, abs(frame.maxY - screen.maxY)), (.bottom, abs(frame.minY - screen.minY))]

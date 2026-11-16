@@ -53,11 +53,11 @@ final class PeriodAndCardsTests:XCTestCase {
         let p=try JSONDecoder().decode(RingPreferences.self,from:Data("{\"showWeek\":false,\"showFiveHours\":false}".utf8))
         XCTAssertTrue(p.showWeek)
     }
-    func testMenuStartsWithRefreshThenCheckedPinAndSettings() {
+    func testMenuStartsWithRefreshPinResetAndSettings() {
         var p=RingPreferences()
-        XCTAssertEqual(RingMenuSpec.entries(for:p),[.refresh,.positionLock(checked:false),.settings,.quit])
+        XCTAssertEqual(RingMenuSpec.entries(for:p),[.refresh,.positionLock(locked:false),.reset,.settings,.quit])
         p.positionLocked=true
-        XCTAssertEqual(RingMenuSpec.entries(for:p),[.refresh,.positionLock(checked:true),.settings,.quit])
+        XCTAssertEqual(RingMenuSpec.entries(for:p),[.refresh,.positionLock(locked:true),.reset,.settings,.quit])
     }
     func testRefreshPeriodAndSelectionsPersist() throws {
         let name="local.freeze.quota-tests.\(UUID().uuidString)",defaults=try XCTUnwrap(UserDefaults(suiteName:name))

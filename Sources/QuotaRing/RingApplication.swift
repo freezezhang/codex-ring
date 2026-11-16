@@ -1,13 +1,49 @@
 import AppKit
+import ApplicationServices
 import QuotaCore
 
-final class RingApplication: NSObject, NSApplicationDelegate {
+final class RingApplication: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    private struct PanelLayout {
+        var expandedFrame:NSRect?
+        var edge:DockEdge?
+        var screen:NSRect?
+        var tucked=false
+    }
     private var panel: NSPanel!
+    private var desktopPanel:NSPanel!
+    private var desktopAnchorEstablished=false
+    private var fullscreenPanel:NSPanel?
+    private var codexPanel:NSPanel?
+    private let codexMonitor:CodexWindowMonitor
+    private var codexAction:CodexFollowAction = .free
+    private var codexTarget:CodexFollowWindow?
+    private var overlayAccessibilityGranted=false
+    private var overlayStatusItem:NSStatusItem?
+    private var activeContextMenu:NSMenu?
+    private var overlayActive:Bool { preferences.overlayCodexUsage && overlayAccessibilityGranted }
+    private var trackingCodex:Bool { preferences.followCodex || overlayActive }
+    private var followingCodex:Bool { panel != nil && panel === codexPanel }
+    private var desktopLayout=PanelLayout(),fullscreenLayout=PanelLayout()
+    private var spacePresentation=RingSpacePresentation()
+    private var presentationObservation:NSKeyValueObservation?
+    private var spaceRevision=0
+    private var spaceChangedAt=Date.distantPast
+    private var fullscreenScreen:NSScreen?
+    private var fullscreenEvidence="无"
+    private var lastSpaceDiagnostic=""
+    private var showingFullscreen:Bool { panel != nil && panel === fullscreenPanel }
+    // Only the temporary fullscreen surface joins Spaces. The desktop anchor
+    // remains managed and bound to its original Space.
+    private var fullscreenBehavior:NSWindow.CollectionBehavior { [.canJoinAllSpaces,.fullScreenAuxiliary,.canJoinAllApplications,.ignoresCycle] }
     private var ring: RingView!
     private var material: NSVisualEffectView!
-    private let store = PreferencesStore()
+    private let store:PreferencesStore
+    private let automaticRefresh:Bool
     private var preferences = RingPreferences()
     private var settings: RingSettingsWindow?
+    private var debugWindow:RingDebugWindow?
+    private var debugState=QuotaDebugState()
+    private var lastRefreshedAt:Date?
     private var model: SettingsModel!
     private var snapshot = QuotaSnapshot(source: .official, fetchedAt: Date(), loading: true)
     private var source: QuotaSource = .official
@@ -19,26 +55,43 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private var isTucked = false, isDragging = false, fetching = false
     private var generation = 0
     private var capabilities=QuotaCapabilities()
-    private var fiveHourSupport:Bool? { capabilities.support(for:preferences.bucketID) }
+    private var fiveHourSupport:Bool? { debugState.isEnabled ? true:capabilities.support(for:preferences.bucketID) }
+    private var displaySnapshot:QuotaSnapshot { debugState.snapshot(live:snapshot,selectedID:preferences.bucketID) }
+    private var details:QuotaDetailsPresentation {
+        QuotaDetailsPresentation(snapshot:displaySnapshot,metadataSnapshot:snapshot,preferences:preferences,
+                                 fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt)
+    }
     private let client = AppServerClient()
-    private var circleSize: CGFloat { CGFloat(preferences.size.rawValue) }
+    private var circleSize: CGFloat { overlayActive ? 26:CGFloat(preferences.size.rawValue) }
+
+    init(store:PreferencesStore = PreferencesStore(),codexMonitor:CodexWindowMonitor = CodexWindowMonitor(),automaticRefresh:Bool = true) {
+        self.store=store;self.codexMonitor=codexMonitor;self.automaticRefresh=automaticRefresh;super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         preferences = store.load()
+        overlayAccessibilityGranted=AXIsProcessTrusted()
         applyTheme()
         model = SettingsModel(preferences: preferences)
         model.onPreferences = { [weak self] in self?.applyPreferences($0) }
         model.onRestore = { [weak self] in self?.restore() }
         model.onDiagnostics = { [weak self] in self?.redraw() }
-        let fallback = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        model.onDebugState = { [weak self] in self?.applyDebugState($0) }
+        model.onOpenDebug = { [weak self] in self?.openDebug() }
+        model.onOpenAccessibilitySettings = { [weak self] in self?.openAccessibilitySettings() }
+        let fallback = NSScreen.screens.first?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         let position = preferences.position.map { NSPoint(x: $0.x, y: $0.y) }
         let screen = position.flatMap { p in NSScreen.screens.first(where: { $0.frame.contains(p) })?.visibleFrame } ?? fallback
-        let initial = NSRect(x: position?.x ?? screen.maxX - circleSize - 24,
-                             y: position?.y ?? screen.maxY - circleSize - 40, width: circleSize, height: circleSize)
+        let normalSize=CGFloat(preferences.size.rawValue)
+        let initial = NSRect(x: position?.x ?? screen.maxX - normalSize - 24,
+                             y: position?.y ?? screen.maxY - normalSize - 40, width: normalSize, height: normalSize)
         panel = NSPanel(contentRect: Docking.clamped(initial, to: screen), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        desktopPanel=panel
         panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
         panel.level = .floating; panel.hidesOnDeactivate = false; panel.isReleasedWhenClosed = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .canJoinAllApplications, .stationary, .ignoresCycle]
+        // Belong to the desktop where the panel is opened and participate in its
+        // native transitions. Position locking only affects dragging.
+        panel.collectionBehavior = [.managed, .ignoresCycle, .fullScreenNone]
         panel.animationBehavior = .none
         let container = NSView(frame: NSRect(origin: .zero, size: panel.frame.size))
         container.wantsLayer = true; container.layer?.masksToBounds = true
@@ -50,18 +103,61 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         ring.onDragEnd = { [weak self] in self?.finishDrag() }
         ring.onEnter = { [weak self] in self?.reveal() }
         ring.onExit = { [weak self] in self?.scheduleHide() }
-        ring.onClick = { [weak self] in self?.openSettings() }
-        ring.onMenu = { [weak self] in self?.showMenu() }
+        ring.onClick = { [weak self] in self?.handleRingClick() }
+        ring.onMenu = { [weak self] event in self?.showMenu(event:event) }
+        ring.constrainDragOrigin = { [weak self] origin in
+            guard let self,self.followingCodex,let area=self.codexArea else { return origin }
+            return Docking.clamped(NSRect(origin:origin,size:self.panel.frame.size),to:area).origin
+        }
         material.addSubview(ring); container.addSubview(material); panel.contentView = container
-        panel.orderFrontRegardless(); redraw()
-        configureRefreshTimer()
-        clockTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.redraw() }
+        let front=NSWorkspace.shared.frontmostApplication
+        let anchorScreen=NSScreen.screens.first(where:{$0.frame.contains(NSPoint(x:panel.frame.midX,y:panel.frame.midY))})
+        let startsInFullscreen=front.map { fullscreenDisplay(for:$0.processIdentifier) != nil } == true
+            || NSApp.currentSystemPresentationOptions.contains(.fullScreen)
+            || anchorScreen.map { fullscreenDisplay(for:nil,on:$0) != nil } == true
+        desktopAnchorEstablished = !startsInFullscreen
+        if desktopAnchorEstablished && !overlayActive { panel.orderFrontRegardless() }
+        redraw()
+        if automaticRefresh { configureRefreshTimer() }
+        // Also recover if an app changes its fullscreen geometry without a
+        // presentation-options notification (notably native fullscreen).
+        clockTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.synchronizeSpace() }
         NotificationCenter.default.addObserver(self, selector: #selector(screenChanged), name: NSApplication.didChangeScreenParametersNotification, object: nil)
-        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(statusChanged), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(actualSpaceChanged), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(spaceChanged), name: NSWorkspace.didActivateApplicationNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(statusChanged), name: NSWindow.didChangeOcclusionStateNotification, object: panel)
-        refresh()
+        presentationObservation=NSApp.observe(\.currentSystemPresentationOptions,options:[.new]) { [weak self] _,_ in
+            DispatchQueue.main.async { self?.spaceChanged() }
+        }
+        codexMonitor.onChange = { [weak self] snapshot in
+            guard let self,self.trackingCodex else { return }
+            switch snapshot {
+            case .unavailable:
+                if !self.overlayActive { return }
+                self.codexAction = .hidden
+            case .waiting:self.codexAction = .hidden
+            case .basicWindows(let windows,_):
+                self.codexAction=CodexFollow.action(enabled:true,windows:windows)
+            case .windows(let windows,_):
+                self.codexAction=CodexFollow.action(enabled:true,windows:windows)
+            }
+            self.synchronizeSpace()
+        }
+        codexMonitor.onAccessibilityChange = { [weak self] trusted in
+            guard let self,self.overlayAccessibilityGranted != trusted else { return }
+            self.overlayAccessibilityGranted=trusted
+            self.codexAction = self.overlayActive ? .hidden:.free
+            self.resizeCircle();self.synchronizeSpace();self.redraw()
+        }
+        codexMonitor.tracksUsageControl=preferences.overlayCodexUsage
+        updateOverlayStatusItem()
+        if preferences.followCodex || preferences.overlayCodexUsage { codexMonitor.start() }
+        spaceChanged()
+        if automaticRefresh { refresh() }
     }
     func applicationWillTerminate(_ notification: Notification) {
+        spaceRevision += 1;presentationObservation=nil
+        codexMonitor.stop()
         savePosition(); refreshTimer?.invalidate(); clockTimer?.invalidate(); hideWork?.cancel(); client.cancel()
     }
     private var screenFrame: NSRect {
@@ -71,48 +167,344 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private func dateText(_ date: Date?) -> String {
         QuotaDateText.string(date)
     }
-    @objc private func statusChanged() { if panel != nil { redraw() } }
+    @objc private func statusChanged() {
+        if panel != nil {
+            if !panel.isVisible || !panel.isOnActiveSpace || !panel.occlusionState.contains(.visible) { ring?.dismissHover() }
+            redraw()
+        }
+    }
+    @objc private func actualSpaceChanged() {
+        activeContextMenu?.cancelTracking()
+        activeContextMenu=nil
+        spaceChanged()
+    }
+    @objc private func spaceChanged() {
+        // A context menu can change app activation. Keep its source panel in
+        // place throughout tracking; an actual Space change still dismisses it.
+        guard activeContextMenu == nil else { return }
+        ring?.dismissHover()
+        hideWork?.cancel()
+        guard panel != nil else { return }
+        if trackingCodex {
+            // Never let the all-Spaces overlay flash over an unrelated desktop
+            // while the next read-only window sample is still in flight.
+            if followingCodex { isDragging=false;codexPanel?.orderOut(nil);codexAction = .hidden }
+            codexMonitor.invalidate()
+        }
+        spaceRevision += 1;let revision=spaceRevision
+        spaceChangedAt=Date()
+        // The active app's presentation options may settle after the Space
+        // notification. Recheck briefly without polling or changing other apps.
+        for delay in [0.15,0.65,1.2,2.5] {
+            DispatchQueue.main.asyncAfter(deadline:.now()+delay) { [weak self] in
+                guard let self,self.spaceRevision == revision else { return }
+                self.synchronizeSpace()
+            }
+        }
+        redraw()
+    }
+    private func synchronizeSpace() {
+        guard activeContextMenu == nil else { return }
+        if trackingCodex {
+            switch codexAction {
+            case .attach(let target):showCodex(target);redraw();return
+            case .hidden:
+                beginCodexFollow(frame:expandedFrame ?? panel.frame)
+                codexPanel?.orderOut(nil);redraw();return
+            case .free:
+                if overlayActive {
+                    beginCodexFollow(frame:expandedFrame ?? panel.frame)
+                    codexPanel?.orderOut(nil);redraw();return
+                }
+                break
+            }
+        }
+        if followingCodex { endCodexFollow() }
+        guard let front=NSWorkspace.shared.frontmostApplication else { return }
+        let ownAppIsActive=front.processIdentifier == ProcessInfo.processInfo.processIdentifier
+        let presentationIsFullscreen=NSApp.currentSystemPresentationOptions.contains(.fullScreen)
+        if !ownAppIsActive {
+            // currentSystemPresentationOptions can remain empty for another
+            // app's native fullscreen window. Inspect only public window bounds
+            // for the foreground PID; never capture images or read window titles.
+            fullscreenScreen=fullscreenDisplay(for:front.processIdentifier)
+            fullscreenEvidence=fullscreenScreen != nil ? "窗口覆盖屏幕":(presentationIsFullscreen ? "系统全屏标志":"无")
+            if fullscreenScreen == nil,presentationIsFullscreen {
+                fullscreenScreen=NSScreen.screens.first(where:{$0.frame.contains(NSEvent.mouseLocation)}) ?? NSScreen.main
+            }
+        }
+        let surface=spacePresentation.observe(systemIsFullscreen:fullscreenScreen != nil,
+                                              ownAppIsActive:ownAppIsActive)
+        if surface == .fullscreen {
+            if !showingFullscreen { switchToFullscreenPanel() }
+            let center=NSPoint(x:panel.frame.midX,y:panel.frame.midY)
+            if !panel.isOnActiveSpace || !panel.isVisible || fullscreenScreen?.frame.contains(center) == false {
+                moveFullscreenPanelToActiveSpace()
+            }
+        } else if showingFullscreen || !desktopAnchorEstablished {
+            let anchorScreen=NSScreen.screens.first(where:{$0.frame.contains(NSPoint(x:desktopPanel.frame.midX,y:desktopPanel.frame.midY))})
+            let anchorScreenIsFullscreen=anchorScreen.map { fullscreenDisplay(for:nil,on:$0) != nil } ?? false
+            if !desktopAnchorEstablished && (Date().timeIntervalSince(spaceChangedAt)<1 || anchorScreenIsFullscreen) {
+                // App activation precedes the end of the Space animation. A
+                // first desktop anchor created now can land in the old Space.
+                // With separate display Spaces, another monitor can still be
+                // fullscreen even though the foreground app is on a desktop.
+                fullscreenPanel?.orderOut(nil)
+            } else { switchToDesktopPanel() }
+        }
+        redraw()
+    }
+    private var codexArea:NSRect? {
+        guard let target=codexTarget else { return nil }
+        let screen=NSScreen.screens.max { a,b in
+            let x=a.frame.intersection(target.frame),y=b.frame.intersection(target.frame)
+            return (x.isNull ? 0:x.width*x.height)<(y.isNull ? 0:y.width*y.height)
+        }
+        return CodexFollow.area(window:target.frame,screen:screen?.visibleFrame ?? target.frame)
+    }
+    private func beginCodexFollow(frame:NSRect) {
+        guard !followingCodex else { return }
+        hideWork?.cancel()
+        if showingFullscreen { fullscreenLayout=panelLayout;fullscreenPanel?.orderOut(nil) }
+        else { desktopLayout=panelLayout }
+        if codexPanel == nil {
+            let window=NSPanel(contentRect:frame,styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+            window.isOpaque=false;window.backgroundColor = .clear;window.hasShadow=false
+            window.hidesOnDeactivate=false;window.isReleasedWhenClosed=false
+            window.collectionBehavior=fullscreenBehavior;window.animationBehavior = .none
+            window.acceptsMouseMovedEvents=true
+            codexPanel=window
+            NotificationCenter.default.addObserver(self,selector:#selector(statusChanged),name:NSWindow.didChangeOcclusionStateNotification,object:window)
+        }
+        codexPanel?.setFrame(frame,display:false)
+        usePanel(codexPanel!,layout:PanelLayout(expandedFrame:frame))
+    }
+    private func showCodex(_ target:CodexFollowWindow) {
+        codexTarget=target
+        guard !isDragging,let area=codexArea else { return }
+        let frame:NSRect
+        if overlayActive {
+            guard let control=target.usageFrame,
+                  let overlay=CodexFollow.usageOverlayFrame(control:control,window:target.frame) else {
+                beginCodexFollow(frame:expandedFrame ?? panel.frame)
+                codexPanel?.orderOut(nil);return
+            }
+            frame=overlay
+        } else { frame=CodexFollow.frame(in:area,size:circleSize,anchor:preferences.codexAnchor) }
+        beginCodexFollow(frame:frame)
+        panel.ignoresMouseEvents=false
+        hideWork?.cancel();dockEdge=nil;dockScreen=nil;isTucked=false
+        if panel.frame != frame { move(to:frame,animated:false) }
+        expandedFrame=frame
+        let top=NSScreen.screens.first?.frame.maxY ?? 0
+        let windowBounds=CGRect(x:target.frame.minX,y:top-target.frame.maxY,width:target.frame.width,height:target.frame.height)
+        let fullscreen=NSScreen.screens.contains { screen in
+            let display=CGRect(x:screen.frame.minX,y:top-screen.frame.maxY,width:screen.frame.width,height:screen.frame.height)
+            return FullscreenDetection.coversDisplay(window:windowBounds,display:display,topInset:screen.safeAreaInsets.top)
+        }
+        panel.level=fullscreen ? .floating:.normal
+        // Same normal level + relative ordering keeps the ring above Codex but
+        // below apps covering Codex. Fullscreen uses the eligible floating level.
+        panel.order(.above,relativeTo:Int(target.id))
+    }
+    private func endCodexFollow() {
+        codexPanel?.orderOut(nil);codexTarget=nil
+        codexPanel?.ignoresMouseEvents=false
+        usePanel(desktopPanel,layout:desktopLayout)
+        if desktopAnchorEstablished,desktopPanel.isOnActiveSpace { desktopPanel.orderFrontRegardless() }
+    }
+    private func fullscreenDisplay(for pid:pid_t?,on target:NSScreen? = nil)->NSScreen? {
+        guard let windows=CGWindowListCopyWindowInfo([.optionOnScreenOnly,.excludeDesktopElements],kCGNullWindowID) as? [[String:Any]],
+              let primary=NSScreen.screens.first else { return nil }
+        // AppKit's origin is at the primary display's bottom left; WindowServer's
+        // is at its top left. Using maxY across all monitors breaks stacked setups.
+        let top=primary.frame.maxY
+        for info in windows {
+            guard let owner=(info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
+                  owner != ProcessInfo.processInfo.processIdentifier,pid == nil || owner == pid,
+                  (info[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+                  (info[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1 > 0,
+                  let bounds=info[kCGWindowBounds as String] as? [String:Any],
+                  let frame=CGRect(dictionaryRepresentation:bounds as CFDictionary) else { continue }
+            for screen in target.map({[$0]}) ?? NSScreen.screens {
+                let display=CGRect(x:screen.frame.minX,y:top-screen.frame.maxY,width:screen.frame.width,height:screen.frame.height)
+                if FullscreenDetection.coversDisplay(window:frame,display:display,topInset:screen.safeAreaInsets.top) { return screen }
+            }
+        }
+        return nil
+    }
+    private var panelLayout:PanelLayout { PanelLayout(expandedFrame:expandedFrame,edge:dockEdge,screen:dockScreen,tucked:isTucked) }
+    private func usePanel(_ next:NSPanel,layout:PanelLayout) {
+        hideWork?.cancel();isDragging=false
+        let content=panel.contentView;panel.contentView=nil
+        panel=next;panel.contentView=content
+        dockEdge=layout.edge;dockScreen=layout.screen;isTucked=layout.tucked
+        let previous=layout.expandedFrame ?? panel.frame
+        let expanded=Docking.clamped(NSRect(x:previous.midX-circleSize/2,y:previous.midY-circleSize/2,width:circleSize,height:circleSize),to:screenFrame)
+        expandedFrame=expanded
+        material.frame=NSRect(origin:.zero,size:expanded.size);material.layer?.cornerRadius=circleSize/2;ring.frame=material.bounds
+        let target:NSRect
+        if isTucked,let edge=dockEdge,let screen=dockScreen { target=Docking.hidden(expanded,edge:edge,screen:screen) }
+        else { isTucked=false;target=expanded }
+        move(to:target,animated:false)
+        applyTheme()
+    }
+    private func switchToFullscreenPanel() {
+        desktopLayout=panelLayout
+        let oldFrame=fullscreenLayout.expandedFrame ?? expandedFrame ?? panel.frame
+        let frame=fullscreenPlacement(oldFrame)
+        if fullscreenPanel == nil {
+            let window=NSPanel(contentRect:frame,styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+            window.isOpaque=false;window.backgroundColor = .clear;window.hasShadow=false
+            window.level = .floating;window.hidesOnDeactivate=false;window.isReleasedWhenClosed=false
+            window.collectionBehavior=fullscreenBehavior;window.animationBehavior = .none
+            fullscreenPanel=window;fullscreenLayout=PanelLayout(expandedFrame:frame)
+            NotificationCenter.default.addObserver(self,selector:#selector(statusChanged),name:NSWindow.didChangeOcclusionStateNotification,object:window)
+        }
+        if frame != oldFrame { fullscreenLayout=PanelLayout(expandedFrame:frame) }
+        fullscreenPanel?.setFrame(frame,display:false)
+        // Leave the empty, transparent desktop anchor ordered in its original
+        // Space so returning from fullscreen never relocates it to another one.
+        usePanel(fullscreenPanel!,layout:fullscreenLayout)
+        moveFullscreenPanelToActiveSpace()
+    }
+    private func fullscreenPlacement(_ frame:NSRect)->NSRect {
+        // Use the actual fullscreen window's display, even if the pointer has
+        // moved elsewhere or fullscreen was entered with a keyboard shortcut.
+        guard let target=fullscreenScreen else { return frame }
+        let source=NSScreen.screens.first(where:{$0.frame.contains(NSPoint(x:frame.midX,y:frame.midY))})
+        return Docking.relocated(frame,from:source?.visibleFrame ?? target.visibleFrame,to:target.visibleFrame)
+    }
+    private func moveFullscreenPanelToActiveSpace() {
+        guard let window=fullscreenPanel,showingFullscreen else { return }
+        let oldFrame=expandedFrame ?? window.frame,newFrame=fullscreenPlacement(oldFrame)
+        if newFrame != oldFrame {
+            hideWork?.cancel();dockEdge=nil;dockScreen=nil;isTucked=false;expandedFrame=newFrame
+            move(to:newFrame,animated:false)
+        }
+        // moveToActiveSpace only affects activation; orderFrontRegardless on a
+        // nonactivating panel does not reliably migrate it to a foreign Space.
+        // This surface can join all Spaces, and is ordered out on desktop return.
+        window.orderFrontRegardless()
+    }
+    private func switchToDesktopPanel() {
+        if showingFullscreen { fullscreenLayout=panelLayout }
+        fullscreenPanel?.orderOut(nil)
+        fullscreenPanel?.collectionBehavior=fullscreenBehavior
+        var oldAnchor:NSPanel?
+        if !desktopAnchorEstablished {
+            // A launch from fullscreen has no ordinary desktop anchor yet.
+            // Create it on the first ordinary Space instead of binding an empty
+            // window to the fullscreen Space where the app happened to launch.
+            let previous=desktopPanel!
+            let window=NSPanel(contentRect:previous.frame,styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+            window.isOpaque=false;window.backgroundColor = .clear;window.hasShadow=false
+            window.level = .floating;window.hidesOnDeactivate=false;window.isReleasedWhenClosed=false
+            window.collectionBehavior=[.managed,.ignoresCycle,.fullScreenNone];window.animationBehavior = .none
+            desktopPanel=window;desktopAnchorEstablished=true
+            oldAnchor=previous
+            NotificationCenter.default.removeObserver(self,name:NSWindow.didChangeOcclusionStateNotification,object:previous)
+            NotificationCenter.default.addObserver(self,selector:#selector(statusChanged),name:NSWindow.didChangeOcclusionStateNotification,object:window)
+        }
+        usePanel(desktopPanel,layout:desktopLayout)
+        if oldAnchor != nil || desktopPanel.isOnActiveSpace { desktopPanel.orderFrontRegardless() }
+        oldAnchor?.close()
+    }
+    func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool {
+        if preferences.overlayCodexUsage { openSettings();return false }
+        synchronizeSpace()
+        if followingCodex { if !panel.isVisible { openSettings() } }
+        else if showingFullscreen { reveal(animated:false);moveFullscreenPanelToActiveSpace() }
+        else if panel.isOnActiveSpace { restore() }
+        return false
+    }
     private func redraw() {
         guard ring != nil else { return }
-        let composition=RingComposition(snapshot:snapshot,preferences:preferences,fiveHourSupport:fiveHourSupport)
-        let d=composition.outer.display,presentation=composition.outer
+        let visible=displaySnapshot
+        let composition=RingComposition(snapshot:visible,preferences:preferences,fiveHourSupport:fiveHourSupport)
         ring.composition=composition
-        ring.positionLocked = preferences.positionLocked
-        let sourceText = source == .official ? "官方 App Server 查询" : "查询已暂停"
-        let used = d.remaining.map { String(format: "%.1f%%", 100 - $0) } ?? "未知"
-        var accessibilityHelp = "\(sourceText)\n\(preferences.metric.title)：\(presentation.text)\n实际已用：\(used) · \(presentation.band?.accessibleName ?? "额度未知")\n重置：\(dateText(d.quota?.resetsAt))\n查询：\(dateText(d.fetchedAt))\n状态：\(d.subtitle)\n拖动移动，贴边隐藏，移入边缘恢复；点击打开设置。"
+        ring.positionLocked = preferences.positionLocked || overlayActive
+        ring.coversNativeUsage=followingCodex && overlayActive
+        let information=details
+        var accessibilityHelp = information.tooltip + (overlayActive ? "\n覆盖 Codex 用量，点击打开 Codex 用量菜单；右键或菜单栏打开 CodexRing 设置。":(followingCodex ? "\n跟随 Codex 窗口，可在窗口内拖动；点击打开设置。":"\n自由移动：拖动移动，贴边隐藏，移入边缘恢复；点击打开设置。"))
         if preferences.positionLocked { accessibilityHelp += "\n位置已固定，右键菜单取消固定可解锁。" }
-        if let inner=composition.inner { accessibilityHelp += "\n5小时：\(inner.text)；重置：\(dateText(inner.display.quota?.resetsAt))；\(inner.display.subtitle)。中心数字仅表示1周额度。" }
-        let top = NSScreen.screens.map { $0.frame.maxY }.max() ?? 0
-        let diagnostics = "自身窗口：\(NSStringFromRect(panel.frame))\n全局中心点（左上原点）：\(Int(panel.frame.midX)),\(Int(top - panel.frame.midY))\n当前空间：\(panel.isOnActiveSpace)，可见：\(panel.isVisible)，未被遮挡：\(panel.occlusionState.contains(.visible))，已收起：\(isTucked)"
+        let top = NSScreen.screens.first?.frame.maxY ?? 0
+        let diagnostics = "自身窗口：\(NSStringFromRect(panel.frame))\n全局中心点（左上原点）：\(Int(panel.frame.midX)),\(Int(top - panel.frame.midY))\n当前空间：\(panel.isOnActiveSpace)，可见：\(panel.isVisible)，未被遮挡：\(panel.occlusionState.contains(.visible))，已收起：\(isTucked)\n显示环境：\(followingCodex ? "跟随 Codex":(showingFullscreen ? "全屏":"普通桌面"))\n全屏识别：\(fullscreenEvidence)"
+        if ProcessInfo.processInfo.arguments.contains("--space-diagnostics"),diagnostics != lastSpaceDiagnostic {
+            lastSpaceDiagnostic=diagnostics
+            FileHandle.standardError.write(Data(("[space] "+diagnostics.replacingOccurrences(of:"\n",with:" | ")+"\n").utf8))
+        }
         if model.diagnostics { accessibilityHelp += "\n" + diagnostics }
-        ring.toolTip = nil
+        ring.hoverDetails=information.hoverCardText
         ring.setAccessibilityHelp(accessibilityHelp)
         panel.title = "CodexRing"
-        model.snapshot = snapshot; model.source = source; model.isRefreshing = fetching
+        model.snapshot = visible; model.source = visible.source; model.isRefreshing = fetching
         model.fiveHourSupport=fiveHourSupport
-        model.updatedText = dateText(d.fetchedAt)
+        model.overlayAccessibilityGranted=overlayAccessibilityGranted
+        model.overlayStatus=overlayActive ? (followingCodex && panel.isVisible ? "已覆盖；通过菜单栏 CodexRing 打开设置。":"等待 Codex 用量控件显示；可从菜单栏打开设置。") : ""
+        model.updatedText = dateText(lastRefreshedAt)
+        if model.debugState != debugState { model.debugState=debugState }
         model.diagnosticText = diagnostics
     }
-    private func applyPreferences(_ value: RingPreferences) {
+    func applyPreferences(_ value: RingPreferences) {
         guard value != preferences else { return }
         let old = preferences; preferences = value
-        if old.size != value.size {
-            reveal(animated: false)
-            let center = NSPoint(x: panel.frame.midX, y: panel.frame.midY)
-            let frame = Docking.clamped(NSRect(x: center.x-circleSize/2,y:center.y-circleSize/2,width:circleSize,height:circleSize),to:screenFrame)
-            panel.setFrame(frame, display: true); expandedFrame = frame
-            material.frame = NSRect(origin: .zero, size: frame.size); material.layer?.cornerRadius = circleSize/2; ring.frame = material.bounds
+        if old.overlayCodexUsage != value.overlayCodexUsage {
+            if value.overlayCodexUsage {
+                // The only automatic permission request: an explicit off→on
+                // change by the user. Launching and ordinary following never prompt.
+                overlayAccessibilityGranted=AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary)
+            }
+            ring.dismissHover();updateOverlayStatusItem()
         }
+        if old.size != value.size || old.overlayCodexUsage != value.overlayCodexUsage { resizeCircle() }
         if !value.autoHide { reveal(animated: false) }
         if old.refreshInterval != value.refreshInterval { configureRefreshTimer() }
         if old.theme != value.theme { applyTheme() }
+        if old.followCodex != value.followCodex || old.overlayCodexUsage != value.overlayCodexUsage {
+            codexAction = overlayActive ? .hidden:.free
+            codexMonitor.tracksUsageControl=value.overlayCodexUsage
+            if value.followCodex || value.overlayCodexUsage { codexMonitor.start();codexMonitor.invalidate() }
+            else { codexMonitor.stop() }
+        }
+        if old.followCodex != value.followCodex || old.overlayCodexUsage != value.overlayCodexUsage || (followingCodex && old.size != value.size) { synchronizeSpace() }
         store.save(preferences); redraw()
+    }
+    private func resizeCircle() {
+        reveal(animated:false)
+        let center=NSPoint(x:panel.frame.midX,y:panel.frame.midY)
+        let frame=Docking.clamped(NSRect(x:center.x-circleSize/2,y:center.y-circleSize/2,width:circleSize,height:circleSize),to:screenFrame)
+        panel.setFrame(frame,display:true);expandedFrame=frame
+        material.frame=NSRect(origin:.zero,size:frame.size);material.layer?.cornerRadius=circleSize/2;ring.frame=material.bounds
+        panel.ignoresMouseEvents=false
+    }
+    private func updateOverlayStatusItem() {
+        guard preferences.overlayCodexUsage else {
+            if let item=overlayStatusItem { NSStatusBar.system.removeStatusItem(item);overlayStatusItem=nil }
+            return
+        }
+        guard overlayStatusItem == nil else { return }
+        let item=NSStatusBar.system.statusItem(withLength:NSStatusItem.squareLength)
+        item.button?.image=NSImage(systemSymbolName:"circle.dashed.inset.filled",accessibilityDescription:"CodexRing")
+        item.button?.toolTip="CodexRing · 设置与重置信息"
+        let menu=NSMenu()
+        let settings=NSMenuItem(title:"CodexRing 设置…",action:#selector(openSettings),keyEquivalent:",");settings.target=self;menu.addItem(settings)
+        let reset=NSMenuItem(title:"重置信息",action:nil,keyEquivalent:"");reset.submenu=resetMenu();menu.addItem(reset)
+        let disable=NSMenuItem(title:"关闭覆盖 Codex 额度",action:#selector(disableUsageOverlay),keyEquivalent:"");disable.target=self;menu.addItem(disable)
+        menu.addItem(.separator())
+        let quit=NSMenuItem(title:"退出 CodexRing",action:#selector(quit),keyEquivalent:"q");quit.target=self;menu.addItem(quit)
+        menu.delegate=self;item.menu=menu;overlayStatusItem=item
+    }
+    @objc private func disableUsageOverlay() { var p=preferences;p.overlayCodexUsage=false;model.preferences=p }
+    private func openAccessibilitySettings() {
+        guard preferences.overlayCodexUsage,
+              let url=URL(string:"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
+        NSWorkspace.shared.open(url)
     }
     private func applyTheme() {
         let appearance:NSAppearance?
         switch preferences.theme { case .system:appearance=nil;case .light:appearance=NSAppearance(named:.aqua);case .dark:appearance=NSAppearance(named:.darkAqua) }
-        NSApp.appearance=appearance;panel?.appearance=appearance;settings?.window?.appearance=appearance
+        NSApp.appearance=appearance;panel?.appearance=appearance;settings?.window?.appearance=appearance;debugWindow?.window?.appearance=appearance
         ring?.needsDisplay=true
     }
     private func configureRefreshTimer() {
@@ -121,13 +513,21 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     }
     private func savePosition() {
         guard panel != nil else { return }
-        let frame = isTucked ? expandedFrame ?? panel.frame : panel.frame
+        let frame:NSRect
+        if showingFullscreen || followingCodex { frame=desktopLayout.expandedFrame ?? desktopPanel.frame }
+        else { frame=isTucked ? expandedFrame ?? panel.frame:panel.frame }
         preferences.position = PanelPosition(x:frame.origin.x,y:frame.origin.y)
         if model != nil { model.preferences = preferences }; store.save(preferences)
     }
-    private func startDrag() { isDragging = true; hideWork?.cancel(); reveal(animated: false) }
+    private func startDrag() { guard !overlayActive else { return };isDragging = true; hideWork?.cancel(); reveal(animated: false) }
     private func finishDrag() {
         isDragging = false
+        guard !overlayActive else { return }
+        if followingCodex,let area=codexArea {
+            preferences.codexAnchor=CodexFollow.anchor(for:panel.frame,in:area)
+            model.preferences=preferences;store.save(preferences)
+            synchronizeSpace();return
+        }
         let screen = screenFrame, frame = Docking.clamped(panel.frame,to:screenFrame)
         dockEdge = Docking.nearestEdge(frame,screen:screen); dockScreen = dockEdge == nil ? nil:screen
         panel.setFrame(frame,display:true); expandedFrame = frame; savePosition(); redraw()
@@ -139,6 +539,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         isTucked=false; move(to:Docking.revealed(expandedFrame ?? panel.frame,edge:edge,screen:screen),animated:animated)
     }
     private func move(to target:NSRect,animated:Bool) {
+        if panel.frame != target { ring.dismissHover() }
         var origin=NSPoint.zero
         let handle = Docking.handle(for: circleSize)
         if isTucked {
@@ -151,9 +552,9 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     }
     private func scheduleHide(force:Bool = false) {
         hideWork?.cancel()
-        guard preferences.autoHide,!isDragging,!isTucked,dockEdge != nil,settings?.window?.isVisible != true else { return }
+        guard !followingCodex,panel.isOnActiveSpace,preferences.autoHide,!isDragging,!isTucked,dockEdge != nil,settings?.window?.isVisible != true,debugWindow?.window?.isVisible != true else { return }
         let work=DispatchWorkItem { [weak self] in
-            guard let self, let edge=self.dockEdge,let screen=self.dockScreen else { return }
+            guard let self,self.panel.isOnActiveSpace,let edge=self.dockEdge,let screen=self.dockScreen else { return }
             if !force && self.panel.frame.contains(NSEvent.mouseLocation) { return }
             self.expandedFrame=self.panel.frame; self.isTucked=true
             self.move(to:Docking.hidden(self.panel.frame,edge:edge,screen:screen),animated:true)
@@ -162,17 +563,21 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     }
     @objc private func screenChanged() { restore() }
     private func restore() {
+        if followingCodex { synchronizeSpace();return }
         hideWork?.cancel(); reveal(animated:false); dockEdge=nil; dockScreen=nil; isTucked=false
-        panel.setFrame(Docking.clamped(panel.frame,to:screenFrame),display:true); panel.orderFrontRegardless(); savePosition(); redraw()
+        panel.setFrame(Docking.clamped(panel.frame,to:screenFrame),display:true)
+        if panel.isOnActiveSpace { panel.orderFrontRegardless() }
+        savePosition(); redraw()
     }
     private func refresh() {
-        guard source == .official,!fetching else { redraw();return }
+        guard source == .official,!fetching,!debugState.isEnabled else { redraw();return }
         fetching=true; redraw(); let request=generation
         DispatchQueue.global(qos:.utility).async { [weak self] in
             guard let self else { return }; let result=self.client.fetch()
             DispatchQueue.main.async { [weak self] in
                 guard let self,self.generation == request,self.source == .official else { return }
                 self.fetching=false;self.snapshot=result
+                if result.failure == nil,!result.loading { self.lastRefreshedAt=result.fetchedAt }
                 self.capabilities.observe(result)
                 self.redraw()
             }
@@ -186,26 +591,75 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         generation += 1;source = .disconnected;fetching=false;client.cancel()
         snapshot=QuotaSnapshot(source:.disconnected,fetchedAt:Date(),failure:.unavailable);redraw()
     }
+    private func applyDebugState(_ value:QuotaDebugState) {
+        guard value != debugState else { return }
+        let wasEnabled=debugState.isEnabled
+        debugState=value
+        if value.isEnabled != wasEnabled {
+            generation += 1;client.cancel();fetching=false
+        }
+        redraw()
+        if wasEnabled && !value.isEnabled { refresh() }
+    }
+    private func openDebug() {
+        hideWork?.cancel();reveal(animated:false)
+        if debugWindow == nil { debugWindow=RingDebugWindow(model:model,onClose:{ [weak self] in self?.scheduleHide() }) }
+        redraw();debugWindow?.showWindow(nil);NSApp.activate(ignoringOtherApps:true);debugWindow?.window?.makeKeyAndOrderFront(nil)
+    }
+    private func handleRingClick() {
+        guard overlayActive,followingCodex else { openSettings();return }
+        ring.dismissHover()
+        guard panel.isVisible,panel.isOnActiveSpace,let target=codexTarget else { return }
+        codexMonitor.pressUsageControl(windowID:target.id) { [weak self] success in
+            if !success { self?.model.overlayStatus="暂时无法打开 Codex 用量菜单，请稍后重试。" }
+        }
+    }
     @objc private func openSettings() {
         hideWork?.cancel();reveal(animated:false)
         if settings == nil { settings=RingSettingsWindow(model:model,onClose:{ [weak self] in self?.scheduleHide() }) }
         redraw();settings?.showWindow(nil);NSApp.activate(ignoringOtherApps:true);settings?.window?.makeKeyAndOrderFront(nil)
     }
     @objc private func quit() { NSApp.terminate(nil) }
-    @objc private func refreshFromMenu() { source == .official ? refresh():connectLive() }
+    @objc private func refreshFromMenu() { guard !debugState.isEnabled else { return };source == .official ? refresh():connectLive() }
     @objc private func togglePositionLock() { var p=preferences;p.positionLocked.toggle();model.preferences=p }
-    private func showMenu() {
+    private func showMenu(event:NSEvent? = nil) {
+        guard activeContextMenu == nil else { return }
+        ring.dismissHover()
         hideWork?.cancel();reveal(animated:false);let menu=NSMenu();menu.autoenablesItems=false
         for entry in RingMenuSpec.entries(for:preferences) {
             let item:NSMenuItem
             switch entry {
-            case .refresh:item=NSMenuItem(title:"立即刷新",action:#selector(refreshFromMenu),keyEquivalent:"r");item.image=NSImage(systemSymbolName:"arrow.clockwise",accessibilityDescription:"刷新");item.isEnabled = !fetching
+            case .refresh:item=NSMenuItem(title:"立即刷新",action:#selector(refreshFromMenu),keyEquivalent:"r");item.image=NSImage(systemSymbolName:"arrow.clockwise",accessibilityDescription:"刷新");item.isEnabled = !fetching && !debugState.isEnabled
             case .settings:item=NSMenuItem(title:"设置…",action:#selector(openSettings),keyEquivalent:",")
-            case .positionLock(let checked):item=NSMenuItem(title:"固定位置",action:#selector(togglePositionLock),keyEquivalent:"");item.state=checked ? .on:.off;item.image=NSImage(systemSymbolName:checked ? "pin.fill":"pin",accessibilityDescription:checked ? "已固定":"固定位置")
+            case .reset:item=NSMenuItem(title:"重置信息",action:nil,keyEquivalent:"");item.image=NSImage(systemSymbolName:"arrow.counterclockwise",accessibilityDescription:"重置信息");item.submenu=resetMenu()
+            case .positionLock(let locked):item=NSMenuItem(title:"固定位置",action:#selector(togglePositionLock),keyEquivalent:"");item.image=NSImage(systemSymbolName:locked ? "pin.fill":"pin",accessibilityDescription:locked ? "已固定":"未固定")
             case .quit:menu.addItem(.separator());item=NSMenuItem(title:"退出",action:#selector(quit),keyEquivalent:"q")
             }
             item.target=self;menu.addItem(item)
         }
-        menu.popUp(positioning:nil,at:NSPoint(x:ring.bounds.midX,y:ring.bounds.midY),in:ring);scheduleHide()
+        activeContextMenu=menu
+        defer { activeContextMenu=nil;synchronizeSpace();scheduleHide() }
+        if let event {
+            NSMenu.popUpContextMenu(menu,with:event,for:ring)
+        } else {
+            menu.popUp(positioning:nil,at:NSPoint(x:ring.bounds.midX,y:ring.bounds.midY),in:ring)
+        }
+    }
+    private func resetMenu()->NSMenu {
+        let menu=NSMenu(title:"重置信息");menu.autoenablesItems=false
+        let font=NSFont.menuFont(ofSize:0)
+        let pattern=try! NSRegularExpression(pattern:#"\d{4}[.-]\d{2}[.-]\d{2} \d{2}:\d{2}"#)
+        for line in details.resetMenuLines {
+            let item=NSMenuItem(title:line,action:nil,keyEquivalent:"");item.isEnabled=false
+            let text=NSMutableAttributedString(string:line,attributes:[.font:font])
+            for match in pattern.matches(in:line,range:NSRange(location:0,length:(line as NSString).length)) {
+                text.addAttribute(.font,value:NSFont.monospacedSystemFont(ofSize:font.pointSize,weight:.regular),range:match.range)
+            }
+            item.attributedTitle=text;menu.addItem(item)
+        }
+        return menu
+    }
+    func menuNeedsUpdate(_ menu:NSMenu) {
+        if menu === overlayStatusItem?.menu { menu.item(withTitle:"重置信息")?.submenu=resetMenu() }
     }
 }

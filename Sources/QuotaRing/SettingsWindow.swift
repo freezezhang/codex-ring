@@ -11,22 +11,25 @@ final class SettingsModel:ObservableObject {
     @Published var diagnosticText=""
     @Published var diagnostics=false
     @Published var fiveHourSupport:Bool?
+    @Published var overlayAccessibilityGranted=false
+    @Published var overlayStatus=""
+    @Published var debugState=QuotaDebugState() { didSet { onDebugState?(debugState) } }
     var onPreferences:((RingPreferences)->Void)?
-    var onRestore:(()->Void)?,onDiagnostics:(()->Void)?
+    var onDebugState:((QuotaDebugState)->Void)?
+    var onRestore:(()->Void)?,onDiagnostics:(()->Void)?,onOpenDebug:(()->Void)?
+    var onOpenAccessibilitySettings:(()->Void)?
     init(preferences:RingPreferences) { self.preferences=preferences }
     var composition:RingComposition { RingComposition(snapshot:snapshot,preferences:preferences,fiveHourSupport:fiveHourSupport) }
-    var display:QuotaDisplay { composition.outer.display }
+    var display:QuotaDisplay { composition.center.display }
     var pools:[WeeklyQuota] { Dictionary(grouping:snapshot.quotas,by:\.poolID).values.compactMap(\.first).sorted { $0.poolID<$1.poolID } }
-    func resetText(_ period:QuotaPeriod)->String {
-        QuotaDateText.string(snapshot.display(selectedID:preferences.bucketID,period:period).quota?.resetsAt)
-    }
 }
 final class RingSettingsWindow:NSWindowController,NSWindowDelegate {
     private let onClose:()->Void
     init(model:SettingsModel,onClose:@escaping ()->Void) {
         self.onClose=onClose
-        let window=NSWindow(contentRect:NSRect(x:0,y:0,width:470,height:650),styleMask:[.titled,.closable,.miniaturizable],backing:.buffered,defer:false)
+        let window=NSWindow(contentRect:NSRect(x:0,y:0,width:470,height:560),styleMask:[.titled,.closable,.miniaturizable],backing:.buffered,defer:false)
         window.title="CodexRing";window.isReleasedWhenClosed=false
+        window.collectionBehavior=[.moveToActiveSpace,.fullScreenAuxiliary,.canJoinAllApplications,.ignoresCycle]
         super.init(window:window);window.delegate=self
         window.contentView=NSHostingView(rootView:RingSettingsView(model:model,onDone:{ [weak self] in self?.close() }));window.center()
     }
@@ -44,16 +47,20 @@ private struct RingSettingsView:View {
             Form {
                 appearanceSection
                 quotaSection
-                cardsSection
                 DisclosureGroup("更多") {
-                    Button("恢复圆圈到屏幕内") { model.onRestore?() }
-                    Toggle("显示窗口诊断信息",isOn:$model.diagnostics).onChange(of:model.diagnostics) { _ in model.onDiagnostics?() }
-                    if model.diagnostics { Text(model.diagnosticText).font(.caption.monospaced()).textSelection(.enabled) }
+                    HStack(spacing:12) {
+                        Button("调试") { model.onOpenDebug?() }
+                        Button("归位") { model.onRestore?() }
+                            .help("恢复圆圈到屏幕内")
+                    }.frame(maxWidth:.infinity,alignment:.leading)
+                    if model.debugState.isEnabled { Text("调试模式").font(.caption).foregroundStyle(.orange) }
                 }
             }.formStyle(.grouped)
-            HStack { Spacer();Button("完成",action:onDone).keyboardShortcut(.defaultAction) }
+            HStack {
+                Spacer();Button("完成",action:onDone).keyboardShortcut(.defaultAction)
+            }
                 .padding(.horizontal,20).padding(.vertical,12)
-        }.frame(width:470,height:650)
+        }.frame(width:470,height:560)
             .background(Color(nsColor:.windowBackgroundColor))
             .toggleStyle(.switch)
             .preferredColorScheme(colorScheme)
@@ -76,51 +83,54 @@ private struct RingSettingsView:View {
                 ForEach(ThemePreference.allCases,id:\.rawValue) { Text($0.title).tag($0) }
             }.pickerStyle(.menu)
             Toggle("贴边自动隐藏",isOn:$model.preferences.autoHide)
+                .help("自由移动时贴近屏幕边缘自动收起；跟随 Codex 窗口时保持显示在窗口内。")
             Toggle("展开与收起动画",isOn:$model.preferences.animations)
+            Toggle("跟随 Codex",isOn:$model.preferences.followCodex)
+                .disabled(model.preferences.overlayCodexUsage)
+                .help("圆圈跟随 Codex 窗口，支持普通窗口和全屏；没有 Codex 窗口时恢复自由位置。")
+            Toggle("覆盖 Codex 额度",isOn:$model.preferences.overlayCodexUsage)
+                .help("自动缩为小号并覆盖头像上方的用量圆环；点击仍打开 Codex 用量菜单。关闭后恢复原来的大小和位置。")
+            if model.preferences.overlayCodexUsage {
+                if !model.overlayAccessibilityGranted {
+                    Text("需要辅助功能权限，授权后自动生效。").font(.caption).foregroundStyle(.secondary)
+                    Button("打开辅助功能设置") { model.onOpenAccessibilitySettings?() }
+                } else if !model.overlayStatus.isEmpty {
+                    Text(model.overlayStatus).font(.caption).foregroundStyle(.secondary)
+                }
+            }
         }
     }
-    private var quotaSection:some View {
-        Section("额度") {
-            Toggle("显示1周额度",isOn:Binding(get:{model.fiveHourSupport == false ? true:model.preferences.showWeek},set:{model.preferences.showWeek=$0}))
+    @ViewBuilder private var quotaSection:some View {
+        Section("显示圆圈") {
+            Toggle("本周额度",isOn:Binding(get:{model.fiveHourSupport == false ? true:model.preferences.showWeek},set:{model.preferences.showWeek=$0}))
                 .disabled(model.fiveHourSupport == false || (model.preferences.showWeek && !model.preferences.showFiveHours))
-            Toggle("显示5小时额度",isOn:Binding(get:{model.fiveHourSupport == false ? false:model.preferences.showFiveHours},set:{model.preferences.showFiveHours=$0}))
+            Toggle("5小时额度",isOn:Binding(get:{model.fiveHourSupport == false ? false:model.preferences.showFiveHours},set:{model.preferences.showFiveHours=$0}))
                 .disabled(model.fiveHourSupport != true || (model.preferences.showFiveHours && !model.preferences.showWeek))
-                .accessibilityHint(model.fiveHourSupport == false ? "账户未提供5小时窗口。":"双环时外圈1周、内圈5小时，中心数字只表示1周。")
-            valueRow("周额度重置",value:model.resetText(.week))
-            if model.fiveHourSupport == true { valueRow("5小时重置",value:model.resetText(.fiveHours)) }
-            valueRow("刷新时间",value:model.source == .disconnected ? "—":model.updatedText)
-            if model.display.status != .available {
-                Text(model.display.subtitle).font(.caption).foregroundStyle(.secondary)
-            }
-            if model.pools.count>1 {
-                Picker("额度池",selection:$model.preferences.bucketID) {
-                    Text("自动选择").tag(Optional<String>.none)
-                    ForEach(model.pools,id:\.poolID) { q in Text(q.label).tag(Optional(q.poolID)) }
-                }.pickerStyle(.menu)
+                .accessibilityHint(model.fiveHourSupport == false ? "账户未提供5小时窗口。":"双圈时外圈本周、内圈5小时；中心数字可单独选择。")
+        }
+        Section("中心数字") {
+            if model.composition.inner != nil {
+                Picker("显示额度",selection:$model.preferences.centerPeriod) {
+                    Text("本周额度").tag(QuotaPeriod.week)
+                    Text("5小时额度").tag(QuotaPeriod.fiveHours)
+                }.pickerStyle(.segmented)
+                    .help("只切换中心数字，两个圆圈仍各自显示对应额度。")
+            } else {
+                valueRow("显示额度",value:model.composition.centerPeriod == .week ? "本周额度（自动）":"5小时额度（自动）")
             }
         }
-    }
-    private var cardsSection:some View {
-        Section {
-            if let cards=model.snapshot.resetCards {
-                let available=cards.details?.filter(\.available) ?? []
-                ForEach(Array(available.enumerated()),id:\.offset) { index,card in
-                    valueRow(card.displayTitle,value:card.expiryText(),warning:card.expiresAt.map { $0<=Date() } == true)
-                        .accessibilityElement(children:.combine)
-                        .accessibilityHint("第\(index+1)张额度重置卡；日期按北京时间显示。")
+        if model.display.status != .available || model.pools.count>1 {
+            Section {
+                if model.display.status != .available {
+                    Text(model.display.subtitle).font(.caption).foregroundStyle(.secondary)
                 }
-                if available.isEmpty || (cards.availableCount.map { $0>available.count } ?? false) {
-                    valueRow("额度重置卡",value:cards.availableCount == 0 ? "暂无可用":"到期时间未知")
+                if model.pools.count>1 {
+                    Picker("额度池",selection:$model.preferences.bucketID) {
+                        Text("自动选择").tag(Optional<String>.none)
+                        ForEach(model.pools,id:\.poolID) { q in Text(q.label).tag(Optional(q.poolID)) }
+                    }.pickerStyle(.menu)
                 }
-                if Date().timeIntervalSince(model.snapshot.fetchedAt)>300 { Text("已过期").foregroundStyle(.orange) }
-            } else {
-                Text("—").foregroundStyle(.secondary).accessibilityLabel("重置卡信息不可用")
             }
-        } header: {
-            HStack {
-                Text("额度重置卡");Spacer()
-                Text(model.snapshot.resetCards?.availableCount.map { "\($0) 张可用" } ?? "—").foregroundStyle(.secondary)
-            }.frame(maxWidth:.infinity,alignment:.leading)
         }
     }
     private func valueRow(_ title:String,value:String,warning:Bool=false)->some View {

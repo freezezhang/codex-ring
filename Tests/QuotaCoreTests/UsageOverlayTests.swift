@@ -1,0 +1,33 @@
+import XCTest
+@testable import QuotaCore
+
+final class UsageOverlayTests:XCTestCase {
+    func testOverlayCentersOnControlAcrossDisplays() throws {
+        for origin in [CGPoint.zero,CGPoint(x:2560,y:288),CGPoint(x:-1920,y:-1080)] {
+            let window=CGRect(origin:origin,size:CGSize(width:1200,height:800))
+            let control=CGRect(x:origin.x+8,y:origin.y+52,width:36,height:36)
+            let overlay=try XCTUnwrap(CodexFollow.usageOverlayFrame(control:control,window:window))
+            XCTAssertEqual(overlay.width,26);XCTAssertEqual(overlay.height,26)
+            XCTAssertEqual(overlay.midX,control.midX);XCTAssertEqual(overlay.midY,control.midY)
+            XCTAssertTrue(control.contains(overlay))
+        }
+    }
+    func testMissingOrInvalidControlCannotProduceGuessedPlacement() {
+        let window=CGRect(x:0,y:0,width:1200,height:800)
+        for control in [CGRect.zero,CGRect(x:-30,y:10,width:36,height:36),
+                        CGRect(x:8,y:52,width:400,height:36),CGRect(x:8,y:52,width:36,height:100),
+                        CGRect(x:8,y:52,width:24,height:24)] {
+            XCTAssertNil(CodexFollow.usageOverlayFrame(control:control,window:window))
+        }
+    }
+    func testOverlayOptInPreservesNormalPreferences() throws {
+        var p=RingPreferences();p.size = .large;p.followCodex=false
+        p.position=PanelPosition(x:400,y:300);p.codexAnchor=PanelPosition(x:0.2,y:0.3)
+        let original=p
+        p.overlayCodexUsage=true
+        let decoded=try JSONDecoder().decode(RingPreferences.self,from:JSONEncoder().encode(p))
+        XCTAssertTrue(decoded.overlayCodexUsage);XCTAssertFalse(decoded.followCodex)
+        p.overlayCodexUsage=false;XCTAssertEqual(p,original)
+        XCTAssertFalse(try JSONDecoder().decode(RingPreferences.self,from:Data("{}".utf8)).overlayCodexUsage)
+    }
+}

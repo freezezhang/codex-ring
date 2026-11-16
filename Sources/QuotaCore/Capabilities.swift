@@ -13,7 +13,7 @@ public struct QuotaCapabilities {
         return byPool.keys.sorted().first.flatMap { byPool[$0] } ?? false
     }
     public mutating func observe(_ snapshot:QuotaSnapshot) {
-        guard snapshot.failure == nil,!snapshot.loading,snapshot.capabilitiesKnown else { return }
+        guard snapshot.source == .official,snapshot.failure == nil,!snapshot.loading,snapshot.capabilitiesKnown else { return }
         byPool=Dictionary(grouping:snapshot.quotas,by:\.poolID).mapValues { $0.contains { $0.period == .fiveHours } }
     }
 }

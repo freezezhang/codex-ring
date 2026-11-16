@@ -71,7 +71,8 @@ private final class StdioSession {
             try process.run()
             try? output.fileHandleForWriting.close()
             try? input.fileHandleForReading.close()
-            try send(["id": 1, "method": "initialize", "params": ["clientInfo": ["name": "codex_quota_ring", "title": "CodexRing", "version": "0.1.0"]]])
+            let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
+            try send(["id": 1, "method": "initialize", "params": ["clientInfo": ["name": "codex_quota_ring", "title": "CodexRing", "version": version]]])
         } catch { fail(.connection) }
         if process.isRunning {
             DispatchQueue.global(qos: .utility).async { [self] in

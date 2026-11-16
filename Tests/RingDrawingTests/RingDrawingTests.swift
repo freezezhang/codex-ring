@@ -3,8 +3,8 @@ import AppKit
 import QuotaCore
 import RingDrawing
 final class RingDrawingTests:XCTestCase {
-    func composition(used:Double,metric:DisplayMetric,dual:Bool=false)->RingComposition {
-        let now=Date();var p=RingPreferences();p.metric=metric;p.showFiveHours=dual
+    func composition(used:Double,metric:DisplayMetric,dual:Bool=false,centerPeriod:QuotaPeriod = .week)->RingComposition {
+        let now=Date();var p=RingPreferences();p.metric=metric;p.showFiveHours=dual;p.centerPeriod=centerPeriod
         let q=[WeeklyQuota(id:"codex/secondary",label:"codex",remaining:100-used,resetsAt:now.addingTimeInterval(3600)),
                WeeklyQuota(id:"codex/primary",label:"codex",remaining:30,resetsAt:now.addingTimeInterval(3600),period:.fiveHours)]
         return RingComposition(snapshot:QuotaSnapshot(source:.official,fetchedAt:now,quotas:q),preferences:p,fiveHourSupport:dual)
@@ -30,6 +30,20 @@ final class RingDrawingTests:XCTestCase {
         XCTAssertFalse(hasBlue(zero,x:47,y:26));XCTAssertTrue(hasBlue(full,x:47,y:26));XCTAssertTrue(hasBlue(full,x:5,y:26))
         XCTAssertEqual(composition(used:0,metric:.used).outer.compactText,"0")
         XCTAssertEqual(composition(used:0,metric:.remaining).outer.compactText,"100")
+    }
+    func testChangingDualRingCenterChangesDigitsWithoutChangingProgressRings() throws {
+        let week=try render(composition(used:92,metric:.remaining,dual:true,centerPeriod:.week))
+        let five=try render(composition(used:92,metric:.remaining,dual:true,centerPeriod:.fiveHours))
+        var changedCenterPixels=0
+        for x in 0..<52 { for y in 0..<52 {
+            let same=color(week,x,y) == color(five,x,y)
+            if (14..<38).contains(x) && (14..<38).contains(y) {
+                if !same { changedCenterPixels += 1 }
+            } else if hypot(Double(x)-26,Double(y)-26)>20 {
+                XCTAssertTrue(same,"Progress rings changed at \(x),\(y)")
+            }
+        } }
+        XCTAssertGreaterThan(changedCenterPixels,8)
     }
     func testDoubleRingSmallRasterHasIndependentColorsAndReadableCenter() throws {
         let rep=try render(composition(used:92,metric:.used,dual:true))

@@ -27,14 +27,19 @@ public struct RingPreferences: Codable, Equatable {
     public var autoHide = true
     public var animations = true
     public var positionLocked = false
+    public var followCodex = false
+    public var overlayCodexUsage = false
+    /// Relative position inside Codex; independent of the free desktop position.
+    public var codexAnchor:PanelPosition? = nil
     public var showWeek = true
     public var showFiveHours = false
+    public var centerPeriod:QuotaPeriod = .week
     public var refreshInterval:RefreshInterval = .oneMinute
     public var theme:ThemePreference = .system
     public var bucketID: String? = nil
     public var position: PanelPosition? = nil
     public init() {}
-    private enum CodingKeys:String,CodingKey { case metric,size,autoHide,animations,positionLocked,showWeek,showFiveHours,refreshInterval,theme,bucketID,position }
+    private enum CodingKeys:String,CodingKey { case metric,size,autoHide,animations,positionLocked,followCodex,overlayCodexUsage,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position }
     public init(from decoder:Decoder) throws {
         let c=try decoder.container(keyedBy:CodingKeys.self)
         metric=(try? c.decode(DisplayMetric.self,forKey:.metric)) ?? .remaining
@@ -42,9 +47,13 @@ public struct RingPreferences: Codable, Equatable {
         autoHide=(try? c.decode(Bool.self,forKey:.autoHide)) ?? true
         animations=(try? c.decode(Bool.self,forKey:.animations)) ?? true
         positionLocked=(try? c.decode(Bool.self,forKey:.positionLocked)) ?? false
+        followCodex=(try? c.decode(Bool.self,forKey:.followCodex)) ?? false
+        overlayCodexUsage=(try? c.decode(Bool.self,forKey:.overlayCodexUsage)) ?? false
+        codexAnchor=try? c.decodeIfPresent(PanelPosition.self,forKey:.codexAnchor)
         showWeek=(try? c.decode(Bool.self,forKey:.showWeek)) ?? true
         showFiveHours=(try? c.decode(Bool.self,forKey:.showFiveHours)) ?? false
         if !showWeek && !showFiveHours { showWeek=true }
+        centerPeriod=(try? c.decode(QuotaPeriod.self,forKey:.centerPeriod)) ?? .week
         refreshInterval=(try? c.decode(RefreshInterval.self,forKey:.refreshInterval)) ?? .oneMinute
         theme=(try? c.decode(ThemePreference.self,forKey:.theme)) ?? .system
         bucketID=try? c.decodeIfPresent(String.self,forKey:.bucketID)
@@ -52,15 +61,20 @@ public struct RingPreferences: Codable, Equatable {
     }
 }
 
-public enum RingMenuEntry:Equatable { case refresh,settings,positionLock(checked:Bool),quit }
+public enum RingMenuEntry:Equatable { case refresh,settings,reset,positionLock(locked:Bool),quit }
 public enum RingMenuSpec {
-    public static func entries(for preferences:RingPreferences)->[RingMenuEntry] { [.refresh,.positionLock(checked:preferences.positionLocked),.settings,.quit] }
+    public static func entries(for preferences:RingPreferences)->[RingMenuEntry] { [.refresh,.positionLock(locked:preferences.positionLocked),.reset,.settings,.quit] }
 }
 public struct RingComposition {
     public let outer:RingPresentation
     public let inner:RingPresentation?
     public let outerPeriod:QuotaPeriod
     public let innerPeriod:QuotaPeriod?
+    public let centerPeriod:QuotaPeriod
+    public var center:RingPresentation {
+        if let inner,innerPeriod == centerPeriod { return inner }
+        return outer
+    }
     public init(snapshot:QuotaSnapshot,preferences:RingPreferences,fiveHourSupport:Bool?,now:Date = Date()) {
         let periods:[QuotaPeriod]
         if fiveHourSupport != true { periods = [.week] }
@@ -68,13 +82,14 @@ public struct RingComposition {
         else if preferences.showFiveHours { periods = [.fiveHours] }
         else { periods = [.week] }
         outerPeriod=periods[0];innerPeriod=periods.count>1 ? periods[1]:nil
-        let pool=preferences.bucketID ?? snapshot.quotas.first(where:{$0.poolID == "codex"})?.poolID ?? snapshot.quotas.sorted(by:{$0.poolID<$1.poolID}).first?.poolID
+        centerPeriod=periods.count>1 ? preferences.centerPeriod:periods[0]
+        let pool=snapshot.selectedPoolID(preferences.bucketID)
         outer=RingPresentation(display:snapshot.display(selectedID:pool,period:periods[0],now:now),metric:preferences.metric)
         inner=periods.count>1 ? RingPresentation(display:snapshot.display(selectedID:pool,period:periods[1],now:now),metric:preferences.metric):nil
     }
     public var accessibilityText:String {
-        var text="\(inner == nil ? "":"外圈")\(outerPeriod.title)：\(outer.accessibilityText)"
-        if let inner,let innerPeriod { text += "；内圈\(innerPeriod.title)：\(inner.accessibilityText)；中心数字仅表示1周额度。" }
+        var text="\(outer.display.source == .debug ? "调试模式；":"")\(inner == nil ? "":"外圈")\(outerPeriod.title)：\(outer.accessibilityText)"
+        if let inner,let innerPeriod { text += "；内圈\(innerPeriod.title)：\(inner.accessibilityText)；中心数字仅表示\(centerPeriod.title)额度。" }
         return text
     }
 }

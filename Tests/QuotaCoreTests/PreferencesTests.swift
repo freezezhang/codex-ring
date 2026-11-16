@@ -41,6 +41,7 @@ final class PreferencesTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName:name) }
         var preferences = RingPreferences(); preferences.metric = .used; preferences.size = .small
         preferences.autoHide = false; preferences.animations = false; preferences.positionLocked=true; preferences.bucketID = "codex/primary";preferences.theme = .dark
+        preferences.followCodex=true;preferences.overlayCodexUsage=true;preferences.codexAnchor=PanelPosition(x:0.4,y:0.8)
         preferences.position = PanelPosition(x: -400, y: 260)
         PreferencesStore(defaults:defaults).save(preferences)
         XCTAssertEqual(PreferencesStore(defaults:try XCTUnwrap(UserDefaults(suiteName:name))).load(), preferences)
@@ -55,7 +56,7 @@ final class PreferencesTests: XCTestCase {
     func testPreferencesDoNotContainConnectionOrCredentials() throws {
         let data = try JSONEncoder().encode(RingPreferences())
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])
-        XCTAssertEqual(Set(json.keys), Set(["metric","size","autoHide","animations","positionLocked","showWeek","showFiveHours","refreshInterval","theme"]))
+        XCTAssertEqual(Set(json.keys), Set(["metric","size","autoHide","animations","positionLocked","followCodex","overlayCodexUsage","showWeek","showFiveHours","centerPeriod","refreshInterval","theme"]))
     }
     func testSmallSizesRemainRecoverableAtEveryEdge() {
         let screen = CGRect(x: 2560, y: 100, width: 1920, height: 980)
@@ -130,6 +131,7 @@ final class PreferencesTests: XCTestCase {
         let p=try JSONDecoder().decode(RingPreferences.self,from:data)
         XCTAssertEqual(p.metric,.used);XCTAssertEqual(p.size,.small);XCTAssertFalse(p.positionLocked);XCTAssertFalse(p.autoHide)
         XCTAssertEqual(p.theme,.system)
+        XCTAssertFalse(p.overlayCodexUsage)
     }
     func testThemeFollowsSystemOrExplicitOverride() {
         XCTAssertFalse(ThemePreference.system.isDark(systemIsDark:false))
