@@ -42,9 +42,12 @@ private struct RingDebugView:View {
                 }.disabled(!model.debugState.isEnabled)
                 DisclosureGroup("窗口信息") {
                     Toggle("显示窗口诊断信息",isOn:$model.diagnostics)
+                        .padding(.leading,16)
                         .padding(.top,12)
                         .onChange(of:model.diagnostics) { _ in model.onDiagnostics?() }
-                    if model.diagnostics { Text(model.diagnosticText).font(.caption.monospaced()).textSelection(.enabled) }
+                    if model.diagnostics {
+                        Text(model.diagnosticText).font(.caption.monospaced()).textSelection(.enabled).padding(.leading,16)
+                    }
                 }
             }.formStyle(.grouped)
             HStack { Spacer();Button("完成",action:onDone).keyboardShortcut(.defaultAction) }

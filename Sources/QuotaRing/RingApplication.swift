@@ -18,6 +18,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private var codexAction:CodexFollowAction = .free
     private var codexTarget:CodexFollowWindow?
     private var overlayAccessibilityGranted=false
+    private let signingFingerprint=SigningFingerprint.current()
     private var quotaMenuBar:QuotaMenuBar?
     private var activeContextMenu:NSMenu?
     private var overlayActive:Bool { preferences.overlayCodexUsage && overlayAccessibilityGranted }
@@ -42,6 +43,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private var preferences = RingPreferences()
     private var settings: RingSettingsWindow?
     private var debugWindow:RingDebugWindow?
+    private var aboutWindow:RingAboutWindow?
     private var debugState=QuotaDebugState()
     private var lastRefreshedAt:Date?
     private var model: SettingsModel!
@@ -71,13 +73,17 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         preferences = store.load()
         overlayAccessibilityGranted=AXIsProcessTrusted()
+        if preferences.overlayCodexUsage && !overlayAccessibilityGranted {
+            preferences.reconcileOverlayPermission(granted:false)
+            store.save(preferences)
+        }
         applyTheme()
         model = SettingsModel(preferences: preferences)
         model.onPreferences = { [weak self] in self?.applyPreferences($0) }
-        model.onRestore = { [weak self] in self?.restore() }
         model.onDiagnostics = { [weak self] in self?.redraw() }
         model.onDebugState = { [weak self] in self?.applyDebugState($0) }
-        model.onOpenDebug = { [weak self] in self?.openDebug() }
+        model.onOpenAccessibilitySettings = { [weak self] in self?.openAccessibilitySettings() }
+        model.onAbout = { [weak self] in self?.openAbout() }
         let fallback = NSScreen.screens.first?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         let position = preferences.position.map { NSPoint(x: $0.x, y: $0.y) }
         let screen = position.flatMap { p in NSScreen.screens.first(where: { $0.frame.contains(p) })?.visibleFrame } ?? fallback
@@ -120,7 +126,13 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         if automaticRefresh { configureRefreshTimer() }
         // Also recover if an app changes its fullscreen geometry without a
         // presentation-options notification (notably native fullscreen).
-        clockTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.synchronizeSpace() }
+        clockTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            if self.settings?.window?.isVisible == true {
+                self.updateAccessibilityTrust(AXIsProcessTrusted())
+            }
+            self.synchronizeSpace()
+        }
         NotificationCenter.default.addObserver(self, selector: #selector(screenChanged), name: NSApplication.didChangeScreenParametersNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(actualSpaceChanged), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(spaceChanged), name: NSWorkspace.didActivateApplicationNotification, object: nil)
@@ -143,10 +155,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             self.synchronizeSpace()
         }
         codexMonitor.onAccessibilityChange = { [weak self] trusted in
-            guard let self,self.overlayAccessibilityGranted != trusted else { return }
-            self.overlayAccessibilityGranted=trusted
-            self.codexAction = self.overlayActive ? .hidden:.free
-            self.resizeCircle();self.synchronizeSpace();self.redraw()
+            self?.updateAccessibilityTrust(trusted)
         }
         codexMonitor.tracksUsageControl=preferences.overlayCodexUsage
         if preferences.followCodex || preferences.overlayCodexUsage { codexMonitor.start() }
@@ -160,6 +169,22 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         spaceRevision += 1;presentationObservation=nil
         codexMonitor.stop()
         savePosition(); refreshTimer?.invalidate(); clockTimer?.invalidate(); hideWork?.cancel(); client.cancel()
+    }
+    private func openAccessibilitySettings() {
+        guard let url=URL(string:"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
+        NSWorkspace.shared.open(url)
+    }
+    private func updateAccessibilityTrust(_ trusted:Bool) {
+        let changed=overlayAccessibilityGranted != trusted
+        overlayAccessibilityGranted=trusted
+        if preferences.overlayCodexUsage && !trusted {
+            var value=preferences;value.reconcileOverlayPermission(granted:false)
+            applyPreferences(value)
+            return
+        }
+        guard changed else { return }
+        codexAction = overlayActive ? .hidden:.free
+        resizeCircle();synchronizeSpace();redraw()
     }
     private var screenFrame: NSRect {
         NSScreen.screens.first(where: { $0.frame.contains(NSPoint(x: panel.frame.midX, y: panel.frame.midY)) })?.visibleFrame
@@ -424,11 +449,12 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         let visible=displaySnapshot
         let composition=RingComposition(snapshot:visible,preferences:preferences,fiveHourSupport:fiveHourSupport)
         ring.composition=composition
-        ring.positionLocked = preferences.positionLocked || overlayActive
+        ring.positionLocked = preferences.effectivePositionLocked
         ring.coversNativeUsage=followingCodex && overlayActive
         let information=details
         var accessibilityHelp = information.tooltip + (overlayActive ? "\n覆盖 Codex 用量，点击打开 Codex 用量菜单；右键或菜单栏打开 CodexRing 设置。":(followingCodex ? "\n跟随 Codex 窗口，可在窗口内拖动；点击打开设置。":"\n自由移动：拖动移动，贴边隐藏，移入边缘恢复；点击打开设置。"))
-        if preferences.positionLocked { accessibilityHelp += "\n位置已固定，右键菜单取消固定可解锁。" }
+        if preferences.overlayCodexUsage { accessibilityHelp += "\n覆盖模式下位置已锁定，关闭覆盖后可调整固定状态。" }
+        else if preferences.positionLocked { accessibilityHelp += "\n位置已固定，右键菜单取消固定可解锁。" }
         let top = NSScreen.screens.first?.frame.maxY ?? 0
         let diagnostics = "自身窗口：\(NSStringFromRect(panel.frame))\n全局中心点（左上原点）：\(Int(panel.frame.midX)),\(Int(top - panel.frame.midY))\n当前空间：\(panel.isOnActiveSpace)，可见：\(panel.isVisible)，未被遮挡：\(panel.occlusionState.contains(.visible))，已收起：\(isTucked)\n显示环境：\(followingCodex ? "跟随 Codex":(showingFullscreen ? "全屏":"普通桌面"))\n全屏识别：\(fullscreenEvidence)"
         if ProcessInfo.processInfo.arguments.contains("--space-diagnostics"),diagnostics != lastSpaceDiagnostic {
@@ -442,6 +468,8 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         model.snapshot = visible; model.source = visible.source; model.isRefreshing = fetching
         model.fiveHourSupport=fiveHourSupport
         model.overlayAccessibilityGranted=overlayAccessibilityGranted
+        model.overlayAuthorizationNotice=store.observeAccessibilityTrust(overlayAccessibilityGranted,fingerprint:signingFingerprint)
+            ? "应用已更新，旧授权可能已失效，请删除旧版本授权，重新授权。":nil
         let settingsHint=preferences.showMenuBar ? "可从菜单栏打开设置。":"重新打开 CodexRing 可进入设置。"
         model.overlayStatus=overlayActive ? ((followingCodex && panel.isVisible ? "已覆盖；":"等待 Codex 用量控件显示；")+settingsHint) : ""
         model.updatedText = dateText(lastRefreshedAt)
@@ -452,17 +480,19 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         if model.menuPresentation != menuData { model.menuPresentation=menuData }
         updateMenuBar()
     }
-    func applyPreferences(_ value: RingPreferences) {
-        guard value != preferences else { return }
-        let old = preferences; preferences = value
-        if old.overlayCodexUsage != value.overlayCodexUsage {
-            if value.overlayCodexUsage {
-                // The only automatic permission request: an explicit off→on
-                // change by the user. Launching and ordinary following never prompt.
-                overlayAccessibilityGranted=AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary)
-            }
-            ring.dismissHover()
+    func applyPreferences(_ requested: RingPreferences) {
+        guard requested != preferences else { return }
+        let old=preferences
+        var value=requested
+        if !old.overlayCodexUsage && value.overlayCodexUsage {
+            // Request only on an explicit off→on change. Keep the switch off
+            // until the OS confirms trust; granting later never enables it.
+            overlayAccessibilityGranted=AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary)
         }
+        value.reconcileOverlayPermission(granted:overlayAccessibilityGranted)
+        preferences=value
+        if model.preferences != value { model.preferences=value }
+        if old.overlayCodexUsage != value.overlayCodexUsage { ring.dismissHover() }
         if old.size != value.size || old.overlayCodexUsage != value.overlayCodexUsage { resizeCircle() }
         if !value.autoHide { reveal(animated: false) }
         if old.refreshInterval != value.refreshInterval { configureRefreshTimer() }
@@ -610,15 +640,34 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             if !success { self?.model.overlayStatus="暂时无法打开 Codex 用量菜单，请稍后重试。" }
         }
     }
+    private func openAbout() {
+        quotaMenuBar?.close()
+        if aboutWindow == nil {
+            aboutWindow=RingAboutWindow(onDebug:{ [weak self] in
+                self?.aboutWindow?.close()
+                self?.openDebug()
+            })
+        }
+        NSApp.activate(ignoringOtherApps:true)
+        aboutWindow?.showWindow(nil);aboutWindow?.window?.makeKeyAndOrderFront(nil)
+    }
     @objc private func openSettings() {
         quotaMenuBar?.close()
+        updateAccessibilityTrust(AXIsProcessTrusted())
         hideWork?.cancel();reveal(animated:false)
         if settings == nil { settings=RingSettingsWindow(model:model,onClose:{ [weak self] in self?.scheduleHide() }) }
         redraw();settings?.showWindow(nil);NSApp.activate(ignoringOtherApps:true);settings?.window?.makeKeyAndOrderFront(nil)
+        DispatchQueue.main.async { [weak self] in
+            guard let window=self?.settings?.window,window.isKeyWindow else { return }
+            window.makeFirstResponder(nil)
+        }
     }
     @objc private func quit() { NSApp.terminate(nil) }
     @objc private func refreshFromMenu() { guard !debugState.isEnabled else { return };source == .official ? refresh():connectLive() }
-    @objc private func togglePositionLock() { var p=preferences;p.positionLocked.toggle();model.preferences=p }
+    @objc private func togglePositionLock() {
+        guard preferences.canTogglePositionLock else { return }
+        var p=preferences;p.togglePositionLock();model.preferences=p
+    }
     private func showMenu(event:NSEvent? = nil) {
         guard activeContextMenu == nil else { return }
         ring.dismissHover()
@@ -630,6 +679,8 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             case .settings:item=NSMenuItem(title:"设置…",action:#selector(openSettings),keyEquivalent:",")
             case .reset:item=NSMenuItem(title:"重置信息",action:nil,keyEquivalent:"");item.image=NSImage(systemSymbolName:"arrow.counterclockwise",accessibilityDescription:"重置信息");item.submenu=resetMenu()
             case .positionLock(let locked):item=NSMenuItem(title:"固定位置",action:#selector(togglePositionLock),keyEquivalent:"");item.image=NSImage(systemSymbolName:locked ? "pin.fill":"pin",accessibilityDescription:locked ? "已固定":"未固定")
+                item.isEnabled=preferences.canTogglePositionLock
+                if !item.isEnabled { item.toolTip="覆盖模式自动锁定位置" }
             case .quit:menu.addItem(.separator());item=NSMenuItem(title:"退出",action:#selector(quit),keyEquivalent:"q")
             }
             item.target=self;menu.addItem(item)

@@ -68,6 +68,42 @@ final class PeriodAndCardsTests:XCTestCase {
         XCTAssertEqual(restored,p);XCTAssertEqual(restored.refreshInterval.rawValue,300)
         XCTAssertEqual(try JSONDecoder().decode(RingPreferences.self,from:Data("{\"refreshInterval\":3}".utf8)).refreshInterval,.oneMinute)
     }
+    func testOverlayForcesLockAndRejectsTogglesWithoutChangingNormalPreference() throws {
+        for original in [false,true] {
+            var p=RingPreferences();p.positionLocked=original;p.overlayCodexUsage=true
+            XCTAssertTrue(p.effectivePositionLocked)
+            XCTAssertFalse(p.canTogglePositionLock)
+            XCTAssertEqual(RingMenuSpec.entries(for:p)[1],.positionLock(locked:true))
+            p.togglePositionLock();p.togglePositionLock()
+            XCTAssertEqual(p.positionLocked,original)
+            p=try JSONDecoder().decode(RingPreferences.self,from:JSONEncoder().encode(p))
+            XCTAssertTrue(p.effectivePositionLocked)
+            XCTAssertFalse(p.canTogglePositionLock)
+            p.overlayCodexUsage=false
+            XCTAssertEqual(p.effectivePositionLocked,original)
+            XCTAssertTrue(p.canTogglePositionLock)
+            p.togglePositionLock()
+            XCTAssertEqual(p.effectivePositionLocked,!original)
+        }
+    }
+    func testMissingPermissionDisablesOverlayAndDoesNotEnableItWhenGrantedLater() throws {
+        for locked in [false,true] {
+            var p=RingPreferences();p.overlayCodexUsage=true;p.positionLocked=locked;p.followCodex=true
+            p.reconcileOverlayPermission(granted:true)
+            XCTAssertTrue(p.overlayCodexUsage)
+            p.reconcileOverlayPermission(granted:false)
+            XCTAssertFalse(p.overlayCodexUsage)
+            XCTAssertEqual(p.effectivePositionLocked,locked)
+            XCTAssertTrue(p.followCodex)
+            p=try JSONDecoder().decode(RingPreferences.self,from:JSONEncoder().encode(p))
+            XCTAssertFalse(p.overlayCodexUsage)
+            p.reconcileOverlayPermission(granted:true)
+            XCTAssertFalse(p.overlayCodexUsage)
+            p.overlayCodexUsage=true
+            p.reconcileOverlayPermission(granted:true)
+            XCTAssertTrue(p.overlayCodexUsage)
+        }
+    }
     func testResetCardCountIsAuthoritativeAndExpiresInUnixSeconds() throws {
         let cards=try XCTUnwrap(ResetCardsParser.parse(["availableCount":2,"credits":[["status":"available","title":"我的重置卡","expiresAt":1793800000,"id":"not-retained"]]]))
         XCTAssertEqual(cards.availableCount,2);XCTAssertEqual(cards.details?.count,1)

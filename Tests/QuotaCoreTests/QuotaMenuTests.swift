@@ -20,7 +20,7 @@ final class QuotaMenuTests:XCTestCase {
         let five=data(live(),preferences:p)
         XCTAssertEqual(five.title,"55% | 17.5%");XCTAssertEqual(five.selectionText,"本周剩余 55% · 5小时剩余 17.5%")
         XCTAssertEqual(five.rows,week.rows);XCTAssertEqual(five.rows[0].band,.orange)
-        XCTAssertEqual(week.updatedText,"刷新于 2026.11.03 18:00:00")
+        XCTAssertEqual(week.updatedText,"刷新于 18:00:00")
         XCTAssertFalse(five.title.contains("剩余"));XCTAssertFalse(five.title.contains("已用"))
     }
     func testUnavailableFiveHoursIsHiddenAndCannotControlBar() {
@@ -56,6 +56,25 @@ final class QuotaMenuTests:XCTestCase {
         XCTAssertTrue(try JSONDecoder().decode(RingPreferences.self,from:Data("{}".utf8)).showMenuBar)
         var p=RingPreferences();p.showMenuBar=false
         XCTAssertEqual(try JSONDecoder().decode(RingPreferences.self,from:JSONEncoder().encode(p)),p)
+    }
+    func testCardColorsFollowRealExpiryAfterFilteringUsedCardsAndMissingDetails() {
+        let cards=ResetCards(availableCount:5,details:[
+            ResetCard(title:"Used",expiresAt:now,status:"used"),
+            ResetCard(title:"Soon",expiresAt:now.addingTimeInterval(36*3600),status:"available"),
+            ResetCard(title:"Unknown",expiresAt:nil,status:"available"),
+            ResetCard(title:"Later",expiresAt:now.addingTimeInterval(96*3600),status:"available"),
+            ResetCard(title:"Expired",expiresAt:now.addingTimeInterval(-1),status:"available")
+        ])
+        let real=QuotaSnapshot(source:.official,fetchedAt:now,quotas:live().quotas,resetCards:cards)
+        let debug=QuotaDebugState(isEnabled:true).snapshot(live:live(),now:now)
+        let view=QuotaMenuPresentation(snapshot:debug,metadata:real,preferences:RingPreferences(),fiveHourSupport:true,lastRefreshedAt:now,now:now)
+        XCTAssertEqual(view.cardRows.map(\.expiryBand),[.orange,.normal,.yellow,.red,.normal])
+        XCTAssertEqual(view.cardLines[0],"2026.11.05 06:00")
+        XCTAssertEqual(view.cardLines[1],"时间未提供")
+        XCTAssertTrue(view.cardLines[3].contains("已过期"))
+        XCTAssertEqual(view.cardLines.last,"部分时间未提供")
+        let later=QuotaMenuPresentation(snapshot:debug,metadata:real,preferences:RingPreferences(),fiveHourSupport:true,lastRefreshedAt:now,now:now.addingTimeInterval(12*3600))
+        XCTAssertEqual(later.cardRows[0].expiryBand,.red)
     }
     func testCardsSectionOnlyAppearsWhenAvailableCardsAreReported() {
         let available=ResetCard(title:"Full reset",expiresAt:now.addingTimeInterval(3600),status:"available")

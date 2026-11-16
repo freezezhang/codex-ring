@@ -39,6 +39,16 @@ public struct RingPreferences: Codable, Equatable {
     public var theme:ThemePreference = .system
     public var bucketID: String? = nil
     public var position: PanelPosition? = nil
+    /// Overlay locking is derived; preserve the user's normal-mode preference.
+    public var effectivePositionLocked:Bool { positionLocked || overlayCodexUsage }
+    public var canTogglePositionLock:Bool { !overlayCodexUsage }
+    public mutating func togglePositionLock() {
+        guard canTogglePositionLock else { return }
+        positionLocked.toggle()
+    }
+    public mutating func reconcileOverlayPermission(granted:Bool) {
+        if !granted { overlayCodexUsage=false }
+    }
     public init() {}
     private enum CodingKeys:String,CodingKey { case metric,size,autoHide,animations,positionLocked,followCodex,overlayCodexUsage,showMenuBar,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position }
     public init(from decoder:Decoder) throws {
@@ -65,7 +75,7 @@ public struct RingPreferences: Codable, Equatable {
 
 public enum RingMenuEntry:Equatable { case refresh,settings,reset,positionLock(locked:Bool),quit }
 public enum RingMenuSpec {
-    public static func entries(for preferences:RingPreferences)->[RingMenuEntry] { [.refresh,.positionLock(locked:preferences.positionLocked),.reset,.settings,.quit] }
+    public static func entries(for preferences:RingPreferences)->[RingMenuEntry] { [.refresh,.positionLock(locked:preferences.effectivePositionLocked),.reset,.settings,.quit] }
 }
 public struct RingComposition {
     public let outer:RingPresentation
@@ -98,6 +108,7 @@ public struct RingComposition {
 public final class PreferencesStore {
     private let defaults: UserDefaults
     private let key = "ring.preferences.v1"
+    private let authorizedFingerprintKey="ring.accessibility.authorizedFingerprint.v1"
     public init(defaults: UserDefaults = .standard) { self.defaults = defaults }
     public func load() -> RingPreferences {
         guard let data = defaults.data(forKey: key), var preferences = try? JSONDecoder().decode(RingPreferences.self, from: data) else { return RingPreferences() }
@@ -109,6 +120,20 @@ public final class PreferencesStore {
         defaults.set(data, forKey: key)
         // Flush these small non-sensitive preferences before a user-requested restart.
         defaults.synchronize()
+    }
+    /// Evidence from this app's own successful authorization, not the system's
+    /// private permission database. Missing history must never imply an update.
+    public func observeAccessibilityTrust(_ trusted:Bool,fingerprint:String?)->Bool {
+        guard let fingerprint,!fingerprint.isEmpty else { return false }
+        let previous=defaults.string(forKey:authorizedFingerprintKey)
+        if trusted {
+            if previous != fingerprint {
+                defaults.set(fingerprint,forKey:authorizedFingerprintKey)
+                defaults.synchronize()
+            }
+            return false
+        }
+        return previous.map { $0 != fingerprint } ?? false
     }
 }
 

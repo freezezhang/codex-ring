@@ -13,6 +13,18 @@ final class DateAndCardPresentationTests:XCTestCase {
         XCTAssertEqual(QuotaDateText.string(try date("2026-11-06T16:02:59Z"),includeSeconds:true),"2026.11.07 00:02:59")
     }
     func testMissingDateNeverInventsExpiry() { XCTAssertEqual(QuotaDateText.string(nil),"—") }
+    func testCardExpiryColorsUseInclusiveRollingHourBoundaries() {
+        let now=Date(timeIntervalSince1970:1793700000)
+        let cases:[(TimeInterval,ResetCardExpiryBand)]=[
+            (7*24*3600+1,.normal),(7*24*3600,.yellow),
+            (72*3600+1,.yellow),(72*3600,.orange),
+            (24*3600+1,.orange),(24*3600,.red),(0,.red),(-1,.red)
+        ]
+        for (remaining,expected) in cases {
+            XCTAssertEqual(ResetCardExpiryBand(expiresAt:now.addingTimeInterval(remaining),now:now),expected)
+        }
+        XCTAssertEqual(ResetCardExpiryBand(expiresAt:nil,now:now),.normal)
+    }
     func testCardTitleLocalizesFullResetWithoutRenamingOtherKinds() {
         XCTAssertEqual(ResetCard(title:" Full \n reset ",expiresAt:nil,status:"available").displayTitle,"完全重置")
         XCTAssertEqual(ResetCard(title:"FULL_RESET",expiresAt:nil,status:"available").displayTitle,"完全重置")

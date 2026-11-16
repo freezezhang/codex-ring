@@ -1,5 +1,16 @@
 import Foundation
 import CoreFoundation
+public enum ResetCardExpiryBand:Equatable {
+    case normal,yellow,orange,red
+    public init(expiresAt:Date?,now:Date=Date()) {
+        guard let expiresAt else { self = .normal;return }
+        let remaining=expiresAt.timeIntervalSince(now)
+        if remaining<=24*3600 { self = .red }
+        else if remaining<=72*3600 { self = .orange }
+        else if remaining<=7*24*3600 { self = .yellow }
+        else { self = .normal }
+    }
+}
 public struct ResetCard:Equatable {
     public let title:String
     public let expiresAt:Date?

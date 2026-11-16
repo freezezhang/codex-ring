@@ -43,13 +43,18 @@ final class OverlayCheck:NSObject,NSApplicationDelegate {
                             trusted=false
                             after(1) { [self] in
                                 guard normal("permission revoked") else { return }
+                                guard !store.load().overlayCodexUsage else { finish("permission loss did not turn off saved overlay switch",false);return }
                                 trusted=true
                                 after(1) { [self] in
-                                    guard attached("permission restored") else { return }
-                                    preferences.overlayCodexUsage=false;ring.applyPreferences(preferences)
+                                    guard normal("permission restored without reenabling") else { return }
+                                    ring.applyPreferences(preferences)
                                     after(1) { [self] in
-                                        guard normal("overlay disabled") else { return }
-                                        finish("overlay geometry, hover interception, forwarded click, disappearance, permission loss and size/position restoration",true)
+                                        guard attached("manually reenabled after permission restored") else { return }
+                                        preferences.overlayCodexUsage=false;ring.applyPreferences(preferences)
+                                        after(1) { [self] in
+                                            guard normal("overlay disabled") else { return }
+                                            finish("overlay geometry, hover interception, forwarded click, disappearance, permission loss and size/position restoration",true)
+                                        }
                                     }
                                 }
                             }

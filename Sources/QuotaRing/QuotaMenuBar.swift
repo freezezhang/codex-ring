@@ -107,13 +107,10 @@ private struct QuotaMenuView:View {
             HStack(alignment:.top) {
                 VStack(alignment:.leading,spacing:5) {
                     HStack(spacing:8) {
-                        Text("Codex").font(.system(size:20,weight:.semibold))
+                        Text("CodexRing").font(.system(size:20,weight:.semibold))
                         if model.menuPresentation?.isDebug == true {
                             Text("调试").font(.caption).foregroundStyle(.orange)
                         }
-                    }
-                    if let data=model.menuPresentation {
-                        Text(data.selectionText).font(.system(size:12)).foregroundStyle(.secondary).monospacedDigit()
                     }
                     Text(model.isRefreshing ? "正在刷新…":model.menuPresentation?.updatedText ?? "尚未刷新")
                         .font(.system(size:11)).foregroundStyle(.secondary).monospacedDigit()
@@ -169,17 +166,25 @@ private struct QuotaMenuView:View {
                 Spacer()
                 Text(data.cardsSummary).font(.system(size:12)).foregroundStyle(.secondary)
             }
-            ForEach(data.cardLines.indices,id:\.self) { index in
-                cardLine(data.cardLines[index])
+            ForEach(data.cardRows.indices,id:\.self) { index in
+                cardLine(data.cardRows[index])
             }
         }
     }
-    private func cardLine(_ line:String)->some View {
-        HStack(alignment:.firstTextBaseline,spacing:8) {
-            Image(systemName:"clock").foregroundStyle(.secondary)
-            Text(line).font(.system(size:12)).monospacedDigit()
+    private func cardLine(_ row:QuotaMenuCardRow)->some View {
+        let color:Color? = {
+            switch row.expiryBand {
+            case .normal:return nil
+            case .yellow:return .yellow
+            case .orange:return .orange
+            case .red:return .red
+            }
+        }()
+        return HStack(alignment:.firstTextBaseline,spacing:8) {
+            Image(systemName:"clock").foregroundStyle(color ?? .secondary)
+            Text(row.text).font(.system(size:12)).monospacedDigit().foregroundStyle(color ?? .primary)
             Spacer(minLength:0)
-        }.accessibilityElement(children:.ignore).accessibilityLabel("重置卡到期 "+line)
+        }.accessibilityElement(children:.ignore).accessibilityLabel("重置卡到期 "+row.text)
     }
     private func quota(_ row:QuotaMenuRow)->some View {
         VStack(alignment:.leading,spacing:10) {

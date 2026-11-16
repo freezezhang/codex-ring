@@ -12,12 +12,15 @@ final class SettingsModel:ObservableObject {
     @Published var diagnostics=false
     @Published var fiveHourSupport:Bool?
     @Published var overlayAccessibilityGranted=false
+    @Published var overlayAuthorizationNotice:String?
     @Published var overlayStatus=""
     @Published var menuPresentation:QuotaMenuPresentation?
     @Published var debugState=QuotaDebugState() { didSet { onDebugState?(debugState) } }
     var onPreferences:((RingPreferences)->Void)?
     var onDebugState:((QuotaDebugState)->Void)?
-    var onRestore:(()->Void)?,onDiagnostics:(()->Void)?,onOpenDebug:(()->Void)?
+    var onDiagnostics:(()->Void)?
+    var onOpenAccessibilitySettings:(()->Void)?
+    var onAbout:(()->Void)?
     init(preferences:RingPreferences) { self.preferences=preferences }
     var composition:RingComposition { RingComposition(snapshot:snapshot,preferences:preferences,fiveHourSupport:fiveHourSupport) }
     var display:QuotaDisplay { composition.center.display }
@@ -48,17 +51,9 @@ private struct RingSettingsView:View {
                 appearanceSection
                 ringSection
                 quotaStatusSection
-                DisclosureGroup("更多") {
-                    HStack(spacing:12) {
-                        Button("调试") { model.onOpenDebug?() }
-                        Button("归位") { model.onRestore?() }
-                            .help("恢复圆圈到屏幕内")
-                    }.frame(maxWidth:.infinity,alignment:.leading)
-                        .padding(.top,12)
-                    if model.debugState.isEnabled { Text("调试模式").font(.caption).foregroundStyle(.orange) }
-                }
             }.formStyle(.grouped)
             HStack {
+                Button("关于") { model.onAbout?() }
                 Spacer();Button("完成",action:onDone).keyboardShortcut(.defaultAction)
             }
                 .padding(.horizontal,20).padding(.vertical,12)
@@ -97,10 +92,20 @@ private struct RingSettingsView:View {
             Toggle("跟随 Codex 移动",isOn:$model.preferences.followCodex)
                 .disabled(model.preferences.overlayCodexUsage)
                 .help("圆圈跟随 Codex 窗口，支持普通窗口和全屏；没有 Codex 窗口时恢复自由位置。")
-            Toggle("覆盖 Codex 额度控件",isOn:$model.preferences.overlayCodexUsage)
-                .help("自动缩为小号并覆盖头像上方的用量圆环；点击仍打开 Codex 用量菜单。关闭后恢复原来的大小和位置。")
-            if model.preferences.overlayCodexUsage && model.overlayAccessibilityGranted && !model.overlayStatus.isEmpty {
-                Text(model.overlayStatus).font(.caption).foregroundStyle(.secondary)
+            VStack(alignment:.leading,spacing:0) {
+                Toggle("覆盖 Codex 额度控件",isOn:$model.preferences.overlayCodexUsage)
+                    .help("自动缩为小号并覆盖头像上方的用量圆环；点击仍打开 Codex 用量菜单。关闭后恢复原来的大小和位置。")
+                valueRow("需要辅助功能权限",value:model.overlayAccessibilityGranted ? "已授权":"未授权")
+                    .padding(.leading,16)
+                    .padding(.top,12)
+                if let notice=model.overlayAuthorizationNotice {
+                    VStack(alignment:.leading,spacing:8) {
+                        Text(notice).font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal:false,vertical:true)
+                        Button("辅助功能设置") { model.onOpenAccessibilitySettings?() }
+                    }.frame(maxWidth:.infinity,alignment:.leading)
+                        .padding(.leading,16).padding(.top,8)
+                }
             }
         }
     }

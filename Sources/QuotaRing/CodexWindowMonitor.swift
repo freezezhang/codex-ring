@@ -66,6 +66,8 @@ final class CodexWindowMonitor {
         guard timer != nil,!busy else { return }
         let trusted=accessibilityTrusted()
         if lastTrusted != trusted { lastTrusted=trusted;onAccessibilityChange?(trusted) }
+        // Losing permission can disable overlay tracking in the callback.
+        guard timer != nil else { return }
         let apps=NSWorkspace.shared.runningApplications.filter { $0.bundleIdentifier == bundleIdentifier }
         // Hiding/backgrounding the app does not close its windows. Never turn
         // that into a free desktop ring merely because the app is not visible.

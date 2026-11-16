@@ -1,5 +1,10 @@
 import Foundation
 
+public struct QuotaMenuCardRow:Equatable {
+    public let text:String
+    public let expiryBand:ResetCardExpiryBand
+}
+
 public struct QuotaMenuRow:Equatable,Identifiable {
     public let period:QuotaPeriod
     public var id:String { period.rawValue }
@@ -23,7 +28,8 @@ public struct QuotaMenuPresentation:Equatable {
     public let updatedText:String
     public let cardsSummary:String
     public let showsResetCards:Bool
-    public let cardLines:[String]
+    public let cardRows:[QuotaMenuCardRow]
+    public var cardLines:[String] { cardRows.map(\.text) }
     public let metadataNotice:String?
     public let isDebug:Bool
     public init(snapshot:QuotaSnapshot,metadata:QuotaSnapshot,preferences:RingPreferences,
@@ -52,7 +58,7 @@ public struct QuotaMenuPresentation:Equatable {
                                 remainingText:remaining.text,statusText:display.subtitle,
                                 resetText:reset.map { QuotaDateText.string($0) } ?? "未提供")
         }
-        updatedText=lastRefreshedAt.map { "刷新于 "+QuotaDateText.string($0,includeSeconds:true) } ?? "尚未刷新"
+        updatedText=lastRefreshedAt.map { "刷新于 "+QuotaDateText.string($0,includeSeconds:true,includeDate:false) } ?? "尚未刷新"
         cardsSummary=metadata.resetCards.map { $0.availableCount.map { "\($0) 张可用" } ?? "数量未知" } ?? "未提供"
         showsResetCards=metadata.resetCards.map { cards in
             cards.availableCount.map { $0>0 } ?? (cards.details?.contains(where: \.available) ?? false)
@@ -60,8 +66,15 @@ public struct QuotaMenuPresentation:Equatable {
         let details=QuotaDetailsPresentation(snapshot:snapshot,metadataSnapshot:metadata,preferences:preferences,
                                             fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt,now:now)
         // Preserve unknown, expired and partially available metadata notices.
-        cardLines=showsResetCards ? details.resetMenuLines.filter { $0.hasPrefix("重置卡到期 ") }
+        let cardLines=showsResetCards ? details.resetMenuLines.filter { $0.hasPrefix("重置卡到期 ") }
             .map { String($0.dropFirst("重置卡到期 ".count)) }:[]
+        // The detail presentation emits available cards in metadata order,
+        // followed by any missing-detail notice, which has no expiry date.
+        let available=metadata.resetCards?.details?.filter(\.available) ?? []
+        cardRows=cardLines.enumerated().map { index,text in
+            let expiry=available.indices.contains(index) ? available[index].expiresAt:nil
+            return QuotaMenuCardRow(text:text,expiryBand:ResetCardExpiryBand(expiresAt:expiry,now:now))
+        }
         metadataNotice=details.metadataNotice
     }
 }
