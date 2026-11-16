@@ -20,7 +20,10 @@ public struct AppLanguage:Equatable,Identifiable {
     }
     public static let supported:[AppLanguage]=[
         AppLanguage(code:"en",displayName:"English"),
-        AppLanguage(code:"zh-Hans",displayName:"简体中文"),
+        AppLanguage(code:"zh-Hans",displayName:"简体中文",systemAliases:["zh-CN","zh-SG"]),
+        AppLanguage(code:"zh-Hant",displayName:"繁體中文",systemAliases:["zh-TW","zh-HK","zh-MO"]),
+        AppLanguage(code:"ja",displayName:"日本語"),
+        AppLanguage(code:"ko",displayName:"한국어"),
     ]
     public static var fallback:AppLanguage { supported[0] }
     public static func registered(_ code:String?)->AppLanguage? {

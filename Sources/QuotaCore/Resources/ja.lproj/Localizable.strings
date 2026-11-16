@@ -1,0 +1,368 @@
+/* CodexRing interface text. Use %@ or %1$@ for arguments and %% for a literal percent sign. */
+
+/* Common */
+"common.done" = "完了";
+"common.settings" = "設定";
+"common.refresh" = "更新";
+"common.refreshing" = "更新中…";
+"common.notProvided" = "情報なし";
+"common.neverRefreshed" = "未更新";
+"punctuation.listSeparator" = "；";
+"punctuation.sentenceEnd" = "。";
+"unit.minutes" = "%@分";
+"unit.hours" = "%@時間";
+"duration.days" = "%@日";
+"duration.hours" = "%@時間";
+"duration.minutes" = "%@分";
+"duration.seconds" = "%@秒";
+"duration.separator" = "";
+"debug.badge" = "デバッグ";
+
+/* Quota periods and metrics */
+"period.week.title" = "1週間";
+"period.fiveHours.title" = "5時間";
+"period.week.short" = "今週";
+"period.fiveHours.short" = "5時間";
+"period.week.quota" = "週間使用枠";
+"period.fiveHours.quota" = "5時間の使用枠";
+"quota.periodValue" = "%1$@ %2$@";
+"metric.remaining.title" = "残りの使用枠";
+"metric.used.title" = "使用済みの枠";
+"metric.remaining.short" = "残り";
+"metric.used.short" = "使用済み";
+"metric.remaining.value" = "残り %@";
+"metric.used.value" = "%@ 使用済み";
+"metric.remaining.compactValue" = "残り %@";
+"metric.used.compactValue" = "%@ 使用済み";
+
+/* Quota status */
+"status.paused" = "更新を一時停止中";
+"status.debug" = "デバッグモード";
+"status.loading" = "使用枠を取得中";
+"status.available" = "使用枠を更新しました";
+"status.unavailable" = "使用枠を取得できません。Codex にログインしているか確認してください";
+"status.stale" = "データが古くなっています";
+"status.expired" = "再取得を待機中";
+"status.connection" = "接続に失敗しました";
+"status.timeout" = "取得がタイムアウトしました";
+"status.protocolError" = "インターフェースを利用できません";
+"status.missingCLI" = "Codex が見つかりません";
+
+/* Ring captions */
+"caption.loading" = "取得中";
+"caption.stale" = "期限切れ";
+"caption.offline" = "オフライン";
+"caption.timeout" = "時間切れ";
+"caption.paused" = "一時停止";
+"caption.unknown" = "不明";
+"caption.unavailable" = "利用不可";
+"caption.notConnected" = "未接続";
+"ring.caption.week" = "週 %@";
+"ring.caption.fiveHours" = "5h %@";
+
+/* Usage colors */
+"band.normal" = "正常";
+"band.yellow" = "黄色の警告";
+"band.orange" = "オレンジ色の警告";
+"band.red" = "赤色の警告";
+"band.unknown" = "使用枠が不明";
+
+/* Ring accessibility */
+"a11y.debugPrefix" = "デバッグモード；";
+"a11y.ring.single" = "%1$@：%2$@";
+"a11y.ring.outer" = "外側のリング、%1$@：%2$@";
+"a11y.ring.inner" = "；内側のリング、%1$@：%2$@";
+"a11y.ring.center" = "；中央の数字は%@の使用枠のみを表します。";
+"a11y.ring.presentation" = "CodexRing %1$@、%2$@、%3$@、%4$@、%5$@。クリックして設定を開きます。";
+"a11y.clockwise" = "時計回り";
+"a11y.counterclockwise" = "反時計回り";
+"ring.unavailable.a11y" = "CodexRing の使用枠を取得できません";
+"ring.help.overlay" = "Codex の使用量に重ねて表示中。クリックすると Codex の使用量メニューが開きます。右クリックまたはメニューバーから CodexRing の設定を開けます。";
+"ring.help.follow" = "Codex ウィンドウに追従中。ウィンドウ内でドラッグして移動できます。クリックして設定を開きます。";
+"ring.help.free" = "自由に移動できます。ドラッグで移動し、画面端で隠れます。端にポインタを合わせると再表示されます。クリックして設定を開きます。";
+"ring.help.overlayLocked" = "重ねて表示中は位置が固定されます。固定状態を変更するには重ねて表示をオフにしてください。";
+"ring.help.locked" = "位置は固定されています。右クリックメニューの「位置を固定」をオフにすると解除できます。";
+"ring.hover.center" = "中央の数字：%@";
+"hover.windowTitle" = "CodexRing 使用枠の詳細";
+"hover.periodStatus" = "%1$@：%2$@";
+
+/* Quota details and reset information */
+"details.periodLine" = "%1$@：%2$@";
+"details.center" = "中央の数字：%1$@ · %2$@";
+"details.autoReset" = "%1$@の自動リセット：%2$@";
+"details.cards" = "リセットカード：%@";
+"details.cardLine" = "%1$@　%2$@";
+"details.cardsExpiryMissing" = "リセットカードの有効期限は未提供です";
+"details.lastRefreshed" = "最終更新：%@";
+"metadata.failed" = "リセット情報：更新失敗";
+"metadata.loading" = "リセット情報：取得中";
+"metadata.stale" = "リセット情報：データが古くなっています";
+"cards.available" = "%@枚利用可能";
+"cards.countUnknown" = "枚数不明";
+"cards.timeMissing" = "時刻の情報なし";
+"cards.none" = "利用可能なカードなし";
+"cards.partialTimeMissing" = "一部の時刻は未提供です";
+"cards.expired" = "期限切れ";
+"card.fullReset" = "完全リセット";
+"card.defaultTitle" = "使用枠リセットカード";
+"card.expiryUnknown" = "有効期限不明";
+"card.expiredOn" = "%@に期限切れ";
+"card.expiresOn" = "%@に期限切れ";
+"menu.resetAt" = "%1$@のリセット %2$@";
+"menu.cardExpiry" = "カードの有効期限 %@";
+"menu.cardExpired" = "%@（期限切れ）";
+"menu.refreshedAt" = "更新 %@";
+"reset.timeMissing" = "リセット時刻は未提供です";
+"reset.at" = "%@にリセット";
+"reset.waiting" = "リセット待ち";
+"reset.countdown" = "%@後にリセット";
+
+/* Usage pace */
+"pace.balanced" = "標準ペース";
+"pace.ahead" = "標準より%@%%超過";
+"pace.behind" = "標準より%@%%余裕あり";
+"pace.lastsUntilReset" = "リセットまで利用可能の見込み";
+"pace.duration.daysHours" = "%1$@日%2$@時間";
+"pace.duration.hoursMinutes" = "%1$@時間%2$@分";
+"pace.duration.underMinute" = "1分未満";
+"pace.forecast" = "%@後に使い切る見込み";
+"pace.basis.workDays" = "週%@営業日（月曜始まり、システムの時間帯）と平均使用量から推定。";
+"pace.basis.elapsed" = "この期間の使用済み枠と経過時間から推定。";
+"pace.explanation" = "%@ 超過／余裕は均等ペースとの差（パーセントポイント）であり、追加料金ではありません。今後の使用速度によって予測は変わります。";
+
+/* Panel preferences */
+"schedule.automatic" = "自動（7日）";
+"schedule.days" = "%@日";
+"tick.hidden" = "非表示";
+"tick.subtle" = "控えめ";
+"tick.highContrast" = "高コントラスト";
+"resetStyle.countdown" = "カウントダウン";
+"resetStyle.dateTime" = "日時";
+"theme.system" = "システムに従う";
+"theme.light" = "ライト";
+"theme.dark" = "ダーク";
+
+/* Notifications */
+"alert.restored.title" = "%@が回復しました";
+"alert.restored.body" = "残り%@%%。";
+"alert.low.title" = "%@が残りわずかです";
+"alert.low.body" = "残り%1$@%%（%2$@%%未満）。";
+"alert.prediction.title" = "%@がまもなく尽きる見込み";
+"alert.prediction.body" = "現在のペースでは約%@分後に使い切る見込みです。";
+"alert.card.title" = "リセットカードの期限が近づいています";
+"alert.card.body" = "リセットカードは%@に期限切れになります。";
+"notification.sendFailed" = "送信失敗";
+
+/* Permissions and login item */
+"permission.granted" = "許可済み";
+"permission.denied" = "未許可";
+"permission.notRequested" = "未申請";
+"permission.requestFailed" = "申請失敗";
+"login.enabled" = "オン";
+"login.requiresApproval" = "承認が必要";
+"login.disabled" = "オフ";
+"login.unknown" = "不明";
+
+/* Codex overlay */
+"overlay.controlMissing" = "Codex の使用枠コントロールが見つからないため、通常のリングを表示しています。アバター上のコントロールが表示されているか確認してください。見つかり次第、自動で重ねて表示を再開します。";
+"overlay.updateNotice" = "アプリが更新されたため、以前の許可が無効になっている可能性があります。旧バージョンの許可を削除して、もう一度許可してください。";
+"overlay.pressFailed" = "現在 Codex の使用量メニューを開けません。後でもう一度お試しください。";
+
+/* Context and status menus */
+"menu.refreshNow" = "今すぐ更新";
+"menu.refreshQuota" = "使用枠を更新";
+"menu.settings" = "設定…";
+"menu.resetInfo" = "リセット情報";
+"menu.pin" = "位置を固定";
+"menu.pin.locked" = "固定済み";
+"menu.pin.unlocked" = "未固定";
+"menu.pin.overlay" = "重ねて表示中は位置が自動的に固定されます";
+"menu.quitShort" = "終了";
+"menu.quit" = "CodexRing を終了";
+"menu.disableOverlay" = "Codex 使用枠の重ね表示をオフ";
+
+/* Menu bar panel */
+"panel.account" = "アカウント";
+"panel.account.loading" = "アカウントを取得中…";
+"panel.account.missing" = "アカウント情報なし";
+"panel.account.help" = "現在 Codex にログイン中のアカウントを読み取ります";
+"panel.account.a11y" = "アカウント：%@";
+"panel.plan.missing" = "プラン情報なし";
+"panel.plan.a11y" = "プラン：%@";
+"panel.subscription" = "OpenAI サブスクリプション";
+"panel.resetCards" = "リセットカード";
+"panel.card.help" = "有効期限：%@";
+"panel.card.a11y" = "リセットカード：%@";
+"panel.pace.a11y" = "%1$@。%2$@";
+"panel.refresh" = "使用枠とアカウントを更新";
+"panel.bar.a11y" = "%1$@ %2$@";
+"panel.bar.value" = "%1$@、%2$@";
+"panel.ticks.week" = "細い目盛りは週の営業日を表します";
+"panel.ticks.fiveHours" = "細い目盛りは1時間ごとの進捗を表します";
+"panel.ticks.pace" = "赤／緑のマーカーは現在時刻での均等な使用ペースを表します";
+
+/* OpenAI API usage */
+"api.budgetMissing" = "合計枠を識別できません。設定で入力してください";
+"api.error.authorization" = "キーが無効か期限切れです";
+"api.error.permission" = "使用量の参照権限を持つ Admin API キーが必要です";
+"api.error.rateLimited" = "リクエストが多すぎます。後で更新してください";
+"api.error.server" = "OpenAI サービスを一時的に利用できません";
+"api.error.invalidResponse" = "費用データの形式が不正です";
+"api.error.invalidProject" = "プロジェクト ID の形式が不正です";
+"api.error.incomplete" = "費用データが不完全です。再度更新してください";
+"api.status.notConfigured" = "Admin API キー未設定";
+"api.status.invalidBudget" = "合計枠は0より大きい米ドル金額を入力してください";
+"api.status.keyWhitespace" = "キーに空白や改行は使用できません";
+"api.status.keyRequired" = "Admin API キーを入力してください";
+"api.status.keychainUnavailable" = "キーチェーンにアクセスできません";
+"api.status.keychainDeleteFailed" = "キーチェーンからキーを削除できません";
+"api.status.saved" = "設定を保存しました";
+"api.status.configureKey" = "設定で Admin API キーを登録してください";
+"api.status.connected" = "接続済み";
+"api.status.connectionFailed" = "接続に失敗しました。後でもう一度お試しください";
+"api.plan.detecting" = "確認中…";
+"api.plan.unknown" = "未識別";
+"api.budget.automatic" = "自動 · %@";
+"api.budget.prompt" = "空欄でプランから自動識別";
+"api.settings.show" = "API 使用状況を表示";
+"api.settings.show.help" = "メニューパネルのみに表示します。独自の月次期間で集計し、5分ごとに更新します。公式データには遅延がある場合があります。";
+"api.settings.connection" = "接続";
+"api.settings.key" = "Admin API Key";
+"api.settings.key.prompt" = "空欄で保存済みキーを保持";
+"api.settings.key.help" = "費用の参照権限を持つ OpenAI Admin API キーが必要です。通常のモデル用キーは利用できません。この Mac のキーチェーンのみに保存します。";
+"api.settings.project" = "プロジェクト ID";
+"api.settings.project.prompt" = "空欄で組織全体を集計";
+"api.settings.project.help" = "proj_ で始まるプロジェクト ID を入力すると、そのプロジェクトの費用のみを集計します。空欄で組織全体を集計します。";
+"api.settings.status" = "接続状態";
+"api.settings.cycle" = "期間と使用枠";
+"api.settings.startDay" = "期間開始日";
+"api.settings.startDay.option" = "毎月%@日";
+"api.settings.startDay.help" = "システムの時間帯の午前0時に開始します。その日がない月は月末を使います。サブスクリプションの請求日は自動取得できません。";
+"api.settings.plan" = "サブスクリプションプラン";
+"api.settings.plan.refresh" = "プランを再識別";
+"api.settings.budget" = "合計枠（米ドル）";
+"api.settings.budget.help" = "空欄では識別した Pro プランの1期間分の想定 API 枠を使います。金額を入力すると上書きし、消すと自動に戻ります。特典の受け取りと、この API 組織への紐付けが必要です。初回は残り期間に応じた金額になるため、手動で調整できます。実際の残高ではありません。Business プランは手動入力が必要です。";
+"api.settings.save" = "保存して更新";
+"api.settings.deleteKey" = "キーを削除";
+"api.panel.organization" = "組織全体";
+"api.panel.organization.help" = "API 組織全体の費用";
+"api.panel.project" = "プロジェクト";
+"api.panel.stale" = "データが古くなっています。更新してください";
+"api.panel.total" = "合計 %@";
+"api.panel.spent" = "今期使用額 %@";
+"api.panel.progress.a11y" = "API 合計枠の使用状況";
+"api.panel.noBudget" = "合計枠が未設定です";
+"api.panel.total.manual.help" = "手動で設定した期間の枠です。実際の残高ではありません。";
+"api.panel.total.estimated.help" = "プランから推定した1期間分の枠です。初回は期間に応じて減額される場合があり、付与額や残高を表すものではありません。";
+"api.panel.period.help" = "集計期間；更新 %@";
+
+/* Settings window */
+"settings.windowTitle" = "CodexRing 設定";
+"settings.sidebar.a11y" = "設定カテゴリ";
+"settings.page.general" = "一般";
+"settings.page.appearance" = "表示";
+"settings.page.ring" = "リング";
+"settings.page.subscription" = "サブスクリプション";
+"settings.page.api" = "API";
+"settings.page.alerts" = "通知";
+"settings.page.about" = "このアプリについて";
+"settings.startup.section" = "起動";
+"settings.startup.launchAtLogin" = "ログイン時に起動";
+"settings.startup.status" = "ログイン項目の状態";
+"settings.startup.status.help" = "システムのログイン項目の状態と同期します。";
+"settings.startup.failed" = "失敗";
+"settings.startup.failed.detail" = "失敗：%@";
+"settings.startup.loginItems" = "ログイン項目設定";
+"settings.language.section" = "言語";
+"settings.language.picker" = "表示言語";
+"settings.language.system" = "システムに従う";
+"settings.language.help" = "すぐに反映されます。「システムに従う」は macOS の優先言語を順に照合し、対応言語がなければ英語を使います。macOS のシステム画面や通知、送信済みの通知の言語は変わりません。";
+"settings.refresh.section" = "更新";
+"settings.refresh.interval" = "更新間隔";
+"settings.quota.status" = "使用枠の状態";
+"settings.quota.pool" = "使用枠プール";
+"settings.quota.pool.automatic" = "自動";
+"settings.appearance.section" = "外観とメニューバー";
+"settings.menuBar.toggle" = "メニューバーに使用枠を表示";
+"settings.menuBar.help" = "「リング」で選択した週・5時間の割合を表示し、両方選択時は | で区切ります。クリックして使用状況パネルを開きます。";
+"settings.metric.picker" = "表示項目";
+"settings.metric.remaining" = "残り";
+"settings.metric.used" = "使用済み";
+"settings.metric.hint" = "使用済みは上から時計回り、残りは上から反時計回りです。実際の使用率が70%%、80%%、90%%で色が変わります。";
+"settings.theme.picker" = "テーマ";
+"settings.panel.section" = "使用状況とリセット";
+"settings.panel.pace" = "使用ペースを表示";
+"settings.panel.pace.help" = "赤／緑のマーカー、超過／余裕、使い切るまでの予測時間を表示します。";
+"settings.panel.workDays" = "週の営業日数";
+"settings.panel.workDays.help" = "4・5・6日は月曜始まりでシステムの時間帯を使い、週間ペースと使い切る時刻を予測します。自動は7日全体で計算し、日ごとの目盛りを表示しません。5時間枠には影響しません。";
+"settings.panel.ticks" = "期間の目盛り";
+"settings.panel.ticks.help" = "週間枠の営業日と5時間枠の時間ごとの目盛りを設定します。非表示にしても使用ペースの予測は続きます。";
+"settings.panel.resetStyle" = "リセット時刻";
+"settings.ring.section" = "使用枠と動作";
+"settings.ring.fiveHours.missing" = "このアカウントは5時間枠を提供していません。";
+"settings.ring.fiveHours.hint" = "二重リングでは外側が週間、内側が5時間です。中央の数字は個別に選べます。";
+"settings.ring.center" = "中央の数字";
+"settings.ring.center.lower" = "少ない方";
+"settings.ring.center.help" = "使い切った、または先に使い切ると予測される枠を表示します。予測できない場合は残りが少ない方を表示します。リングとメニューバーは両方の枠を表示し続けます。";
+"settings.ring.center.automatic" = "%@（自動）";
+"settings.ring.size" = "リングのサイズ";
+"settings.ring.size.avatar" = "小 · 26 pt";
+"settings.ring.size.tiny" = "コンパクト · 32 pt";
+"settings.ring.size.small" = "中 · 56 pt";
+"settings.ring.size.compact" = "標準 · 64 pt";
+"settings.ring.size.large" = "大 · 76 pt";
+"settings.ring.size.hint" = "26・32 pt は選択した割合の数字のみを表示します。有効なデータがない場合は横線を表示します。";
+"settings.ring.autoHide" = "画面端で自動非表示";
+"settings.ring.autoHide.help" = "自由移動時は画面端で隠れ、Codex に追従している間はウィンドウ内に表示されます。";
+"settings.ring.animations" = "展開・収納アニメーション";
+"settings.ring.follow" = "Codex ウィンドウに追従";
+"settings.ring.follow.help" = "通常・フルスクリーンの Codex ウィンドウに追従します。ウィンドウがない場合は自由位置に戻ります。";
+"settings.ring.overlay" = "Codex 使用枠に重ねて表示";
+"settings.ring.overlay.help" = "小さいリングでアバター上の使用量リングを覆います。クリックで Codex 使用量メニューを開きます。オフにすると元のサイズと位置に戻ります。";
+"settings.ring.overlay.permission" = "アクセシビリティ権限が必要";
+"settings.ring.overlay.permission.help" = "重ねて表示するにはアクセシビリティ権限が必要です。許可後、もう一度オンにしてください。";
+"settings.ring.overlay.accessibilitySettings" = "アクセシビリティ設定";
+"settings.ring.overlay.status" = "重ね表示の状態";
+"settings.ring.overlay.unavailable" = "一時的に利用不可";
+"settings.alerts.section" = "通知と紙吹雪";
+"settings.alerts.toggle" = "使用枠・リセットカードの通知";
+"settings.alerts.toggle.help" = "更新間隔ごとに実際の使用枠を確認し、同じ期間の同じ種類の通知は1回のみ送ります。予測は週の営業日数設定に従います。";
+"settings.alerts.permission" = "通知の許可が必要";
+"settings.alerts.permission.help" = "通知をオンにすると許可を求めます。未許可の場合はシステムの通知設定で CodexRing を許可してください。";
+"settings.alerts.notificationSettings" = "通知設定";
+"settings.alerts.low" = "残り枠が少ないとき";
+"settings.alerts.low.threshold" = "%@%%未満";
+"settings.alerts.prediction" = "まもなく使い切る見込み";
+"settings.alerts.prediction.lead" = "事前通知";
+"settings.alerts.restored" = "使用枠が回復したとき";
+"settings.alerts.card.days" = "%@日前";
+"settings.alerts.confetti" = "使用枠の回復時に紙吹雪を表示";
+"settings.alerts.confetti.help" = "使用枠のリセットや使い切った枠の回復を検知すると表示します。起動やデバッグ値では実行されません。システムの「視差効果を減らす」に従います。";
+"settings.alerts.confetti.preview" = "紙吹雪をプレビュー";
+
+/* About */
+"about.windowTitle" = "CodexRing について";
+"about.icon.a11y" = "CodexRing アイコン";
+"about.version" = "バージョン %@";
+"about.devVersion" = "開発版";
+
+/* Debug window */
+"debug.windowTitle" = "CodexRing デバッグ";
+"debug.enable" = "デバッグを有効にする";
+"debug.enable.help" = "デバッグ値は今回の起動中のみ有効です。オフにすると実際の使用枠に戻ります。";
+"debug.used.section" = "使用済み枠";
+"debug.used.week" = "1週間の使用量";
+"debug.used.fiveHours" = "5時間の使用量";
+"debug.percentage.a11y" = "%@の割合";
+"debug.periods.section" = "表示する期間";
+"debug.periods.week" = "1週間の使用枠を表示";
+"debug.periods.fiveHours" = "5時間の使用枠を表示";
+"debug.window.section" = "ウィンドウ情報";
+"debug.window.diagnostics" = "ウィンドウ診断を表示";
+"diagnostics.window" = "自身のウィンドウ：%1$@\n全体の中心（左上原点）：%2$@,%3$@\n現在の Space：%4$@、表示：%5$@、非遮蔽：%6$@、収納済み：%7$@\n表示環境：%8$@\nフルスクリーン検出：%9$@";
+"diagnostics.surface.follow" = "Codex に追従";
+"diagnostics.surface.fullscreen" = "フルスクリーン";
+"diagnostics.surface.desktop" = "デスクトップ";
+"diagnostics.evidence.none" = "なし";
+"diagnostics.evidence.window" = "ウィンドウが画面全体を覆う";
+"diagnostics.evidence.systemFlag" = "システムのフルスクリーンフラグ";

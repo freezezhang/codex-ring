@@ -84,11 +84,43 @@ final class LocalizationTests:XCTestCase {
         let chinese=AppLanguage.registered("zh-Hans")
         XCTAssertEqual(AppLanguage.matching(preferredLanguages:["zh-Hans-CN","en-US"]),chinese)
         XCTAssertEqual(AppLanguage.matching(preferredLanguages:["zh_CN"]),chinese)
-        XCTAssertEqual(AppLanguage.matching(preferredLanguages:["zh-Hant-TW"]),chinese)
+        XCTAssertEqual(AppLanguage.matching(preferredLanguages:["zh-Hant-TW"]),AppLanguage.registered("zh-Hant"))
         XCTAssertEqual(AppLanguage.matching(preferredLanguages:["en-GB","zh-Hans"]),AppLanguage.registered("en"))
-        XCTAssertEqual(AppLanguage.matching(preferredLanguages:["ja-JP","zh-Hans-CN"]),chinese)
+        XCTAssertEqual(AppLanguage.matching(preferredLanguages:["ja-JP","zh-Hans-CN"]),AppLanguage.registered("ja"))
         XCTAssertEqual(AppLanguage.matching(preferredLanguages:["fr-FR","de-DE"]),fallback)
         XCTAssertEqual(AppLanguage.matching(preferredLanguages:[]),fallback)
+    }
+    func testChineseScriptAndRegionalPreferencesStayDistinct() {
+        for tag in ["zh-Hant","zh-Hant-TW","zh-TW","zh_HK","zh-MO"] {
+            XCTAssertEqual(AppLanguage.matching(preferredLanguages:[tag,"en-US"]).code,"zh-Hant",tag)
+        }
+        for tag in ["zh-Hans","zh-Hans-CN","zh-CN","zh_SG","zh"] {
+            XCTAssertEqual(AppLanguage.matching(preferredLanguages:[tag,"zh-Hant"]).code,"zh-Hans",tag)
+        }
+        XCTAssertEqual(AppLanguage.matching(preferredLanguages:["ko-KR","ja-JP"]).code,"ko")
+        XCTAssertEqual(AppLanguage.matching(preferredLanguages:["fr-FR","ja-JP","en-US"]).code,"ja")
+        XCTAssertEqual(AppLanguage.supported.map(\.code),["en","zh-Hans","zh-Hant","ja","ko"])
+    }
+    func testAddedLanguagesUpdatePickerTextAndDynamicFormatsOnRoundTrip() {
+        let cases=[
+            ("ja","設定","高コントラスト","カウントダウン","毎月7日","1時間1分1秒"),
+            ("ko","설정","고대비","카운트다운","매월 7일","1시간 1분 1초"),
+            ("zh-Hant","設定","高對比度","倒數計時","每月 7 日","1時1分1秒")
+        ]
+        let now=Date(timeIntervalSince1970:1_800_000_000)
+        let row=QuotaMenuCardRow(text:"",expiryBand:.red,expiresAt:now.addingTimeInterval(3661))
+        for _ in 0..<2 {
+            for (code,settings,ticks,countdown,startDay,duration) in cases {
+                L10n.apply(languageCode:code)
+                XCTAssertEqual(L10n.string("common.settings"),settings)
+                XCTAssertEqual(QuotaTickStyle.highContrast.title,ticks)
+                XCTAssertEqual(QuotaResetStyle.countdown.title,countdown)
+                XCTAssertEqual(L10n.format("api.settings.startDay.option",7),startDay)
+                XCTAssertEqual(row.displayText(at:now),duration)
+            }
+            L10n.apply(languageCode:"en")
+            XCTAssertEqual(QuotaTickStyle.highContrast.title,"High contrast")
+        }
     }
     func testPreferenceOverridesSystemAndUnknownCodesFollowSystem() {
         L10n.apply(languageCode:nil,preferredLanguages:["fr-FR"])

@@ -1,0 +1,368 @@
+/* CodexRing interface text. Use %@ or %1$@ for arguments and %% for a literal percent sign. */
+
+/* Common */
+"common.done" = "完成";
+"common.settings" = "設定";
+"common.refresh" = "重新整理";
+"common.refreshing" = "正在重新整理…";
+"common.notProvided" = "未提供";
+"common.neverRefreshed" = "尚未重新整理";
+"punctuation.listSeparator" = "；";
+"punctuation.sentenceEnd" = "。";
+"unit.minutes" = "%@分鐘";
+"unit.hours" = "%@小時";
+"duration.days" = "%@天";
+"duration.hours" = "%@時";
+"duration.minutes" = "%@分";
+"duration.seconds" = "%@秒";
+"duration.separator" = "";
+"debug.badge" = "偵錯";
+
+/* Quota periods and metrics */
+"period.week.title" = "1週";
+"period.fiveHours.title" = "5小時";
+"period.week.short" = "本週";
+"period.fiveHours.short" = "5小時";
+"period.week.quota" = "本週額度";
+"period.fiveHours.quota" = "5小時額度";
+"quota.periodValue" = "%1$@%2$@";
+"metric.remaining.title" = "剩餘額度";
+"metric.used.title" = "已用額度";
+"metric.remaining.short" = "剩餘";
+"metric.used.short" = "已用";
+"metric.remaining.value" = "剩餘 %@";
+"metric.used.value" = "已用 %@";
+"metric.remaining.compactValue" = "剩餘%@";
+"metric.used.compactValue" = "已用%@";
+
+/* Quota status */
+"status.paused" = "查詢已暫停";
+"status.debug" = "偵錯模式";
+"status.loading" = "正在讀取實際額度";
+"status.available" = "額度已更新";
+"status.unavailable" = "額度無法使用，請確認已登入 Codex";
+"status.stale" = "資料已過期";
+"status.expired" = "等待重新查詢";
+"status.connection" = "連線失敗";
+"status.timeout" = "查詢逾時";
+"status.protocolError" = "介面無法使用";
+"status.missingCLI" = "找不到 Codex";
+
+/* Ring captions */
+"caption.loading" = "載入中";
+"caption.stale" = "已過期";
+"caption.offline" = "未連線";
+"caption.timeout" = "逾時";
+"caption.paused" = "已暫停";
+"caption.unknown" = "未知";
+"caption.unavailable" = "無法使用";
+"caption.notConnected" = "未連線";
+"ring.caption.week" = "週%@";
+"ring.caption.fiveHours" = "5h%@";
+
+/* Usage colors */
+"band.normal" = "正常";
+"band.yellow" = "黃色提醒";
+"band.orange" = "橘色提醒";
+"band.red" = "紅色提醒";
+"band.unknown" = "額度未知";
+
+/* Ring accessibility */
+"a11y.debugPrefix" = "偵錯模式；";
+"a11y.ring.single" = "%1$@：%2$@";
+"a11y.ring.outer" = "外圈%1$@：%2$@";
+"a11y.ring.inner" = "；內圈%1$@：%2$@";
+"a11y.ring.center" = "；中心數字僅表示%1$@額度。";
+"a11y.ring.presentation" = "CodexRing %1$@，%2$@，%3$@，%4$@，%5$@。按一下開啟設定。";
+"a11y.clockwise" = "順時針";
+"a11y.counterclockwise" = "逆時針";
+"ring.unavailable.a11y" = "CodexRing 額度無法使用";
+"ring.help.overlay" = "已覆蓋 Codex 用量，按一下開啟 Codex 用量選單；按右鍵或從選單列開啟 CodexRing 設定。";
+"ring.help.follow" = "跟隨 Codex 視窗，可在視窗內拖移；按一下開啟設定。";
+"ring.help.free" = "自由移動：拖移以移動，貼邊隱藏，移入邊緣恢復；按一下開啟設定。";
+"ring.help.overlayLocked" = "覆蓋模式下位置已鎖定，關閉覆蓋後可調整固定狀態。";
+"ring.help.locked" = "位置已固定，從右鍵選單取消固定即可解鎖。";
+"ring.hover.center" = "中心數字：%@";
+"hover.windowTitle" = "CodexRing 額度詳情";
+"hover.periodStatus" = "%1$@ %2$@";
+
+/* Quota details and reset information */
+"details.periodLine" = "%1$@：%2$@";
+"details.center" = "中心數字：%1$@ · %2$@";
+"details.autoReset" = "%1$@系統自動重設：%2$@";
+"details.cards" = "重設卡：%@";
+"details.cardLine" = "%1$@　%2$@";
+"details.cardsExpiryMissing" = "未提供重設卡到期時間";
+"details.lastRefreshed" = "上次重新整理時間：%@";
+"metadata.failed" = "重設資訊：重新整理失敗";
+"metadata.loading" = "重設資訊：正在載入";
+"metadata.stale" = "重設資訊：資料已過期";
+"cards.available" = "%@ 張可用";
+"cards.countUnknown" = "數量未知";
+"cards.timeMissing" = "未提供時間";
+"cards.none" = "無可用卡";
+"cards.partialTimeMissing" = "部分時間未提供";
+"cards.expired" = "已過期";
+"card.fullReset" = "完全重設";
+"card.defaultTitle" = "額度重設卡";
+"card.expiryUnknown" = "到期時間未知";
+"card.expiredOn" = "已於 %@ 到期";
+"card.expiresOn" = "將於 %@ 到期";
+"menu.resetAt" = "%1$@重設於 %2$@";
+"menu.cardExpiry" = "重設卡過期 %@";
+"menu.cardExpired" = "%@（已過期）";
+"menu.refreshedAt" = "重新整理於 %@";
+"reset.timeMissing" = "未提供重設時間";
+"reset.at" = "重設於 %@";
+"reset.waiting" = "等待重設";
+"reset.countdown" = "%@ 後重設";
+
+/* Usage pace */
+"pace.balanced" = "用量正常";
+"pace.ahead" = "超額 %@%%";
+"pace.behind" = "餘量 %@%%";
+"pace.lastsUntilReset" = "預計可用至重設";
+"pace.duration.daysHours" = "%1$@天%2$@小時";
+"pace.duration.hoursMinutes" = "%1$@小時%2$@分";
+"pace.duration.underMinute" = "不足1分鐘";
+"pace.forecast" = "預計 %@ 後耗盡";
+"pace.basis.workDays" = "依每週%@個工作日（從週一起、系統時區）及平均用量估算。";
+"pace.basis.elapsed" = "依本週期已用額度和已過時間估算。";
+"pace.explanation" = "%@超額／餘量表示相對均勻使用進度的百分點差，不代表額外收費；後續使用速度變化會影響預測。";
+
+/* Panel preferences */
+"schedule.automatic" = "自動（7天）";
+"schedule.days" = "%@天";
+"tick.hidden" = "隱藏";
+"tick.subtle" = "柔和";
+"tick.highContrast" = "高對比度";
+"resetStyle.countdown" = "倒數計時";
+"resetStyle.dateTime" = "日期時間";
+"theme.system" = "跟隨系統";
+"theme.light" = "淺色";
+"theme.dark" = "深色";
+
+/* Notifications */
+"alert.restored.title" = "%@已恢復";
+"alert.restored.body" = "目前剩餘 %@%%。";
+"alert.low.title" = "%@不足";
+"alert.low.body" = "目前剩餘 %1$@%%，低於 %2$@%%。";
+"alert.prediction.title" = "%@預計即將耗盡";
+"alert.prediction.body" = "依目前用量，預計約 %@ 分鐘後耗盡。";
+"alert.card.title" = "重設卡即將到期";
+"alert.card.body" = "重設卡將於 %@ 到期。";
+"notification.sendFailed" = "傳送失敗";
+
+/* Permissions and login item */
+"permission.granted" = "已授權";
+"permission.denied" = "未授權";
+"permission.notRequested" = "尚未申請";
+"permission.requestFailed" = "申請失敗";
+"login.enabled" = "已啟用";
+"login.requiresApproval" = "需要核准";
+"login.disabled" = "已關閉";
+"login.unknown" = "未知";
+
+/* Codex overlay */
+"overlay.controlMissing" = "找不到 Codex 額度控制項，暫時顯示一般圓環。請確認頭像上方的用量控制項可見；找到後會自動恢復覆蓋。";
+"overlay.updateNotice" = "應用程式已更新，舊授權可能已失效，請移除舊版本授權，重新授權。";
+"overlay.pressFailed" = "暫時無法開啟 Codex 用量選單，請稍後重試。";
+
+/* Context and status menus */
+"menu.refreshNow" = "立即重新整理";
+"menu.refreshQuota" = "重新整理額度";
+"menu.settings" = "設定…";
+"menu.resetInfo" = "重設資訊";
+"menu.pin" = "固定位置";
+"menu.pin.locked" = "已固定";
+"menu.pin.unlocked" = "未固定";
+"menu.pin.overlay" = "覆蓋模式會自動鎖定位置";
+"menu.quitShort" = "結束";
+"menu.quit" = "結束 CodexRing";
+"menu.disableOverlay" = "關閉 Codex 額度覆蓋";
+
+/* Menu bar panel */
+"panel.account" = "帳號";
+"panel.account.loading" = "正在讀取帳號…";
+"panel.account.missing" = "未提供帳號";
+"panel.account.help" = "讀取目前登入 Codex 的帳號";
+"panel.account.a11y" = "使用者帳號：%@";
+"panel.plan.missing" = "未提供訂閱類型";
+"panel.plan.a11y" = "訂閱類型：%@";
+"panel.subscription" = "OpenAI 訂閱";
+"panel.resetCards" = "重設卡";
+"panel.card.help" = "到期時間：%@";
+"panel.card.a11y" = "重設卡：%@";
+"panel.pace.a11y" = "%1$@。%2$@";
+"panel.refresh" = "重新整理額度與帳號";
+"panel.bar.a11y" = "%1$@%2$@額度";
+"panel.bar.value" = "%1$@，%2$@";
+"panel.ticks.week" = "細刻度依每週工作日劃分";
+"panel.ticks.fiveHours" = "細刻度為每小時進度";
+"panel.ticks.pace" = "紅／綠標記為目前時間的均勻用量進度";
+
+/* OpenAI API usage */
+"api.budgetMissing" = "未識別到總額度，請在設定中填寫";
+"api.error.authorization" = "Key 無效或已過期";
+"api.error.permission" = "需要有查詢權限的 Admin API Key";
+"api.error.rateLimited" = "請求過於頻繁，請稍後重新整理";
+"api.error.server" = "OpenAI 服務暫時無法使用";
+"api.error.invalidResponse" = "費用資料格式異常";
+"api.error.invalidProject" = "專案 ID 格式不正確";
+"api.error.incomplete" = "費用資料不完整，請重新整理";
+"api.status.notConfigured" = "尚未設定 Admin API Key";
+"api.status.invalidBudget" = "總額度需填寫大於 0 的美元金額";
+"api.status.keyWhitespace" = "Key 不能包含空白或換行";
+"api.status.keyRequired" = "請填寫 Admin API Key";
+"api.status.keychainUnavailable" = "無法存取鑰匙圈";
+"api.status.keychainDeleteFailed" = "無法刪除鑰匙圈中的 Key";
+"api.status.saved" = "設定已儲存";
+"api.status.configureKey" = "請在設定中填寫 Admin API Key";
+"api.status.connected" = "已連線";
+"api.status.connectionFailed" = "連線失敗，請稍後重試";
+"api.plan.detecting" = "正在識別…";
+"api.plan.unknown" = "未識別";
+"api.budget.automatic" = "自動 · %@";
+"api.budget.prompt" = "留空自動識別方案";
+"api.settings.show" = "顯示 API 使用進度";
+"api.settings.show.help" = "僅在選單面板顯示。依自訂月度週期統計，每5分鐘重新整理；官方統計可能延遲。";
+"api.settings.connection" = "連線";
+"api.settings.key" = "Admin API Key";
+"api.settings.key.prompt" = "留空保留已儲存的 Key";
+"api.settings.key.help" = "需要有費用查詢權限的 OpenAI Admin API Key，一般模型 Key 不適用。僅儲存於本機鑰匙圈。";
+"api.settings.project" = "專案 ID";
+"api.settings.project.prompt" = "留空統計整個組織";
+"api.settings.project.help" = "填寫以 proj_ 開頭的專案 ID，只統計該專案費用；留空統計組織總費用。";
+"api.settings.status" = "連線狀態";
+"api.settings.cycle" = "週期與額度";
+"api.settings.startDay" = "週期起始日";
+"api.settings.startDay.option" = "每月 %@ 日";
+"api.settings.startDay.help" = "依系統時區的零點開始；當月沒有該日期時取月底。訂閱扣款日無法自動讀取。";
+"api.settings.plan" = "訂閱方案";
+"api.settings.plan.refresh" = "重新識別訂閱方案";
+"api.settings.budget" = "總額度（美元）";
+"api.settings.budget.help" = "留空依已識別的 Pro 方案使用完整週期的預期 API 額度；輸入金額可手動覆寫，清空則恢復自動。需已領取福利並綁定目前 API 組織。首次領取依剩餘時間折算，可手動修正；這不是實際餘額。Business 方案需手動填寫。";
+"api.settings.save" = "儲存並重新整理";
+"api.settings.deleteKey" = "刪除 Key";
+"api.panel.organization" = "整個組織";
+"api.panel.organization.help" = "統計整個 API 組織的費用";
+"api.panel.project" = "專案";
+"api.panel.stale" = "資料已過期，請重新整理";
+"api.panel.total" = "總額度 %@";
+"api.panel.spent" = "本期已用 %@";
+"api.panel.progress.a11y" = "API 總額度進度";
+"api.panel.noBudget" = "尚未設定總額度";
+"api.panel.total.manual.help" = "使用手動設定的週期額度；不是實際餘額。";
+"api.panel.total.estimated.help" = "依訂閱方案估算的完整週期額度；首次領取可能折算，不代表已入帳或剩餘餘額。";
+"api.panel.period.help" = "統計週期；重新整理於 %@";
+
+/* Settings window */
+"settings.windowTitle" = "CodexRing 設定";
+"settings.sidebar.a11y" = "設定分類";
+"settings.page.general" = "一般";
+"settings.page.appearance" = "顯示";
+"settings.page.ring" = "圓環";
+"settings.page.subscription" = "訂閱";
+"settings.page.api" = "API";
+"settings.page.alerts" = "提醒";
+"settings.page.about" = "關於";
+"settings.startup.section" = "啟動";
+"settings.startup.launchAtLogin" = "登入時啟動";
+"settings.startup.status" = "登入項目狀態";
+"settings.startup.status.help" = "與系統登入項目狀態同步。";
+"settings.startup.failed" = "失敗";
+"settings.startup.failed.detail" = "失敗：%@";
+"settings.startup.loginItems" = "登入項目設定";
+"settings.language.section" = "語言";
+"settings.language.picker" = "介面語言";
+"settings.language.system" = "跟隨系統";
+"settings.language.help" = "切換後立即生效。「跟隨系統」依 macOS 偏好語言順序匹配，沒有支援的語言時使用英文。macOS 提供的系統視窗與通知，以及已傳送的通知，仍保持原語言。";
+"settings.refresh.section" = "重新整理";
+"settings.refresh.interval" = "重新整理間隔";
+"settings.quota.status" = "額度狀態";
+"settings.quota.pool" = "額度集區";
+"settings.quota.pool.automatic" = "自動";
+"settings.appearance.section" = "外觀與選單列";
+"settings.menuBar.toggle" = "選單列顯示額度";
+"settings.menuBar.help" = "依圓環中勾選的本週、5小時額度顯示百分比，雙選時以 | 分隔；按一下開啟額度進度面板。";
+"settings.metric.picker" = "顯示項目";
+"settings.metric.remaining" = "剩餘";
+"settings.metric.used" = "已用";
+"settings.metric.hint" = "已用從頂部順時針，剩餘從頂部逆時針；顏色依實際已用比例的70%%、80%%、90%%變化。";
+"settings.theme.picker" = "主題";
+"settings.panel.section" = "進度與重設";
+"settings.panel.pace" = "顯示用量趨勢";
+"settings.panel.pace.help" = "顯示紅／綠進度標記、超額／餘量和預計耗盡時間。";
+"settings.panel.workDays" = "每週工作日";
+"settings.panel.workDays.help" = "4／5／6天從週一起計算，依系統時區劃分，用於本週用量與耗盡預測。自動依完整7天計算，不顯示每日刻度。5小時額度不受影響。";
+"settings.panel.ticks" = "週期刻度外觀";
+"settings.panel.ticks.help" = "控制每週工作日及5小時額度的小時刻度。隱藏刻度不會停止用量預測。";
+"settings.panel.resetStyle" = "重設時間";
+"settings.ring.section" = "額度與行為";
+"settings.ring.fiveHours.missing" = "帳號未提供5小時額度。";
+"settings.ring.fiveHours.hint" = "雙圈時外圈本週、內圈5小時；中心數字可獨立選擇。";
+"settings.ring.center" = "中心數字";
+"settings.ring.center.lower" = "較低項";
+"settings.ring.center.help" = "優先顯示已耗盡或預計較早耗盡的額度；無法預測時顯示剩餘額度較低的一項。雙圈和選單列仍分別顯示兩種額度。";
+"settings.ring.center.automatic" = "%@（自動）";
+"settings.ring.size" = "圓環大小";
+"settings.ring.size.avatar" = "小號 · 26 點";
+"settings.ring.size.tiny" = "精簡 · 32 點";
+"settings.ring.size.small" = "中號 · 56 點";
+"settings.ring.size.compact" = "標準 · 64 點";
+"settings.ring.size.large" = "大號 · 76 點";
+"settings.ring.size.hint" = "26與32點只顯示數字，表示所選百分比。無有效資料時顯示橫線。";
+"settings.ring.autoHide" = "貼邊自動隱藏";
+"settings.ring.autoHide.help" = "自由移動時靠近螢幕邊緣會自動收起；跟隨 Codex 視窗時保持顯示在視窗內。";
+"settings.ring.animations" = "展開與收起動畫";
+"settings.ring.follow" = "跟隨 Codex 移動";
+"settings.ring.follow.help" = "圓環跟隨 Codex 視窗，支援一般視窗和全螢幕；沒有 Codex 視窗時恢復自由位置。";
+"settings.ring.overlay" = "覆蓋 Codex 額度控制項";
+"settings.ring.overlay.help" = "自動縮為小號並覆蓋頭像上方的用量圓環；按一下仍開啟 Codex 用量選單。關閉後恢復原本的大小和位置。";
+"settings.ring.overlay.permission" = "需要輔助使用權限";
+"settings.ring.overlay.permission.help" = "開啟覆蓋功能需要輔助使用權限。授權後請重新開啟覆蓋。";
+"settings.ring.overlay.accessibilitySettings" = "輔助使用設定";
+"settings.ring.overlay.status" = "覆蓋狀態";
+"settings.ring.overlay.unavailable" = "暫時無法使用";
+"settings.alerts.section" = "通知與彩帶";
+"settings.alerts.toggle" = "額度與重設卡通知";
+"settings.alerts.toggle.help" = "依重新整理間隔檢查實際額度；同一週期、同類事件只提醒一次。預測沿用每週工作日設定。";
+"settings.alerts.permission" = "需要通知權限";
+"settings.alerts.permission.help" = "開啟通知時會申請權限；若尚未授權，請到系統通知設定允許 CodexRing。";
+"settings.alerts.notificationSettings" = "通知設定";
+"settings.alerts.low" = "低額度提醒";
+"settings.alerts.low.threshold" = "低於 %@%%";
+"settings.alerts.prediction" = "預計即將耗盡";
+"settings.alerts.prediction.lead" = "提前通知";
+"settings.alerts.restored" = "額度恢復";
+"settings.alerts.card.days" = "提前 %@ 天";
+"settings.alerts.confetti" = "額度恢復時播放彩帶";
+"settings.alerts.confetti.help" = "偵測到額度重設或耗盡後恢復時播放；開啟應用程式或使用偵錯值不會觸發。遵循系統「減少動態效果」設定。";
+"settings.alerts.confetti.preview" = "預覽彩帶";
+
+/* About */
+"about.windowTitle" = "關於 CodexRing";
+"about.icon.a11y" = "CodexRing 圖示";
+"about.version" = "版本 %@";
+"about.devVersion" = "開發版本";
+
+/* Debug window */
+"debug.windowTitle" = "CodexRing 偵錯";
+"debug.enable" = "啟用偵錯";
+"debug.enable.help" = "偵錯值僅本次執行生效，關閉後恢復實際額度。";
+"debug.used.section" = "已用額度";
+"debug.used.week" = "1週已用";
+"debug.used.fiveHours" = "5小時已用";
+"debug.percentage.a11y" = "%@百分比";
+"debug.periods.section" = "顯示週期";
+"debug.periods.week" = "顯示1週額度";
+"debug.periods.fiveHours" = "顯示5小時額度";
+"debug.window.section" = "視窗資訊";
+"debug.window.diagnostics" = "顯示視窗診斷資訊";
+"diagnostics.window" = "自身視窗：%1$@\n全域中心點（左上原點）：%2$@,%3$@\n目前空間：%4$@，可見：%5$@，未被遮擋：%6$@，已收起：%7$@\n顯示環境：%8$@\n全螢幕識別：%9$@";
+"diagnostics.surface.follow" = "跟隨 Codex";
+"diagnostics.surface.fullscreen" = "全螢幕";
+"diagnostics.surface.desktop" = "一般桌面";
+"diagnostics.evidence.none" = "無";
+"diagnostics.evidence.window" = "視窗覆蓋螢幕";
+"diagnostics.evidence.systemFlag" = "系統全螢幕旗標";
