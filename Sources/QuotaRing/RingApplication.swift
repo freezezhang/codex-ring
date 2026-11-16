@@ -117,7 +117,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         model.onOpenAccessibilitySettings = { [weak self] in self?.openAccessibilitySettings() }
         model.onAbout = { [weak self] in self?.openAbout() }
         model.onOpenDebug = { [weak self] in self?.openDebug() }
-        notifications.onStatus = { [weak self] in self?.model.notificationStatus=$0 }
+        notifications.onStatus = { [weak self] in self?.model.update(\.notificationStatus,$0) }
         notifications.onCelebrate = { [weak self] in self?.confetti.play() }
         notifications.refreshStatus()
         model.onNotificationSettings = { [weak self] in self?.notifications.openSettings() }
@@ -178,8 +178,8 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             if self.settings?.window?.isVisible == true {
                 self.updateAccessibilityTrust(AXIsProcessTrusted())
                 self.notifications.refreshStatus()
-                self.model.launchAtLogin=LaunchAtLogin.enabled
-                self.model.loginStatus=LaunchAtLogin.statusText
+                self.model.update(\.launchAtLogin,LaunchAtLogin.enabled)
+                self.model.update(\.loginStatus,LaunchAtLogin.statusText)
             }
             self.synchronizeSpace()
         }
@@ -564,15 +564,15 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         ring.hoverDetails=information.hoverCardText + (preferences.automaticCenter && composition.inner != nil ? "\n"+L10n.format("ring.hover.center",composition.centerPeriod.shortName):"") + (overlayActive && overlayControlMissing ? "\n"+overlayMissingMessage:"")
         ring.setAccessibilityHelp(accessibilityHelp)
         panel.title = "CodexRing"
-        model.snapshot = visible; model.source = visible.source; model.isRefreshing = fetching
-        model.fiveHourSupport=fiveHourSupport
-        model.overlayAccessibilityGranted=overlayAccessibilityGranted
-        model.overlayAuthorizationNotice=store.observeAccessibilityTrust(overlayAccessibilityGranted,fingerprint:signingFingerprint)
-            ? L10n.string("overlay.updateNotice"):nil
-        model.overlayStatus=overlayActive && overlayControlMissing ? overlayMissingMessage:""
-        model.updatedText = dateText(lastRefreshedAt)
+        model.update(\.snapshot,visible);model.update(\.source,visible.source);model.update(\.isRefreshing,fetching)
+        model.update(\.fiveHourSupport,fiveHourSupport)
+        model.update(\.overlayAccessibilityGranted,overlayAccessibilityGranted)
+        model.update(\.overlayAuthorizationNotice,store.observeAccessibilityTrust(overlayAccessibilityGranted,fingerprint:signingFingerprint)
+            ? L10n.string("overlay.updateNotice"):nil)
+        model.update(\.overlayStatus,overlayActive && overlayControlMissing ? overlayMissingMessage:"")
+        model.update(\.updatedText,dateText(lastRefreshedAt))
         if model.debugState != debugState { model.debugState=debugState }
-        model.diagnosticText = diagnostics
+        model.update(\.diagnosticText,diagnostics)
         let menuData=QuotaMenuPresentation(snapshot:visible,metadata:snapshot,preferences:preferences,
                                           fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt)
         if model.menuPresentation != menuData { model.menuPresentation=menuData }

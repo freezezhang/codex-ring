@@ -7,11 +7,18 @@ private final class QuotaFloatingPanel:NSPanel {
     override var canBecomeMain:Bool { false }
 }
 
+private final class QuotaPanelClock:ObservableObject {
+    @Published var now=Date()
+}
+
 final class QuotaMenuBar:NSObject {
     private let model:SettingsModel
     private var item:NSStatusItem?
     private let panel=QuotaFloatingPanel(contentRect:.zero,styleMask:[.borderless],backing:.buffered,defer:false)
+    private let clock=QuotaPanelClock()
+    private var clockTimer:Timer?
     private var hostingView:NSView?
+    private var fitScheduled=false
     private var localMonitor:Any?,globalMonitor:Any?,deactivationObserver:NSObjectProtocol?
     // The CodexRing gauge and terminal prompt, in white for the menu bar.
     private let menuIcon = NSImage(size:NSSize(width:18,height:18),flipped:false) { _ in
@@ -47,22 +54,23 @@ final class QuotaMenuBar:NSObject {
         panel.hasShadow=true;panel.level = .popUpMenu;panel.animationBehavior = .none
         panel.collectionBehavior=[.moveToActiveSpace,.fullScreenAuxiliary,.ignoresCycle]
         panel.appearance=NSAppearance(named:.darkAqua)
+        deactivationObserver=NotificationCenter.default.addObserver(forName:NSApplication.didResignActiveNotification,object:nil,queue:.main) { [weak self] _ in self?.close() }
+    }
+    private func mountPanelContent() {
         let material=NSVisualEffectView(frame:.zero)
         material.material = .popover;material.blendingMode = .behindWindow;material.state = .active
         material.wantsLayer=true;material.layer?.cornerRadius=16;material.layer?.masksToBounds=true
         material.layer?.borderWidth=0.5;material.layer?.borderColor=NSColor.white.withAlphaComponent(0.12).cgColor
-        let host=NSHostingView(rootView:QuotaMenuView(model:model,
-            contentSizeChanged:{ [weak self] in
-                DispatchQueue.main.async { [weak self] in self?.fitPanel() }
-            },
+        let host=NSHostingView(rootView:QuotaMenuView(model:model,clock:clock,
+            contentSizeChanged:{ [weak self] in self?.scheduleFit() },
             refresh:{ [weak self] in self?.onRefresh?() },
             settings:{ [weak self] in self?.close();self?.onSettings?() },
             quit:{ [weak self] in self?.close();self?.onQuit?() }))
         host.autoresizingMask=[.width,.height];material.addSubview(host)
         hostingView=host;panel.contentView=material
-        deactivationObserver=NotificationCenter.default.addObserver(forName:NSApplication.didResignActiveNotification,object:nil,queue:.main) { [weak self] _ in self?.close() }
     }
     deinit {
+        clockTimer?.invalidate()
         removeMonitors()
         if let deactivationObserver { NotificationCenter.default.removeObserver(deactivationObserver) }
     }
@@ -89,16 +97,28 @@ final class QuotaMenuBar:NSObject {
             button.toolTip=label
             button.setAccessibilityLabel(label)
         }
-        if panel.isVisible {
-            DispatchQueue.main.async { [weak self] in self?.fitPanel() }
-        }
+        scheduleFit()
     }
     func close() {
-        panel.orderOut(nil);model.menuPanelVisible=false;removeMonitors()
+        guard hostingView != nil else { return }
+        clockTimer?.invalidate();clockTimer=nil
+        removeMonitors()
+        // An ordered-out NSWindow can still lay out its SwiftUI view tree.
+        hostingView=nil
+        panel.orderOut(nil);panel.contentView=nil
     }
     private func removeMonitors() {
         if let localMonitor { NSEvent.removeMonitor(localMonitor);self.localMonitor=nil }
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor);self.globalMonitor=nil }
+    }
+    private func scheduleFit() {
+        guard panel.isVisible,!fitScheduled else { return }
+        fitScheduled=true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.fitScheduled=false
+            if self.panel.isVisible { self.fitPanel() }
+        }
     }
     private func fitPanel() {
         guard let view=hostingView,let button=item?.button,let window=button.window else { return }
@@ -114,12 +134,18 @@ final class QuotaMenuBar:NSObject {
         if panel.frame != frame { panel.setFrame(frame,display:true);panel.invalidateShadow() }
     }
     func show() {
-        guard item?.button != nil,!panel.isVisible else { return }
+        guard item?.button != nil,hostingView == nil else { return }
+        clock.now=Date()
+        mountPanelContent()
         fitPanel()
         NSApp.activate(ignoringOtherApps:true)
         panel.makeKeyAndOrderFront(nil)
         panel.makeFirstResponder(nil)
-        model.menuPanelVisible=true;model.apiUsage.refreshIfNeeded()
+        scheduleFit()
+        let timer=Timer(timeInterval:1,repeats:true) { [weak self] _ in self?.clock.now=Date() }
+        timer.tolerance=0.1
+        clockTimer=timer;RunLoop.main.add(timer,forMode:.common)
+        model.apiUsage.refreshIfNeeded()
         localMonitor=NSEvent.addLocalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown,.otherMouseDown,.keyDown]) { [weak self] event in
             guard let self else { return event }
             if event.type == .keyDown {
@@ -153,6 +179,7 @@ private struct QuotaHeaderHeight:PreferenceKey {
 
 private struct QuotaMenuView:View {
     @ObservedObject var model:SettingsModel
+    @ObservedObject var clock:QuotaPanelClock
     @State private var contentHeight:CGFloat=440
     let contentSizeChanged:()->Void
     let refresh:()->Void,settings:()->Void,quit:()->Void
@@ -188,42 +215,35 @@ private struct QuotaMenuView:View {
             .onPreferenceChange(QuotaHeaderHeight.self) { _ in contentSizeChanged() }
     }
     private func quotaContent(_ data:QuotaMenuPresentation)->some View {
+        let now=clock.now
         return ScrollView {
             VStack(alignment:.leading,spacing:12) {
                 QuotaSectionCard {
                     VStack(alignment:.leading,spacing:16) {
                         Text(L10n.string("panel.subscription")).font(.system(size:15,weight:.bold))
-                        ForEach(data.rows) { row in quota(row) }
+                        ForEach(data.rows) { row in quota(row,at:now) }
                         if data.showsResetCards {
                             Divider().overlay(Color.white.opacity(0.03))
-                            cards(data)
+                            cards(data,at:now)
                         }
                         if let notice=data.metadataNotice {
                             Text(notice).font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
-                OpenAIUsagePanel(controller:model.apiUsage,metric:model.preferences.metric,settings:settings)
+                OpenAIUsagePanel(controller:model.apiUsage,metric:model.preferences.metric,now:now,settings:settings)
             }.padding(12)
                 .fixedSize(horizontal:false,vertical:true)
                 .background(GeometryReader { geometry in
                     Color.clear.preference(key:QuotaContentHeight.self,value:geometry.size.height)
                 })
-        }.frame(height:min(440,contentHeight))
+        }.frame(height:contentHeight)
             .onPreferenceChange(QuotaContentHeight.self) { height in
-                guard height>0,abs(contentHeight-height)>0.5 else { return }
-                contentHeight=height
+                let cappedHeight=min(440,ceil(height))
+                guard cappedHeight>0,cappedHeight != contentHeight else { return }
+                contentHeight=cappedHeight
                 contentSizeChanged()
             }
-    }
-    @ViewBuilder private func cards(_ data:QuotaMenuPresentation)->some View {
-        if model.menuPanelVisible {
-            TimelineView(.periodic(from:.now,by:1)) { context in
-                cards(data,at:context.date)
-            }
-        } else {
-            cards(data,at:Date())
-        }
     }
     private func cards(_ data:QuotaMenuPresentation,at now:Date)->some View {
         VStack(alignment:.leading,spacing:8) {
@@ -255,15 +275,6 @@ private struct QuotaMenuView:View {
             Spacer(minLength:0)
         }.help(L10n.format("panel.card.help",row.text))
             .accessibilityElement(children:.ignore).accessibilityLabel(L10n.format("panel.card.a11y",text))
-    }
-    @ViewBuilder private func quota(_ row:QuotaMenuRow)->some View {
-        if model.menuPanelVisible && (row.panel.showPace || row.panel.resetStyle == .countdown) {
-            TimelineView(.periodic(from:.now,by:1)) { context in
-                quota(row,at:context.date)
-            }
-        } else {
-            quota(row,at:Date())
-        }
     }
     private func quota(_ row:QuotaMenuRow,at now:Date)->some View {
         let pace=row.pace(at:now)

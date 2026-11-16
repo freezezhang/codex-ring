@@ -4,18 +4,25 @@ import QuotaCore
 
 final class RingDebugWindow:NSWindowController,NSWindowDelegate {
     private let onClose:()->Void
+    private let model:SettingsModel
     init(model:SettingsModel,onClose:@escaping ()->Void) {
-        self.onClose=onClose
+        self.onClose=onClose;self.model=model
         let window=NSWindow(contentRect:NSRect(x:0,y:0,width:440,height:450),styleMask:[.titled,.closable,.miniaturizable],backing:.buffered,defer:false)
         window.isReleasedWhenClosed=false
         window.collectionBehavior=[.moveToActiveSpace,.fullScreenAuxiliary,.canJoinAllApplications,.ignoresCycle]
         super.init(window:window);window.delegate=self
         applyLanguage()
-        window.contentView=NSHostingView(rootView:RingDebugView(model:model,onDone:{ [weak self] in self?.close() }));window.center()
+        window.center()
     }
     required init?(coder:NSCoder) { fatalError("init(coder:) is not used") }
     func applyLanguage() { window?.title=L10n.string("debug.windowTitle") }
-    func windowWillClose(_ notification:Notification) { onClose() }
+    override func showWindow(_ sender:Any?) {
+        if !(window?.contentView is NSHostingView<RingDebugView>) {
+            window?.contentView=NSHostingView(rootView:RingDebugView(model:model,onDone:{ [weak self] in self?.close() }))
+        }
+        super.showWindow(sender)
+    }
+    func windowWillClose(_ notification:Notification) { window?.contentView=nil;onClose() }
 }
 
 private struct RingDebugView:View {

@@ -3,27 +3,33 @@ import SwiftUI
 import Security
 import QuotaCore
 
-private enum APIKeyStore {
+protocol APIKeyStorage {
+    func read() throws -> String?
+    func save(_ key:String) throws
+    func remove() throws
+}
+
+private struct APIKeyStore:APIKeyStorage {
     private static var query:[String:Any] { [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:"local.freeze.codex-quota-ring.openai-admin",kSecAttrAccount as String:"usage"] }
-    static func read()throws->String? {
-        var q=query;q[kSecReturnData as String]=true;q[kSecMatchLimit as String]=kSecMatchLimitOne
+    func read()throws->String? {
+        var q=Self.query;q[kSecReturnData as String]=true;q[kSecMatchLimit as String]=kSecMatchLimitOne
         var result:CFTypeRef?
         let status=SecItemCopyMatching(q as CFDictionary,&result)
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess,let data=result as? Data,let key=String(data:data,encoding:.utf8) else { throw KeyError() }
         return key
     }
-    static func save(_ key:String)throws {
+    func save(_ key:String)throws {
         let value=[kSecValueData as String:Data(key.utf8)]
-        let status=SecItemUpdate(query as CFDictionary,value as CFDictionary)
+        let status=SecItemUpdate(Self.query as CFDictionary,value as CFDictionary)
         if status == errSecItemNotFound {
-            var q=query;q[kSecValueData as String]=Data(key.utf8)
+            var q=Self.query;q[kSecValueData as String]=Data(key.utf8)
             q[kSecAttrAccessible as String]=kSecAttrAccessibleWhenUnlockedThisDeviceOnly
             guard SecItemAdd(q as CFDictionary,nil) == errSecSuccess else { throw KeyError() }
         } else if status != errSecSuccess { throw KeyError() }
     }
-    static func remove()throws {
-        let status=SecItemDelete(query as CFDictionary)
+    func remove()throws {
+        let status=SecItemDelete(Self.query as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { throw KeyError() }
     }
     struct KeyError:Error {}
@@ -63,6 +69,7 @@ final class OpenAIUsageController:ObservableObject {
     @Published private(set) var accountPlan:CodexAccountPlan?
     @Published private(set) var accountEmail:String?
     @Published private(set) var planRefreshing=false
+    @Published private(set) var keychainBusy=false
     private let planClient=AppServerClient()
     private var lastPlanRefresh:Date?
     var expectedAmount:Double? { configuration.expectedAmount(plan:accountPlan) }
@@ -75,11 +82,16 @@ final class OpenAIUsageController:ObservableObject {
     private var timer:Timer?
     private let storageKey="openAIUsageConfiguration"
     private let session:URLSession
-    init() {
-        configuration=UserDefaults.standard.data(forKey:storageKey).flatMap { try? JSONDecoder().decode(OpenAIUsageConfiguration.self,from:$0) } ?? OpenAIUsageConfiguration()
+    private let defaults:UserDefaults
+    private let keyStore:APIKeyStorage
+    private let keyQueue=DispatchQueue(label:"local.freeze.codex-ring.keychain",qos:.utility)
+    init(defaults:UserDefaults = .standard,keyStore:APIKeyStorage? = nil,automaticRefresh:Bool = true) {
+        self.defaults=defaults;self.keyStore=keyStore ?? APIKeyStore()
+        configuration=defaults.data(forKey:storageKey).flatMap { try? JSONDecoder().decode(OpenAIUsageConfiguration.self,from:$0) } ?? OpenAIUsageConfiguration()
         let config=URLSessionConfiguration.ephemeral
         config.httpCookieStorage=nil;config.httpShouldSetCookies=false;config.urlCredentialStorage=nil;config.urlCache=nil
         session=URLSession(configuration:config,delegate:APIUsageSessionDelegate(),delegateQueue:nil)
+        guard automaticRefresh else { return }
         timer=Timer.scheduledTimer(withTimeInterval:300,repeats:true) { [weak self] _ in
             guard let self else { return }
             self.refreshAccountPlan();self.refresh()
@@ -92,28 +104,59 @@ final class OpenAIUsageController:ObservableObject {
         cancel();configuration.enabled=enabled;persist()
         if enabled { refreshAccountPlan();refresh() }
     }
-    @discardableResult func save(key:String,project:String,budget:String,startDay:Int)->Bool {
+    func save(key:String,project:String,budget:String,startDay:Int,completion:@escaping (Bool)->Void) {
+        guard !keychainBusy else { completion(false);return }
         let project=project.trimmingCharacters(in:.whitespacesAndNewlines)
         let input=budget.trimmingCharacters(in:.whitespacesAndNewlines)
-        guard OpenAIUsageClient.validProject(project) else { status = .failed(.invalidProject);return false }
+        guard OpenAIUsageClient.validProject(project) else { status = .failed(.invalidProject);completion(false);return }
         let amount=input.isEmpty ? nil:Double(input)
-        guard input.isEmpty || (amount != nil && amount!.isFinite && amount!>0) else { status = .invalidBudget;return false }
+        guard input.isEmpty || (amount != nil && amount!.isFinite && amount!>0) else { status = .invalidBudget;completion(false);return }
         let key=key.trimmingCharacters(in:.whitespacesAndNewlines)
-        guard !key.contains(where:{$0.isWhitespace}) else { status = .keyWhitespace;return false }
-        do {
-            if !key.isEmpty { try APIKeyStore.save(key) }
-            hasConfiguredKey = try APIKeyStore.read().map { !$0.isEmpty } ?? false
-            guard hasConfiguredKey else { status = .keyRequired;return false }
-        } catch { status = .keychainUnavailable;return false }
-        cancel();snapshot=nil
-        configuration.projectID=project;configuration.manualBudget=amount;configuration.cycleStartDay=min(31,max(1,startDay));persist()
-        status = .saved
-        refresh()
-        return true
+        guard !key.contains(where:{$0.isWhitespace}) else { status = .keyWhitespace;completion(false);return }
+        cancel()
+        performKeyOperation({ store in
+            if !key.isEmpty { try store.save(key) }
+            return try store.read().map { !$0.isEmpty } ?? false
+        }) { [weak self] result in
+            guard let self else { completion(false);return }
+            switch result {
+            case .failure:self.status = .keychainUnavailable;completion(false)
+            case .success(let exists):
+                self.hasConfiguredKey=exists
+                guard exists else { self.status = .keyRequired;completion(false);return }
+                self.snapshot=nil
+                self.configuration.projectID=project;self.configuration.manualBudget=amount
+                self.configuration.cycleStartDay=min(31,max(1,startDay));self.persist()
+                self.status = .saved;completion(true);self.refresh()
+            }
+        }
     }
     func removeKey() {
-        do { try APIKeyStore.remove() } catch { status = .keychainDeleteFailed;return }
-        cancel();snapshot=nil;hasConfiguredKey=false;configuration.enabled=false;persist();status = .notConfigured
+        guard !keychainBusy else { return }
+        cancel()
+        performKeyOperation({ try $0.remove() }) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .failure:self.status = .keychainDeleteFailed
+            case .success:
+                self.snapshot=nil;self.hasConfiguredKey=false;self.configuration.enabled=false
+                self.persist();self.status = .notConfigured
+            }
+        }
+    }
+    // Security calls can wait for an unlocked keychain or user authorization.
+    // Keep them off the UI thread, and allow only one operation in flight.
+    private func performKeyOperation<Value>(_ operation:@escaping (APIKeyStorage)throws->Value,
+                                            completion:@escaping (Result<Value,Error>)->Void) {
+        keychainBusy=true
+        let store=keyStore
+        keyQueue.async { [weak self] in
+            let result=Result { try operation(store) }
+            DispatchQueue.main.async { [weak self] in
+                self?.keychainBusy=false
+                completion(result)
+            }
+        }
     }
     func refreshAccountPlan() {
         guard !planRefreshing else { return }
@@ -131,24 +174,34 @@ final class OpenAIUsageController:ObservableObject {
             }
         }
     }
-    private func persist() { if let data=try? JSONEncoder().encode(configuration) { UserDefaults.standard.set(data,forKey:storageKey) } }
+    private func persist() { if let data=try? JSONEncoder().encode(configuration) { defaults.set(data,forKey:storageKey) } }
     private func cancel() { generation=UUID();task?.cancel();task=nil;refreshing=false }
     func refreshIfNeeded() {
         if lastPlanRefresh.map({Date().timeIntervalSince($0)>=300}) ?? true { refreshAccountPlan() }
         if snapshot.map({ Date().timeIntervalSince($0.fetchedAt)>=300 || !$0.isCurrent(at:Date()) }) ?? true { refresh() }
     }
     func refresh() {
-        guard configuration.enabled,!refreshing else { return }
-        let key:String
-        do {
-            guard let stored=try APIKeyStore.read(),!stored.isEmpty else {
-                hasConfiguredKey=false;snapshot=nil;status = .configureKey
-                return
-            }
-            hasConfiguredKey=true
-            key=stored
-        } catch { status = .keychainUnavailable;return }
+        guard configuration.enabled,!refreshing,!keychainBusy else { return }
         refreshing=true;status = .refreshing
+        let token=generation
+        performKeyOperation({ try $0.read() }) { [weak self] result in
+            guard let self else { return }
+            guard self.generation == token else {
+                // A disable/re-enable while Security was blocked supersedes this read.
+                self.refresh();return
+            }
+            switch result {
+            case .failure:self.refreshing=false;self.status = .keychainUnavailable
+            case .success(let key):
+                guard let key,!key.isEmpty else {
+                    self.refreshing=false;self.hasConfiguredKey=false;self.snapshot=nil
+                    self.status = .configureKey;return
+                }
+                self.hasConfiguredKey=true;self.fetchUsage(key:key)
+            }
+        }
+    }
+    private func fetchUsage(key:String) {
         let token=generation,config=configuration,session=session
         task=Task { @MainActor [weak self] in
             let client=OpenAIUsageClient { request in
@@ -173,12 +226,22 @@ final class OpenAIUsageController:ObservableObject {
     }
 }
 
+// Own drafts outside the view tree so inactive panes can be released safely.
+final class APISettingsDraft:ObservableObject {
+    @Published var key=""
+    @Published var project:String
+    @Published var budget:String
+    @Published var startDay:Int
+    init(configuration:OpenAIUsageConfiguration) {
+        project=configuration.projectID
+        budget=configuration.manualBudget.map { String($0) } ?? ""
+        startDay=configuration.cycleStartDay
+    }
+}
+
 struct OpenAIUsageSettings:View {
     @ObservedObject var controller:OpenAIUsageController
-    @State private var key=""
-    @State private var project=""
-    @State private var budget=""
-    @State private var startDay=7
+    @ObservedObject var draft:APISettingsDraft
     var body:some View {
         Group {
           Section {
@@ -187,15 +250,19 @@ struct OpenAIUsageSettings:View {
           }
             if controller.configuration.enabled {
               Section(L10n.string("api.settings.connection")) {
-                SecureField(L10n.string("api.settings.key"),text:$key,prompt:Text(L10n.string("api.settings.key.prompt")))
+                SecureField(L10n.string("api.settings.key"),text:$draft.key,prompt:Text(L10n.string("api.settings.key.prompt")))
                     .help(L10n.string("api.settings.key.help"))
-                TextField(L10n.string("api.settings.project"),text:$project,prompt:Text(L10n.string("api.settings.project.prompt")))
+                TextField(L10n.string("api.settings.project"),text:$draft.project,prompt:Text(L10n.string("api.settings.project.prompt")))
                     .help(L10n.string("api.settings.project.help"))
-                HStack { Text(L10n.string("api.settings.status"));Spacer();Text(controller.status.text).foregroundStyle(.secondary) }
+                HStack {
+                    Text(L10n.string("api.settings.status"));Spacer()
+                    if controller.keychainBusy { ProgressView().controlSize(.small) }
+                    Text(controller.status.text).foregroundStyle(.secondary)
+                }
                     .fixedSize(horizontal:false,vertical:true)
               }
               Section(L10n.string("api.settings.cycle")) {
-                Picker(L10n.string("api.settings.startDay"),selection:$startDay) {
+                Picker(L10n.string("api.settings.startDay"),selection:$draft.startDay) {
                     ForEach(1...31,id:\.self) { Text(L10n.format("api.settings.startDay.option",$0)).tag($0) }
                 }.id("api-cycle-day."+L10n.language.code).help(L10n.string("api.settings.startDay.help"))
                 HStack {
@@ -204,23 +271,25 @@ struct OpenAIUsageSettings:View {
                     Button { controller.refreshAccountPlan() } label: { Image(systemName:"arrow.clockwise") }
                         .buttonStyle(.borderless).disabled(controller.planRefreshing).help(L10n.string("api.settings.plan.refresh"))
                 }
-                TextField(L10n.string("api.settings.budget"),text:$budget,prompt:Text(controller.automaticAmountPrompt))
+                TextField(L10n.string("api.settings.budget"),text:$draft.budget,prompt:Text(controller.automaticAmountPrompt))
                     .help(L10n.string("api.settings.budget.help"))
               }
               Section {
                 HStack {
-                    Button(L10n.string("api.settings.save")) { if controller.save(key:key,project:project,budget:budget,startDay:startDay) { key="" } }
+                    Button(L10n.string("api.settings.save")) {
+                        let submittedKey=draft.key
+                        controller.save(key:submittedKey,project:draft.project,budget:draft.budget,startDay:draft.startDay) { saved in
+                            if saved && draft.key == submittedKey { draft.key="" }
+                        }
+                    }
                         .buttonStyle(.borderedProminent)
                     Spacer()
-                    Button(L10n.string("api.settings.deleteKey")) { controller.removeKey();key="" }
-                }
+                    Button(L10n.string("api.settings.deleteKey")) { controller.removeKey();draft.key="" }
+                }.disabled(controller.keychainBusy)
               }
             }
         }.onAppear {
-            if controller.configuration.enabled { controller.refreshAccountPlan() }
-            startDay=controller.configuration.cycleStartDay
-            project=controller.configuration.projectID
-            budget=controller.configuration.manualBudget.map { String($0) } ?? ""
+            if controller.configuration.enabled { controller.refreshIfNeeded() }
         }
     }
 }
@@ -228,6 +297,7 @@ struct OpenAIUsageSettings:View {
 struct OpenAIUsagePanel:View {
     @ObservedObject var controller:OpenAIUsageController
     let metric:DisplayMetric
+    let now:Date
     let settings:()->Void
     var body:some View {
         if controller.configuration.enabled && controller.hasConfiguredKey {
@@ -243,17 +313,15 @@ struct OpenAIUsagePanel:View {
                     }
                     if controller.refreshing { ProgressView().controlSize(.small) }
                 }.help(projectID.isEmpty ? L10n.string("api.panel.organization.help"):projectID)
-                TimelineView(.periodic(from:.now,by:30)) { context in
-                    if let data=controller.snapshot,data.isCurrent(at:context.date) {
-                        details(data)
-                    } else {
-                        Text(controller.snapshot == nil ? controller.status.text:L10n.string("api.panel.stale"))
-                            .font(.system(size:12)).foregroundStyle(.secondary)
-                        if let amount=controller.expectedAmount {
-                            Text(L10n.format("api.panel.total",OpenAIUsageSnapshot.money(amount))).font(.system(size:12)).monospacedDigit()
-                        }
-                        Button(L10n.string("common.settings"),action:settings).buttonStyle(.borderless)
+                if let data=controller.snapshot,data.isCurrent(at:now) {
+                    details(data)
+                } else {
+                    Text(controller.snapshot == nil ? controller.status.text:L10n.string("api.panel.stale"))
+                        .font(.system(size:12)).foregroundStyle(.secondary)
+                    if let amount=controller.expectedAmount {
+                        Text(L10n.format("api.panel.total",OpenAIUsageSnapshot.money(amount))).font(.system(size:12)).monospacedDigit()
                     }
+                    Button(L10n.string("common.settings"),action:settings).buttonStyle(.borderless)
                 }
               }
             }

@@ -3,7 +3,7 @@ import SwiftUI
 import QuotaCore
 
 final class SettingsModel:ObservableObject {
-    let apiUsage=OpenAIUsageController()
+    let apiUsage:OpenAIUsageController
     @Published var preferences:RingPreferences { didSet { onPreferences?(preferences) } }
     @Published var snapshot=QuotaSnapshot(source:.official,fetchedAt:Date(),loading:true)
     @Published var source:QuotaSource = .official
@@ -20,7 +20,6 @@ final class SettingsModel:ObservableObject {
     @Published var overlayAuthorizationNotice:String?
     @Published var overlayStatus=""
     @Published var menuPresentation:QuotaMenuPresentation?
-    @Published var menuPanelVisible=false
     @Published var debugState=QuotaDebugState() { didSet { onDebugState?(debugState) } }
     var onPreferences:((RingPreferences)->Void)?
     var onDebugState:((QuotaDebugState)->Void)?
@@ -32,15 +31,23 @@ final class SettingsModel:ObservableObject {
     var onLoginSettings:(()->Void)?
     var onNotificationSettings:(()->Void)?
     var onPreviewConfetti:(()->Void)?
-    init(preferences:RingPreferences) { self.preferences=preferences }
+    init(preferences:RingPreferences,apiUsage:OpenAIUsageController = OpenAIUsageController()) {
+        self.preferences=preferences;self.apiUsage=apiUsage
+    }
+    func update<Value:Equatable>(_ keyPath:ReferenceWritableKeyPath<SettingsModel,Value>,_ value:Value) {
+        if self[keyPath:keyPath] != value { self[keyPath:keyPath]=value }
+    }
     var composition:RingComposition { RingComposition(snapshot:snapshot,preferences:preferences,fiveHourSupport:fiveHourSupport) }
     var display:QuotaDisplay { composition.center.display }
     var pools:[WeeklyQuota] { Dictionary(grouping:snapshot.quotas,by:\.poolID).values.compactMap(\.first).sorted { $0.poolID<$1.poolID } }
 }
 final class RingSettingsWindow:NSWindowController,NSWindowDelegate {
     private let onClose:()->Void
+    private let model:SettingsModel
+    let state:SettingsWindowState
     init(model:SettingsModel,onClose:@escaping ()->Void) {
-        self.onClose=onClose
+        self.onClose=onClose;self.model=model
+        state=SettingsWindowState(configuration:model.apiUsage.configuration)
         let window=NSWindow(contentRect:NSRect(x:0,y:0,width:780,height:620),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
         window.isReleasedWhenClosed=false
         window.titlebarAppearsTransparent=true
@@ -49,13 +56,27 @@ final class RingSettingsWindow:NSWindowController,NSWindowDelegate {
         window.collectionBehavior=[.moveToActiveSpace,.fullScreenAuxiliary,.canJoinAllApplications,.ignoresCycle]
         super.init(window:window);window.delegate=self
         applyLanguage()
-        window.contentView=NSHostingView(rootView:RingSettingsView(model:model,onDone:{ [weak self] in self?.close() }));window.center()
+        window.center()
     }
     required init?(coder:NSCoder) { fatalError("init(coder:) is not used") }
     func applyLanguage() { window?.title=L10n.string("settings.windowTitle") }
-    func windowWillClose(_ notification:Notification) { onClose() }
+    override func showWindow(_ sender:Any?) {
+        if !(window?.contentView is NSHostingView<RingSettingsView>) {
+            window?.contentView=NSHostingView(rootView:RingSettingsView(model:model,state:state,onDone:{ [weak self] in self?.close() }))
+        }
+        super.showWindow(sender)
+    }
+    func windowWillClose(_ notification:Notification) {
+        window?.contentView=nil
+        onClose()
+    }
 }
-private enum SettingsPage:String,CaseIterable,Identifiable {
+final class SettingsWindowState:ObservableObject {
+    @Published var selected:SettingsPage? = .general
+    let apiDraft:APISettingsDraft
+    init(configuration:OpenAIUsageConfiguration) { apiDraft=APISettingsDraft(configuration:configuration) }
+}
+enum SettingsPage:String,CaseIterable,Identifiable {
     case general,appearance,ring,panel,api,alerts,about
     var id:String { rawValue }
     var title:String {
@@ -97,15 +118,15 @@ private enum SettingsPage:String,CaseIterable,Identifiable {
 // the language changes, preserving the page selection and unsaved API fields.
 private struct RingSettingsView:View {
     @ObservedObject var model:SettingsModel
+    @ObservedObject var state:SettingsWindowState
     let onDone:()->Void
-    @State private var selected:SettingsPage? = .general
     private var colorScheme:ColorScheme? {
         switch model.preferences.theme { case .system:return nil;case .light:return .light;case .dark:return .dark }
     }
     var body:some View {
         HStack(spacing:0) {
             VStack(alignment:.leading,spacing:12) {
-                List(SettingsPage.allCases,selection:$selected) { page in
+                List(SettingsPage.allCases,selection:$state.selected) { page in
                     HStack(spacing:10) {
                         Image(systemName:page.icon).font(.system(size:13,weight:.semibold))
                             .foregroundStyle(.white).frame(width:26,height:26)
@@ -117,20 +138,11 @@ private struct RingSettingsView:View {
             }.frame(width:184).background(Color.primary.opacity(0.025))
             Divider()
             VStack(alignment:.leading,spacing:0) {
-                Text((selected ?? .general).title).font(.system(size:22,weight:.semibold))
+                Text((state.selected ?? .general).title).font(.system(size:22,weight:.semibold))
                     .padding(.horizontal,24).padding(.top,22).padding(.bottom,12)
-                // Keep panes alive so switching categories preserves unsaved API fields.
-                ZStack {
-                    ForEach(SettingsPage.allCases) { page in
-                        settingsPane(page)
-                            .frame(maxWidth:.infinity,maxHeight:.infinity)
-                            .opacity(selected == page ? 1:0)
-                            .allowsHitTesting(selected == page)
-                            .disabled(selected != page)
-                            .accessibilityHidden(selected != page)
-                            .zIndex(selected == page ? 1:0)
-                    }
-                }
+                settingsPane(state.selected ?? .general)
+                    .id(state.selected ?? .general)
+                    .frame(maxWidth:.infinity,maxHeight:.infinity)
                 Divider()
                 HStack {
                     Spacer()
@@ -142,7 +154,7 @@ private struct RingSettingsView:View {
             .toggleStyle(.switch)
             .preferredColorScheme(colorScheme)
             .environment(\.locale,Locale(identifier:L10n.language.code))
-            .onChange(of:selected) { value in if value == nil { selected = .general } }
+            .onChange(of:state.selected) { value in if value == nil { state.selected = .general } }
     }
     @ViewBuilder private func settingsPane(_ page:SettingsPage)->some View {
         if page == .about {
@@ -172,7 +184,7 @@ private struct RingSettingsView:View {
                 case .panel:
                     quotaPanelSection
                     quotaStatusSection
-                case .api:OpenAIUsageSettings(controller:model.apiUsage)
+                case .api:OpenAIUsageSettings(controller:model.apiUsage,draft:state.apiDraft)
                 case .alerts:alertsSection
                 case .about:EmptyView()
                 }

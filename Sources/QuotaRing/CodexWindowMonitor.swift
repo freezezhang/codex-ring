@@ -38,8 +38,15 @@ final class CodexWindowMonitor {
         let timer=Timer(timeInterval:0.2,repeats:true) { [weak self] _ in self?.sample() }
         self.timer=timer;RunLoop.main.add(timer,forMode:.common);sample()
     }
-    func stop() { timer?.invalidate();timer=nil;revision += 1;last=nil;knownWindows=[];emptySince=nil;hasObservedWindow=false }
-    func invalidate() { revision += 1;last=nil;sample() }
+    func stop() {
+        timer?.invalidate();timer=nil;revision += 1;last=nil;knownWindows=[];emptySince=nil;hasObservedWindow=false
+        queue.async { [usageLocator] in usageLocator.reset() }
+    }
+    func invalidate() {
+        revision += 1;last=nil
+        queue.async { [usageLocator] in usageLocator.reset() }
+        sample()
+    }
     func pressUsageControl(windowID:UInt32,completion:@escaping (Bool)->Void) {
         guard tracksUsageControl,accessibilityTrusted(),
               let target=knownWindows.first(where:{$0.id == windowID && $0.isOnScreen}),
@@ -142,7 +149,7 @@ final class CodexWindowMonitor {
         return .basicWindows(windows,frontPID:front)
     }
     private static func read(pids:[pid_t],top:CGFloat,front:pid_t,previous:[CodexFollowWindow],locator:CodexUsageLocator?)->CodexTrackingSnapshot {
-        guard !pids.isEmpty else { return .windows([],frontPID:front) }
+        guard !pids.isEmpty else { locator?.reset();return .windows([],frontPID:front) }
         guard let records=CGWindowListCopyWindowInfo([.optionAll,.excludeDesktopElements],kCGNullWindowID) as? [[String:Any]] else { return .unavailable }
         var result:[CodexFollowWindow]=[]
         for pid in pids {
@@ -198,6 +205,7 @@ final class CodexWindowMonitor {
             }
         }
         let order=records.compactMap { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value }
+        locator?.retain(windowIDs:Set(result.map(\.id)))
         result.sort { (order.firstIndex(of:$0.id) ?? Int.max)<(order.firstIndex(of:$1.id) ?? Int.max) }
         return .windows(result,frontPID:front)
     }

@@ -35,6 +35,25 @@ final class CodexUsageLocator {
         var nodeIndex=0
     }
     private var searches:[UInt32:SearchPass]=[:]
+    private struct FailedSearch {
+        let window:AXUIElement
+        let bounds:CGRect
+        var backoff=UsageSearchBackoff()
+    }
+    private var failures:[UInt32:FailedSearch]=[:]
+    // All access, including invalidation, runs on the monitor's serial queue.
+    func reset() { cache.removeAll();searches.removeAll();failures.removeAll() }
+    func retain(windowIDs:Set<UInt32>) {
+        cache=cache.filter { windowIDs.contains($0.key) }
+        searches=searches.filter { windowIDs.contains($0.key) }
+        failures=failures.filter { windowIDs.contains($0.key) }
+    }
+    private func failed(id:UInt32,window:AXUIElement,bounds:CGRect,at now:TimeInterval) {
+        var failure=failures[id] ?? FailedSearch(window:window,bounds:bounds)
+        failure.backoff.failed(at:now)
+        if failures.count>=32 { failures.removeAll() }
+        failures[id]=failure;searches[id]=nil
+    }
     private var lastDiagnostic=""
     private func diagnostic(_ value:String) {
         guard ProcessInfo.processInfo.arguments.contains("--space-diagnostics"),value != lastDiagnostic else { return }
@@ -105,9 +124,17 @@ final class CodexUsageLocator {
         }
         cache[id]=nil
         let now=ProcessInfo.processInfo.systemUptime
+        if let failure=failures[id] {
+            if failure.bounds != bounds || !CFEqual(failure.window,window) {
+                failures[id]=nil;searches[id]=nil
+            } else if !failure.backoff.allowsSearch(at:now) { return nil }
+        }
         var search=searches[id]
-        if search == nil || search!.bounds != bounds || !CFEqual(search!.window,window)
-            || now-search!.startedAt>10 {
+        if let pass=search,pass.bounds == bounds,CFEqual(pass.window,window),now-pass.startedAt>10 {
+            failed(id:id,window:window,bounds:bounds,at:now)
+            return nil
+        }
+        if search == nil || search!.bounds != bounds || !CFEqual(search!.window,window) {
             search=SearchPass(window:window,bounds:bounds,startedAt:now,
                               points:CodexFollow.usageProbePoints(window:bounds),nodes:[window])
         }
@@ -117,7 +144,7 @@ final class CodexUsageLocator {
         let deadline=now+0.4,probeDeadline=now+0.15
         func remember(_ element:AXUIElement,_ rect:CGRect,_ method:String)->CGRect {
             if cache.count>=32 { cache.removeAll() }
-            cache[id]=Cached(element:element);searches[id]=nil
+            cache[id]=Cached(element:element);searches[id]=nil;failures[id]=nil
             diagnostic("matched control via "+method)
             return rect
         }
@@ -154,7 +181,8 @@ final class CodexUsageLocator {
         }
         let finished=pass.pointIndex>=pass.points.count && (pass.nodeIndex>=pass.nodes.count || pass.nodeIndex>=1600)
         if searches.count>=32 { searches.removeAll() }
-        searches[id]=finished ? nil:pass
+        if finished { failed(id:id,window:window,bounds:bounds,at:ProcessInfo.processInfo.systemUptime) }
+        else { searches[id]=pass }
         diagnostic("control not found; probes=\(pass.pointIndex)/\(pass.points.count), hits=\(pass.hitCount), candidates=\(pass.candidateCount), nodes=\(pass.nodeIndex), search=\(finished ? "complete":"continuing")")
         return nil
     }

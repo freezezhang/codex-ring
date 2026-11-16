@@ -53,7 +53,7 @@ public struct QuotaDisplay {
         }
     }
 }
-public struct QuotaSnapshot {
+public struct QuotaSnapshot:Equatable {
     public let source: QuotaSource
     public let fetchedAt: Date
     public let quotas: [WeeklyQuota]
