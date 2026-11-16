@@ -41,6 +41,8 @@ python3 scripts/check-privacy.py
 
 The Swift suite covers quota parsing and presentation, reset cards, settings and localization, window-follow geometry and visibility, rendering, protocol timeouts, and lifecycle regressions. It uses a local App Server fixture and temporary preferences. GitHub runs the Swift suite on native Intel and Apple silicon macOS 26 runners for pull requests and `main`, alongside the repository privacy check.
 
+GitHub-hosted Intel runners skip one settings-window lifecycle test because reopening that SwiftUI window stalls in their graphical session. Apple silicon CI and local Intel test runs exercise the full suite.
+
 Optional native tests after the Swift suite:
 
 - `zsh scripts/check-codex-follow.sh` creates a test window and checks follow behavior as it moves, resizes, maximizes, enters full screen, minimizes, restores, and closes. Use `--basic-follow` to exercise the path without Accessibility. The script uses isolated preferences and does not query live quotas.
