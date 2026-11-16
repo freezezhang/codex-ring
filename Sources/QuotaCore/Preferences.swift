@@ -30,6 +30,7 @@ public struct RingPreferences: Codable, Equatable {
     public var followCodex = false
     public var overlayCodexUsage = false
     public var showMenuBar = true
+    public var quotaPanel=QuotaPanelPreferences()
     /// Relative position inside Codex; independent of the free desktop position.
     public var codexAnchor:PanelPosition? = nil
     public var showWeek = true
@@ -50,7 +51,7 @@ public struct RingPreferences: Codable, Equatable {
         if !granted { overlayCodexUsage=false }
     }
     public init() {}
-    private enum CodingKeys:String,CodingKey { case metric,size,autoHide,animations,positionLocked,followCodex,overlayCodexUsage,showMenuBar,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position }
+    private enum CodingKeys:String,CodingKey { case metric,size,autoHide,animations,positionLocked,followCodex,overlayCodexUsage,showMenuBar,quotaPanel,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position }
     public init(from decoder:Decoder) throws {
         let c=try decoder.container(keyedBy:CodingKeys.self)
         metric=(try? c.decode(DisplayMetric.self,forKey:.metric)) ?? .remaining
@@ -61,6 +62,7 @@ public struct RingPreferences: Codable, Equatable {
         followCodex=(try? c.decode(Bool.self,forKey:.followCodex)) ?? false
         overlayCodexUsage=(try? c.decode(Bool.self,forKey:.overlayCodexUsage)) ?? false
         showMenuBar=(try? c.decode(Bool.self,forKey:.showMenuBar)) ?? true
+        quotaPanel=(try? c.decode(QuotaPanelPreferences.self,forKey:.quotaPanel)) ?? QuotaPanelPreferences()
         codexAnchor=try? c.decodeIfPresent(PanelPosition.self,forKey:.codexAnchor)
         showWeek=(try? c.decode(Bool.self,forKey:.showWeek)) ?? true
         showFiveHours=(try? c.decode(Bool.self,forKey:.showFiveHours)) ?? false

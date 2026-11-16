@@ -56,7 +56,9 @@ final class PreferencesTests: XCTestCase {
     func testPreferencesDoNotContainConnectionOrCredentials() throws {
         let data = try JSONEncoder().encode(RingPreferences())
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])
-        XCTAssertEqual(Set(json.keys), Set(["metric","size","autoHide","animations","positionLocked","followCodex","overlayCodexUsage","showMenuBar","showWeek","showFiveHours","centerPeriod","refreshInterval","theme"]))
+        XCTAssertEqual(Set(json.keys), Set(["metric","size","autoHide","animations","positionLocked","followCodex","overlayCodexUsage","showMenuBar","showWeek","showFiveHours","centerPeriod","refreshInterval","theme","quotaPanel"]))
+        let panel=try XCTUnwrap(json["quotaPanel"] as? [String:Any])
+        XCTAssertEqual(Set(panel.keys),Set(["showPace","weeklySchedule","tickStyle","resetStyle"]))
     }
     func testSmallSizesRemainRecoverableAtEveryEdge() {
         let screen = CGRect(x: 2560, y: 100, width: 1920, height: 980)

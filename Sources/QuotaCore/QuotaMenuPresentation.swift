@@ -15,6 +15,24 @@ public struct QuotaMenuRow:Equatable,Identifiable {
     public let statusText:String
     public let resetText:String
     public let resetsAt:Date?
+    public let paceValidUntil:Date?
+    public let panel:QuotaPanelPreferences
+    public let metric:DisplayMetric
+    public func pace(at now:Date)->QuotaPace? {
+        guard panel.showPace,let used,paceValidUntil.map({ now<=$0 }) ?? true else { return nil }
+        return QuotaPace(used:used,period:period,resetsAt:resetsAt,now:now,workDays:panel.weeklySchedule.workDays)
+    }
+    public func progressPosition(_ usedPercent:Double)->Double { metric == .used ? usedPercent:100-usedPercent }
+    public var progressPercent:Double? { used.map(progressPosition) }
+    public var progressText:String { metric.shortTitle+" "+(metric == .used ? usedText:remainingText) }
+    public var divisionMarkers:[Double] {
+        panel.tickStyle == .hidden ? []:QuotaPace.divisions(for:period,workDays:panel.weeklySchedule.workDays).map(progressPosition).sorted()
+    }
+    public func resetDescription(at now:Date)->String {
+        guard panel.resetStyle == .dateTime else { return resetCountdown(at:now) }
+        guard let resetsAt,resetsAt.timeIntervalSince1970.isFinite else { return "重置时间未提供" }
+        return resetsAt>now ? "重置于 "+resetText:"等待重置"
+    }
     public func resetCountdown(at now:Date)->String {
         guard let resetsAt else { return "重置时间未提供" }
         let interval=resetsAt.timeIntervalSince(now)
@@ -23,7 +41,7 @@ public struct QuotaMenuRow:Equatable,Identifiable {
         let seconds=Int64(min(ceil(interval),315_576_000_000))
         var text=""
         if seconds>=86400 { text += "\(seconds/86400)天" }
-        if seconds>=3600 { text += "\((seconds%86400)/3600)小时" }
+        if seconds>=3600 { text += "\((seconds%86400)/3600)时" }
         if seconds>=60 { text += "\((seconds%3600)/60)分" }
         return text+"\(seconds%60)秒 后重置"
     }
@@ -31,8 +49,8 @@ public struct QuotaMenuRow:Equatable,Identifiable {
 }
 
 /// One source of truth for menu-bar numbers and the expanded quota panel.
-/// The bar follows the chosen metric and visible periods; progress bars always show
-/// usage. Unknown/stale data never becomes a fabricated 0% or 100%.
+/// The bar, rings and panel share the display metric. Unknown/stale data never
+/// becomes a fabricated 0% or 100%.
 public struct QuotaMenuPresentation:Equatable {
     public let title:String
     public let selectionText:String
@@ -69,7 +87,9 @@ public struct QuotaMenuPresentation:Equatable {
                 : metadata.display(selectedID:metadataPool,period:period,now:now).quota?.resetsAt
             return QuotaMenuRow(period:period,used:used.value,usedText:used.text,
                                 remainingText:remaining.text,statusText:display.subtitle,
-                                resetText:reset.map { QuotaDateText.string($0) } ?? "未提供",resetsAt:reset)
+                                resetText:reset.map { QuotaDateText.string($0) } ?? "未提供",resetsAt:reset,
+                                paceValidUntil:snapshot.source == .debug ? nil:snapshot.fetchedAt.addingTimeInterval(300),
+                                panel:preferences.quotaPanel,metric:preferences.metric)
         }
         updatedText=lastRefreshedAt.map { "刷新于 "+QuotaDateText.string($0,includeSeconds:true,includeDate:false) } ?? "尚未刷新"
         cardsSummary=metadata.resetCards.map { $0.availableCount.map { "\($0) 张可用" } ?? "数量未知" } ?? "未提供"

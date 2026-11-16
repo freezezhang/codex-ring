@@ -4,9 +4,9 @@ import XCTest
 final class QuotaMenuTests:XCTestCase {
     func testResetCountdownUpdatesFromAbsoluteDeadlineAcrossDayAndSecondBoundaries() throws {
         let row=try XCTUnwrap(data(live()).rows.first(where:{$0.period == .week}))
-        XCTAssertEqual(row.resetCountdown(at:now),"1天0小时0分0秒 后重置")
-        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(1)),"23小时59分59秒 后重置")
-        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(82800)),"1小时0分0秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now),"1天0时0分0秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(1)),"23时59分59秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(82800)),"1时0分0秒 后重置")
         XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(82801)),"59分59秒 后重置")
         XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(86338)),"1分2秒 后重置")
         XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(86340)),"1分0秒 后重置")
@@ -14,7 +14,7 @@ final class QuotaMenuTests:XCTestCase {
         XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(86399.5)),"1秒 后重置")
         XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(86400)),"等待重置")
         XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(86401)),"等待重置")
-        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(-93784)),"2天2小时3分4秒 后重置")
+        XCTAssertEqual(row.resetCountdown(at:now.addingTimeInterval(-93784)),"2天2时3分4秒 后重置")
     }
     func testUnknownResetDoesNotInventCountdown() throws {
         let snapshot=QuotaSnapshot(source:.official,fetchedAt:now,quotas:[WeeklyQuota(id:"codex/secondary",label:"Codex",remaining:50,resetsAt:nil)])
@@ -49,7 +49,12 @@ final class QuotaMenuTests:XCTestCase {
         p.centerPeriod = .fiveHours;p.metric = .remaining
         let five=data(live(),preferences:p)
         XCTAssertEqual(five.title,"55% | 17.5%");XCTAssertEqual(five.selectionText,"本周剩余 55% · 5小时剩余 17.5%")
-        XCTAssertEqual(five.rows,week.rows);XCTAssertEqual(five.rows[0].band,.orange)
+        XCTAssertEqual(five.rows.map(\.used),week.rows.map(\.used))
+        XCTAssertTrue(five.rows.allSatisfy { $0.metric == .remaining })
+        XCTAssertTrue(week.rows.allSatisfy { $0.metric == .used })
+        XCTAssertEqual(five.rows[0].progressPercent,17.5)
+        XCTAssertEqual(week.rows[0].progressPercent,82.5)
+        XCTAssertEqual(five.rows[0].band,.orange)
         XCTAssertEqual(week.updatedText,"刷新于 18:00:00")
         XCTAssertFalse(five.title.contains("剩余"));XCTAssertFalse(five.title.contains("已用"))
     }

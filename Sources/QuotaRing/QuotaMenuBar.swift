@@ -189,36 +189,73 @@ private struct QuotaMenuView:View {
             Spacer(minLength:0)
         }.accessibilityElement(children:.ignore).accessibilityLabel("重置卡到期 "+row.text)
     }
-    private func quota(_ row:QuotaMenuRow)->some View {
-        VStack(alignment:.leading,spacing:10) {
-            HStack(alignment:.firstTextBaseline) {
-                Text(row.title).font(.system(size:15,weight:.semibold))
-                Spacer()
-                Text("已用 "+row.usedText).font(.system(size:15,weight:.semibold)).monospacedDigit()
+    @ViewBuilder private func quota(_ row:QuotaMenuRow)->some View {
+        if model.menuPanelVisible && (row.panel.showPace || row.panel.resetStyle == .countdown) {
+            TimelineView(.periodic(from:.now,by:1)) { context in
+                quota(row,at:context.date)
             }
-            GeometryReader { geometry in
-                ZStack(alignment:.leading) {
-                    Capsule().fill(Color.primary.opacity(0.09))
-                    if let value=row.used {
-                        Capsule().fill(barColor(row.band))
-                            .frame(width:geometry.size.width*CGFloat(min(100,max(0,value)))/100)
-                    }
-                }
-            }.frame(height:7).accessibilityElement(children:.ignore)
-                .accessibilityLabel(row.title+"已用额度")
-                .accessibilityValue(row.used == nil ? row.statusText:row.usedText)
-            HStack(alignment:.firstTextBaseline,spacing:8) {
-                Text(row.used == nil ? row.statusText:"剩余 "+row.remainingText)
-                Spacer(minLength:0)
-                if model.menuPanelVisible {
-                    TimelineView(.periodic(from:.now,by:1)) { context in
-                        Text(row.resetCountdown(at:context.date)).monospacedDigit().fixedSize()
-                    }
-                } else {
-                    Text(row.resetCountdown(at:Date())).monospacedDigit().fixedSize()
-                }
-            }.font(.system(size:11)).foregroundStyle(.secondary)
+        } else {
+            quota(row,at:Date())
         }
+    }
+    private func quota(_ row:QuotaMenuRow,at now:Date)->some View {
+        let pace=row.pace(at:now)
+        return VStack(alignment:.leading,spacing:10) {
+            HStack(alignment:.firstTextBaseline,spacing:8) {
+                Text(row.title+" "+row.progressText).font(.system(size:13,weight:.semibold))
+                    .monospacedDigit().lineLimit(1).fixedSize(horizontal:true,vertical:false)
+                Spacer(minLength:0)
+                Text(row.resetDescription(at:now)).font(.system(size:11)).foregroundStyle(.secondary)
+                    .monospacedDigit().lineLimit(1).minimumScaleFactor(0.85)
+            }
+            QuotaProgressBar(row:row,pace:pace)
+            if row.used == nil {
+                Text(row.statusText).font(.system(size:11)).foregroundStyle(.secondary)
+            }
+            if let pace {
+                Text(pace.summary).font(.system(size:11)).monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal:false,vertical:true)
+                    .help(pace.explanation)
+                    .accessibilityLabel(pace.summary+"。"+pace.explanation)
+            }
+        }
+    }
+}
+
+struct QuotaProgressBar:View {
+    let row:QuotaMenuRow
+    let pace:QuotaPace?
+    var body:some View {
+        GeometryReader { geometry in
+            ZStack(alignment:.leading) {
+                Capsule().fill(Color.primary.opacity(0.09))
+                if let value=row.progressPercent {
+                    Capsule().fill(barColor(row.band))
+                        .frame(width:geometry.size.width*CGFloat(min(100,max(0,value)))/100)
+                    ForEach(row.divisionMarkers,id:\.self) { percent in
+                        Rectangle().fill(Color.primary.opacity(row.panel.tickStyle == .highContrast ? 0.9:0.4))
+                            .frame(width:row.panel.tickStyle == .highContrast ? 2:1)
+                            .offset(x:geometry.size.width*percent/100-(row.panel.tickStyle == .highContrast ? 1:0.5))
+                    }
+                    if let pace,let expected=pace.markerPercent {
+                        let percent=row.progressPosition(expected)
+                        Rectangle().fill(Color.black.opacity(0.8)).frame(width:5)
+                            .overlay(Rectangle().fill(pace.position == .ahead ? Color.red:Color.green).frame(width:2))
+                            .offset(x:max(0,min(geometry.size.width-5,geometry.size.width*percent/100-2.5)))
+                    }
+                }
+            }.clipShape(Capsule())
+        }.frame(height:7).accessibilityElement(children:.ignore)
+            .accessibilityLabel(row.title+row.metric.shortTitle+"额度")
+            .accessibilityValue(row.used == nil ? row.statusText:row.progressText+(pace.map { "，"+$0.summary } ?? ""))
+            .help(markerHelp)
+    }
+    private var markerHelp:String {
+        var items:[String]=[]
+        if !row.divisionMarkers.isEmpty { items.append(row.period == .week ? "细刻度按每周工作日划分":"细刻度为每小时进度") }
+        if pace?.markerPercent != nil { items.append("红／绿标记为当前时间的均匀用量进度") }
+        return items.isEmpty ? row.title+row.metric.shortTitle+"额度":items.joined(separator:"；")+"。"
     }
     private func barColor(_ band:UsageBand?)->Color {
         switch band {

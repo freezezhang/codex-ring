@@ -50,6 +50,7 @@ private struct RingSettingsView:View {
         VStack(spacing:0) {
             Form {
                 appearanceSection
+                quotaPanelSection
                 ringSection
                 quotaStatusSection
             }.formStyle(.grouped)
@@ -82,6 +83,23 @@ private struct RingSettingsView:View {
             Picker("主题",selection:$model.preferences.theme) {
                 ForEach(ThemePreference.allCases,id:\.rawValue) { Text($0.title).tag($0) }
             }.pickerStyle(.menu)
+        }
+    }
+    private var quotaPanelSection:some View {
+        Section("额度面板") {
+            Toggle("显示用量节奏",isOn:$model.preferences.quotaPanel.showPace)
+                .help("显示红／绿进度标记、超额／余量和预计耗尽时间。")
+            Picker("每周工作日",selection:$model.preferences.quotaPanel.weeklySchedule) {
+                ForEach(WeeklyPaceSchedule.allCases,id:\.rawValue) { Text($0.title).tag($0) }
+            }.pickerStyle(.menu)
+                .help("4／5／6天从周一起计算，按系统时区划分；用于本周节奏和耗尽预测。自动按完整7天计算，不显示每日刻度。5小时额度不受影响。")
+            Picker("周期刻度外观",selection:$model.preferences.quotaPanel.tickStyle) {
+                ForEach(QuotaTickStyle.allCases,id:\.rawValue) { Text($0.title).tag($0) }
+            }.pickerStyle(.menu)
+                .help("控制每周工作日及5小时额度的小时刻度。隐藏刻度不会停止节奏预测。")
+            Picker("重置时间",selection:$model.preferences.quotaPanel.resetStyle) {
+                ForEach(QuotaResetStyle.allCases,id:\.rawValue) { Text($0.title).tag($0) }
+            }.pickerStyle(.segmented)
         }
     }
     private var ringSection:some View {
