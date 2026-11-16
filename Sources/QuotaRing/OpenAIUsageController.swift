@@ -56,6 +56,7 @@ enum OpenAIUsageStatus:Equatable {
 
 final class OpenAIUsageController:ObservableObject {
     @Published private(set) var configuration:OpenAIUsageConfiguration
+    @Published private(set) var hasConfiguredKey=false
     @Published private(set) var snapshot:OpenAIUsageSnapshot?
     @Published private(set) var refreshing=false
     @Published private(set) var status:OpenAIUsageStatus = .notConfigured
@@ -101,7 +102,8 @@ final class OpenAIUsageController:ObservableObject {
         guard !key.contains(where:{$0.isWhitespace}) else { status = .keyWhitespace;return false }
         do {
             if !key.isEmpty { try APIKeyStore.save(key) }
-            guard try APIKeyStore.read() != nil else { status = .keyRequired;return false }
+            hasConfiguredKey = try APIKeyStore.read().map { !$0.isEmpty } ?? false
+            guard hasConfiguredKey else { status = .keyRequired;return false }
         } catch { status = .keychainUnavailable;return false }
         cancel();snapshot=nil
         configuration.projectID=project;configuration.manualBudget=amount;configuration.cycleStartDay=min(31,max(1,startDay));persist()
@@ -111,7 +113,7 @@ final class OpenAIUsageController:ObservableObject {
     }
     func removeKey() {
         do { try APIKeyStore.remove() } catch { status = .keychainDeleteFailed;return }
-        cancel();snapshot=nil;configuration.enabled=false;persist();status = .notConfigured
+        cancel();snapshot=nil;hasConfiguredKey=false;configuration.enabled=false;persist();status = .notConfigured
     }
     func refreshAccountPlan() {
         guard !planRefreshing else { return }
@@ -139,7 +141,11 @@ final class OpenAIUsageController:ObservableObject {
         guard configuration.enabled,!refreshing else { return }
         let key:String
         do {
-            guard let stored=try APIKeyStore.read(),!stored.isEmpty else { status = .configureKey;return }
+            guard let stored=try APIKeyStore.read(),!stored.isEmpty else {
+                hasConfiguredKey=false;snapshot=nil;status = .configureKey
+                return
+            }
+            hasConfiguredKey=true
             key=stored
         } catch { status = .keychainUnavailable;return }
         refreshing=true;status = .refreshing
@@ -224,17 +230,19 @@ struct OpenAIUsagePanel:View {
     let metric:DisplayMetric
     let settings:()->Void
     var body:some View {
-        if controller.configuration.enabled {
+        if controller.configuration.enabled && controller.hasConfiguredKey {
+            let projectID=controller.configuration.projectID
             QuotaSectionCard {
               VStack(alignment:.leading,spacing:16) {
                 HStack(spacing:8) {
                     Text("OpenAI API").font(.system(size:15,weight:.bold)).fixedSize()
                     Spacer(minLength:0)
-                    Text(controller.configuration.projectID.isEmpty ? L10n.string("api.panel.organization"):L10n.string("api.panel.project"))
-                        .font(.system(size:10)).foregroundStyle(.secondary)
-                        .help(controller.configuration.projectID.isEmpty ? L10n.string("api.panel.organization.help"):controller.configuration.projectID)
+                    if !projectID.isEmpty {
+                        Text(L10n.string("api.panel.project"))
+                            .font(.system(size:10)).foregroundStyle(.secondary)
+                    }
                     if controller.refreshing { ProgressView().controlSize(.small) }
-                }
+                }.help(projectID.isEmpty ? L10n.string("api.panel.organization.help"):projectID)
                 TimelineView(.periodic(from:.now,by:30)) { context in
                     if let data=controller.snapshot,data.isCurrent(at:context.date) {
                         details(data)

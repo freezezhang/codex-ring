@@ -43,6 +43,7 @@ final class PreferencesTests: XCTestCase {
         var preferences = RingPreferences(); preferences.metric = .used; preferences.size = .small
         preferences.autoHide = false; preferences.animations = false; preferences.positionLocked=true; preferences.bucketID = "codex/primary";preferences.theme = .dark
         preferences.followCodex=true;preferences.overlayCodexUsage=true;preferences.codexAnchor=PanelPosition(x:0.4,y:0.8)
+        preferences.ringHidden=true;preferences.hideRingWithoutCodex=true
         preferences.position = PanelPosition(x: -400, y: 260)
         PreferencesStore(defaults:defaults).save(preferences)
         XCTAssertEqual(PreferencesStore(defaults:try XCTUnwrap(UserDefaults(suiteName:name))).load(), preferences)
@@ -57,7 +58,7 @@ final class PreferencesTests: XCTestCase {
     func testPreferencesDoNotContainConnectionOrCredentials() throws {
         let data = try JSONEncoder().encode(RingPreferences())
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])
-        XCTAssertEqual(Set(json.keys), Set(["alerts","resetConfetti","automaticCenter","metric","size","autoHide","animations","positionLocked","followCodex","overlayCodexUsage","showMenuBar","showWeek","showFiveHours","centerPeriod","refreshInterval","theme","quotaPanel"]))
+        XCTAssertEqual(Set(json.keys), Set(["alerts","resetConfetti","automaticCenter","metric","size","autoHide","animations","positionLocked","ringHidden","followCodex","hideRingWithoutCodex","overlayCodexUsage","showMenuBar","showMenuBarQuota","showWeek","showFiveHours","centerPeriod","refreshInterval","theme","quotaPanel"]))
         let panel=try XCTUnwrap(json["quotaPanel"] as? [String:Any])
         XCTAssertEqual(Set(panel.keys),Set(["showPace","weeklySchedule","tickStyle","resetStyle"]))
     }

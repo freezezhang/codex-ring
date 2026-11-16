@@ -177,6 +177,8 @@
 "menu.pin.locked" = "Pinned";
 "menu.pin.unlocked" = "Not pinned";
 "menu.pin.overlay" = "Overlay mode locks the position automatically";
+"menu.hideRing" = "Hide Ring";
+"menu.showRing" = "Show Ring";
 "menu.quitShort" = "Quit";
 "menu.quit" = "Quit CodexRing";
 "menu.disableOverlay" = "Turn Off Codex Quota Overlay";
@@ -189,7 +191,7 @@
 "panel.account.a11y" = "Account: %@";
 "panel.plan.missing" = "Plan not provided";
 "panel.plan.a11y" = "Plan: %@";
-"panel.subscription" = "OpenAI Subscription";
+"panel.subscription" = "ChatGPT Subscription";
 "panel.resetCards" = "Reset Cards";
 "panel.card.help" = "Expires: %@";
 "panel.card.a11y" = "Reset card: %@";
@@ -244,7 +246,6 @@
 "api.settings.budget.help" = "Leave blank to use the expected full-cycle API allowance of the detected Pro plan; enter an amount to override it, or clear it to return to automatic. Requires the benefit to be claimed and linked to this API organization. The first claim is prorated by the remaining time and can be corrected manually. This is not your actual balance. Business plans need a manual amount.";
 "api.settings.save" = "Save & Refresh";
 "api.settings.deleteKey" = "Delete Key";
-"api.panel.organization" = "Organization";
 "api.panel.organization.help" = "Costs for the whole API organization";
 "api.panel.project" = "Project";
 "api.panel.stale" = "Data is out of date. Refresh";
@@ -284,7 +285,9 @@
 "settings.quota.pool.automatic" = "Automatic";
 "settings.appearance.section" = "Appearance & Menu Bar";
 "settings.menuBar.toggle" = "Show quota in menu bar";
-"settings.menuBar.help" = "Shows percentages for the weekly and 5-hour quotas selected under Ring, separated by | when both are selected. Click it to open the quota progress panel.";
+"settings.menuBar.help" = "Show percentages for the periods selected under Ring. A | separates the percentages when both periods are selected.";
+"settings.menuBar.visibility" = "Show in menu bar";
+"settings.menuBar.visibility.help" = "Show the CodexRing icon in the menu bar. Click the icon to open the quota panel.";
 "settings.metric.picker" = "Show";
 "settings.metric.remaining" = "Remaining";
 "settings.metric.used" = "Used";
@@ -317,6 +320,9 @@
 "settings.ring.animations" = "Show and hide animation";
 "settings.ring.follow" = "Follow Codex window";
 "settings.ring.follow.help" = "The ring follows the Codex window, including fullscreen; it returns to its free position when there's no Codex window.";
+"settings.ring.show" = "Show ring";
+"settings.ring.show.help" = "Show the floating ring. If the ring and menu bar icon are both hidden, reopen CodexRing to access Settings.";
+"settings.ring.hideWithoutCodex" = "Hide ring when no Codex window is open";
 "settings.ring.overlay" = "Overlay Codex quota control";
 "settings.ring.overlay.help" = "Shrinks to small and covers the usage ring above your avatar; clicking still opens the Codex usage menu. Turning it off restores the previous size and position.";
 "settings.ring.overlay.permission" = "Requires Accessibility permission";

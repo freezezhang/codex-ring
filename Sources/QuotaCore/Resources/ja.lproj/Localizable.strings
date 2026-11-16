@@ -177,6 +177,8 @@
 "menu.pin.locked" = "固定済み";
 "menu.pin.unlocked" = "未固定";
 "menu.pin.overlay" = "重ねて表示中は位置が自動的に固定されます";
+"menu.hideRing" = "リングを非表示";
+"menu.showRing" = "リングを表示";
 "menu.quitShort" = "終了";
 "menu.quit" = "CodexRing を終了";
 "menu.disableOverlay" = "Codex 使用枠の重ね表示をオフ";
@@ -189,7 +191,7 @@
 "panel.account.a11y" = "アカウント：%@";
 "panel.plan.missing" = "プラン情報なし";
 "panel.plan.a11y" = "プラン：%@";
-"panel.subscription" = "OpenAI サブスクリプション";
+"panel.subscription" = "ChatGPT サブスクリプション";
 "panel.resetCards" = "リセットカード";
 "panel.card.help" = "有効期限：%@";
 "panel.card.a11y" = "リセットカード：%@";
@@ -244,7 +246,6 @@
 "api.settings.budget.help" = "空欄では識別した Pro プランの1期間分の想定 API 枠を使います。金額を入力すると上書きし、消すと自動に戻ります。特典の受け取りと、この API 組織への紐付けが必要です。初回は残り期間に応じた金額になるため、手動で調整できます。実際の残高ではありません。Business プランは手動入力が必要です。";
 "api.settings.save" = "保存して更新";
 "api.settings.deleteKey" = "キーを削除";
-"api.panel.organization" = "組織全体";
 "api.panel.organization.help" = "API 組織全体の費用";
 "api.panel.project" = "プロジェクト";
 "api.panel.stale" = "データが古くなっています。更新してください";
@@ -284,7 +285,9 @@
 "settings.quota.pool.automatic" = "自動";
 "settings.appearance.section" = "外観とメニューバー";
 "settings.menuBar.toggle" = "メニューバーに使用枠を表示";
-"settings.menuBar.help" = "「リング」で選択した週・5時間の割合を表示し、両方選択時は | で区切ります。クリックして使用状況パネルを開きます。";
+"settings.menuBar.help" = "「リング」で選択した期間の使用枠をパーセントで表示します。両方選択した場合は | で区切ります。";
+"settings.menuBar.visibility" = "メニューバーに表示";
+"settings.menuBar.visibility.help" = "メニューバーに CodexRing のアイコンを表示します。クリックすると使用状況パネルが開きます。";
 "settings.metric.picker" = "表示項目";
 "settings.metric.remaining" = "残り";
 "settings.metric.used" = "使用済み";
@@ -317,6 +320,9 @@
 "settings.ring.animations" = "展開・収納アニメーション";
 "settings.ring.follow" = "Codex ウィンドウに追従";
 "settings.ring.follow.help" = "通常・フルスクリーンの Codex ウィンドウに追従します。ウィンドウがない場合は自由位置に戻ります。";
+"settings.ring.show" = "リングを表示";
+"settings.ring.show.help" = "フローティングリングを表示します。リングとメニューバーのアイコンを両方非表示にした場合は、CodexRing を開き直すと設定が開きます。";
+"settings.ring.hideWithoutCodex" = "Codex ウィンドウがないときはリングを非表示";
 "settings.ring.overlay" = "Codex 使用枠に重ねて表示";
 "settings.ring.overlay.help" = "小さいリングでアバター上の使用量リングを覆います。クリックで Codex 使用量メニューを開きます。オフにすると元のサイズと位置に戻ります。";
 "settings.ring.overlay.permission" = "アクセシビリティ権限が必要";

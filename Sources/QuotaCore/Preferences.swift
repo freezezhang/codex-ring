@@ -33,9 +33,12 @@ public struct RingPreferences: Codable, Equatable {
     public var autoHide = true
     public var animations = true
     public var positionLocked = false
+    public var ringHidden = false
     public var followCodex = false
+    public var hideRingWithoutCodex = false
     public var overlayCodexUsage = false
     public var showMenuBar = true
+    public var showMenuBarQuota = true
     public var quotaPanel=QuotaPanelPreferences()
     public var alerts=QuotaAlertPreferences()
     public var resetConfetti=false
@@ -62,7 +65,7 @@ public struct RingPreferences: Codable, Equatable {
         if !granted { overlayCodexUsage=false }
     }
     public init() {}
-    private enum CodingKeys:String,CodingKey { case alerts,resetConfetti,automaticCenter,metric,size,autoHide,animations,positionLocked,followCodex,overlayCodexUsage,showMenuBar,quotaPanel,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position,languageCode }
+    private enum CodingKeys:String,CodingKey { case alerts,resetConfetti,automaticCenter,metric,size,autoHide,animations,positionLocked,ringHidden,followCodex,hideRingWithoutCodex,overlayCodexUsage,showMenuBar,showMenuBarQuota,quotaPanel,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position,languageCode }
     public init(from decoder:Decoder) throws {
         let c=try decoder.container(keyedBy:CodingKeys.self)
         metric=(try? c.decode(DisplayMetric.self,forKey:.metric)) ?? .remaining
@@ -70,9 +73,12 @@ public struct RingPreferences: Codable, Equatable {
         autoHide=(try? c.decode(Bool.self,forKey:.autoHide)) ?? true
         animations=(try? c.decode(Bool.self,forKey:.animations)) ?? true
         positionLocked=(try? c.decode(Bool.self,forKey:.positionLocked)) ?? false
+        ringHidden=(try? c.decode(Bool.self,forKey:.ringHidden)) ?? false
         followCodex=(try? c.decode(Bool.self,forKey:.followCodex)) ?? false
+        hideRingWithoutCodex=(try? c.decode(Bool.self,forKey:.hideRingWithoutCodex)) ?? false
         overlayCodexUsage=(try? c.decode(Bool.self,forKey:.overlayCodexUsage)) ?? false
         showMenuBar=(try? c.decode(Bool.self,forKey:.showMenuBar)) ?? true
+        showMenuBarQuota=(try? c.decode(Bool.self,forKey:.showMenuBarQuota)) ?? true
         quotaPanel=(try? c.decode(QuotaPanelPreferences.self,forKey:.quotaPanel)) ?? QuotaPanelPreferences()
         alerts=(try? c.decode(QuotaAlertPreferences.self,forKey:.alerts)) ?? QuotaAlertPreferences()
         alerts.normalize()
@@ -91,9 +97,11 @@ public struct RingPreferences: Codable, Equatable {
     }
 }
 
-public enum RingMenuEntry:Equatable { case refresh,settings,reset,positionLock(locked:Bool),quit }
+public enum RingMenuEntry:Equatable { case refresh,settings,reset,positionLock(locked:Bool),hideRing,quit }
 public enum RingMenuSpec {
-    public static func entries(for preferences:RingPreferences)->[RingMenuEntry] { [.refresh,.positionLock(locked:preferences.effectivePositionLocked),.reset,.settings,.quit] }
+    public static func entries(for preferences:RingPreferences)->[RingMenuEntry] {
+        [.reset,.refresh,.positionLock(locked:preferences.effectivePositionLocked),.hideRing,.settings,.quit]
+    }
 }
 public struct RingComposition {
     public let outer:RingPresentation

@@ -20,11 +20,7 @@ final class FollowCheck:NSObject,NSApplicationDelegate,NSWindowDelegate {
         preferences.position=PanelPosition(x:screen.visibleFrame.minX+30,y:screen.visibleFrame.minY+40)
         let store=PreferencesStore(defaults:UserDefaults(suiteName:suite)!);store.save(preferences)
         ring=RingApplication(store:store,codexMonitor:CodexWindowMonitor(bundleIdentifier:"local.freeze.codex-ring.follow-check",accessibilityTrusted:{ [self] in !basic && AXIsProcessTrusted() }),automaticRefresh:false)
-        fixture=NSWindow(contentRect:NSRect(x:screen.visibleFrame.midX-450,y:screen.visibleFrame.midY-300,width:900,height:600),
-                         styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
-        fixture.title="CodexRing 跟随验证（自动关闭）";fixture.isReleasedWhenClosed=false
-        fixture.collectionBehavior=[.fullScreenPrimary];fixture.delegate=self
-        fixture.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)
+        openFixture(contentRect:NSRect(x:screen.visibleFrame.midX-450,y:screen.visibleFrame.midY-300,width:900,height:600))
         ring.applicationDidFinishLaunching(notification)
         after(3) { [self] in
             guard checkAttached("ordinary window") else { return }
@@ -32,6 +28,13 @@ final class FollowCheck:NSObject,NSApplicationDelegate,NSWindowDelegate {
             after(1) { [self] in testHover { [self] in testSwitches() } }
         }
         after(45) { [self] in finish("timeout in \(phase)",success:false) }
+    }
+    private func openFixture(contentRect:NSRect) {
+        fixture=NSWindow(contentRect:contentRect,
+                         styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
+        fixture.title="CodexRing 跟随验证（自动关闭）";fixture.isReleasedWhenClosed=false
+        fixture.collectionBehavior=[.fullScreenPrimary];fixture.delegate=self
+        fixture.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)
     }
     private func testHover(then completion:@escaping ()->Void) {
         func find(_ view:NSView)->RingView? {
@@ -65,6 +68,10 @@ final class FollowCheck:NSObject,NSApplicationDelegate,NSWindowDelegate {
         }
     }
     private func testSwitches() {
+        preferences.ringHidden=true;ring.applyPreferences(preferences)
+        guard checkHidden("manually hidden while following") else { return }
+        preferences.ringHidden=false;ring.applyPreferences(preferences)
+        guard checkAttached("manually restored while following") else { return }
             preferences.followCodex=false;ring.applyPreferences(preferences)
             after(1) { [self] in
                 guard checkFree("follow switch off") else { return }
@@ -105,13 +112,26 @@ final class FollowCheck:NSObject,NSApplicationDelegate,NSWindowDelegate {
                 fixture.deminiaturize(nil);fixture.makeKeyAndOrderFront(nil)
                 after(2) { [self] in
                     guard checkAttached("deminimized window") else { return }
-                    fixture.close()
-                    fixture=nil // Destroy the window; an ordered-out live window can belong to another Space.
-                    after(2) { [self] in
-                        guard checkFree("closed fallback") else { return }
-                        finish("move, zoom, fullscreen, minimize, reopen and close passed",success:true)
-                    }
+                    testClosedWindow()
                 }
+            }
+        }
+    }
+    private func testClosedWindow() {
+        let rect=fixture.contentRect(forFrameRect:fixture.frame)
+        preferences.hideRingWithoutCodex=true;ring.applyPreferences(preferences)
+        fixture.close()
+        fixture=nil // Destroy the window; an ordered-out live window can belong to another Space.
+        after(2) { [self] in
+            guard checkHidden("closed window with automatic hiding") else { return }
+            preferences.hideRingWithoutCodex=false;ring.applyPreferences(preferences)
+            guard checkFree("closed fallback") else { return }
+            preferences.hideRingWithoutCodex=true;ring.applyPreferences(preferences)
+            guard checkHidden("automatic hiding enabled without a window") else { return }
+            openFixture(contentRect:rect)
+            after(2) { [self] in
+                guard checkAttached("new window automatically restores ring") else { return }
+                finish("follow and visibility changes passed",success:true)
             }
         }
     }
@@ -126,8 +146,14 @@ final class FollowCheck:NSObject,NSApplicationDelegate,NSWindowDelegate {
         }
         // The desktop anchor can remain ordered but transparent; require the
         // actual content-bearing panel, not just any live window rectangle.
-        let contentWindows=NSApp.windows.filter { $0 is NSPanel && $0.contentView?.subviews.isEmpty == false && $0.isVisible }
+        let contentWindows=NSApp.windows.filter {
+            $0 is NSPanel && $0.isVisible && $0.contentView?.isHidden == false && $0.contentView?.subviews.isEmpty == false
+        }
         return contentWindows.compactMap { w in frames.first(where:{$0 == w.frame}) }.first
+    }
+    private func checkHidden(_ name:String)->Bool {
+        guard circleFrame() == nil else { finish("\(name): circle is visible",success:false);return false }
+        print("PASS \(name)");return true
     }
     private func checkAttached(_ name:String)->Bool {
         guard let frame=circleFrame(),let screen=fixture.screen else { finish("\(name): no visible circle",success:false);return false }

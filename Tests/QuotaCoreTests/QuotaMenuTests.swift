@@ -88,10 +88,14 @@ final class QuotaMenuTests:XCTestCase {
         XCTAssertEqual(view.rows.map(\.used),[20,90]);XCTAssertEqual(view.cardsSummary,"未提供")
         XCTAssertEqual(view.rows[0].resetText,data(metadata).rows[0].resetText)
     }
-    func testMenuVisibilityPersistsAndExistingSettingsEnableIt() throws {
-        XCTAssertTrue(try JSONDecoder().decode(RingPreferences.self,from:Data("{}".utf8)).showMenuBar)
-        var p=RingPreferences();p.showMenuBar=false
-        XCTAssertEqual(try JSONDecoder().decode(RingPreferences.self,from:JSONEncoder().encode(p)),p)
+    func testMenuIconAndQuotaVisibilityPersistIndependently() throws {
+        let previous=try JSONDecoder().decode(RingPreferences.self,from:Data(#"{"showMenuBar":false}"#.utf8))
+        XCTAssertFalse(previous.showMenuBar)
+        XCTAssertTrue(previous.showMenuBarQuota)
+
+        var iconOnly=RingPreferences()
+        iconOnly.showMenuBarQuota=false
+        XCTAssertEqual(try JSONDecoder().decode(RingPreferences.self,from:JSONEncoder().encode(iconOnly)),iconOnly)
     }
     func testCardColorsFollowRealExpiryAfterFilteringUsedCardsAndMissingDetails() {
         let cards=ResetCards(availableCount:5,details:[

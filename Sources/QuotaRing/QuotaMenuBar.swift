@@ -13,11 +13,32 @@ final class QuotaMenuBar:NSObject {
     private let panel=QuotaFloatingPanel(contentRect:.zero,styleMask:[.borderless],backing:.buffered,defer:false)
     private var hostingView:NSView?
     private var localMonitor:Any?,globalMonitor:Any?,deactivationObserver:NSObjectProtocol?
-    private let menuIcon:NSImage? = {
-        let icon=Bundle.main.url(forResource:"ChatGPTMenuIcon",withExtension:"png").flatMap { NSImage(contentsOf:$0) }
-        icon?.isTemplate=true;icon?.size=NSSize(width:18,height:18)
-        return icon
-    }()
+    // The CodexRing gauge and terminal prompt, in white for the menu bar.
+    private let menuIcon = NSImage(size:NSSize(width:18,height:18),flipped:false) { _ in
+        let track=NSBezierPath(ovalIn:NSRect(x:2,y:2,width:14,height:14))
+        track.lineWidth=1.7
+        NSColor.white.withAlphaComponent(0.45).setStroke()
+        track.stroke()
+
+        NSColor.white.setStroke()
+        let gauge=NSBezierPath()
+        gauge.lineWidth=track.lineWidth
+        gauge.lineCapStyle = .round
+        gauge.appendArc(withCenter:NSPoint(x:9,y:9),radius:7,startAngle:90,endAngle:-180,clockwise:true)
+        gauge.stroke()
+
+        let prompt=NSBezierPath()
+        prompt.lineWidth=1.5
+        prompt.lineCapStyle = .round
+        prompt.lineJoinStyle = .round
+        prompt.move(to:NSPoint(x:5.7,y:10.8))
+        prompt.line(to:NSPoint(x:7.9,y:8.7))
+        prompt.line(to:NSPoint(x:5.7,y:6.6))
+        prompt.move(to:NSPoint(x:9.5,y:6.6))
+        prompt.line(to:NSPoint(x:12.3,y:6.6))
+        prompt.stroke()
+        return true
+    }
     var onRefresh:(()->Void)?,onSettings:(()->Void)?,onQuit:(()->Void)?,onDisableOverlay:(()->Void)?
     init(model:SettingsModel) {
         self.model=model
@@ -57,12 +78,17 @@ final class QuotaMenuBar:NSObject {
             newItem.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])
             item=newItem
         }
-        let title=" "+(model.menuPresentation?.title ?? "—")
-        if item?.button?.title != title { item?.button?.title=title }
-        item?.button?.font=NSFont.monospacedDigitSystemFont(ofSize:13,weight:.medium)
-        item?.button?.image=menuIcon;item?.button?.imagePosition = .imageLeft
-        item?.button?.toolTip=model.menuPresentation?.help ?? "CodexRing"
-        item?.button?.setAccessibilityLabel(model.menuPresentation?.help ?? "CodexRing")
+        if let button=item?.button {
+            let showQuota=model.preferences.showMenuBarQuota
+            let title=showQuota ? " "+(model.menuPresentation?.title ?? "—") : ""
+            let label=(showQuota ? model.menuPresentation?.help : nil) ?? "CodexRing"
+            if button.title != title { button.title=title }
+            button.font=NSFont.monospacedDigitSystemFont(ofSize:13,weight:.medium)
+            button.image=menuIcon
+            button.imagePosition=showQuota ? .imageLeft : .imageOnly
+            button.toolTip=label
+            button.setAccessibilityLabel(label)
+        }
         if panel.isVisible {
             DispatchQueue.main.async { [weak self] in self?.fitPanel() }
         }
@@ -120,6 +146,12 @@ final class QuotaMenuBar:NSObject {
             if model.preferences.overlayCodexUsage {
                 let entry=NSMenuItem(title:L10n.string("menu.disableOverlay"),action:#selector(disableOverlay),keyEquivalent:"");entry.target=self;menu.addItem(entry)
             }
+            let ringHidden=model.preferences.ringHidden
+            let ringVisibilityTitle=ringHidden ? L10n.string("menu.showRing"):L10n.string("menu.hideRing")
+            let ringVisibility=NSMenuItem(title:ringVisibilityTitle,action:#selector(toggleRingVisibility),keyEquivalent:"")
+            ringVisibility.image=NSImage(systemSymbolName:ringHidden ? "eye":"eye.slash",accessibilityDescription:ringVisibilityTitle)
+            ringVisibility.target=self
+            menu.addItem(ringVisibility)
             menu.addItem(.separator())
             let quit=NSMenuItem(title:L10n.string("menu.quit"),action:#selector(quit),keyEquivalent:"");quit.target=self;menu.addItem(quit)
             NSMenu.popUpContextMenu(menu,with:event,for:button)
@@ -132,6 +164,7 @@ final class QuotaMenuBar:NSObject {
     @objc private func settings() { close();onSettings?() }
     @objc private func quit() { close();onQuit?() }
     @objc private func disableOverlay() { close();onDisableOverlay?() }
+    @objc private func toggleRingVisibility() { model.preferences.ringHidden.toggle() }
 }
 
 private struct QuotaContentHeight:PreferenceKey {

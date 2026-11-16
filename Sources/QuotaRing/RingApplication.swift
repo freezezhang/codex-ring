@@ -30,6 +30,13 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private var activeContextMenu:NSMenu?
     private var overlayActive:Bool { preferences.overlayCodexUsage && overlayAccessibilityGranted }
     private var trackingCodex:Bool { preferences.followCodex || overlayActive }
+    private var hidesWithoutCodexWindow:Bool { trackingCodex && preferences.hideRingWithoutCodex }
+    private var ringIsHidden:Bool {
+        if preferences.ringHidden { return true }
+        guard hidesWithoutCodexWindow else { return false }
+        if case .attach = codexAction { return false }
+        return true
+    }
     private var followingCodex:Bool { panel != nil && panel === codexPanel }
     private var desktopLayout=PanelLayout(),fullscreenLayout=PanelLayout()
     private var spacePresentation=RingSpacePresentation()
@@ -160,6 +167,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             || NSApp.currentSystemPresentationOptions.contains(.fullScreen)
             || anchorScreen.map { fullscreenDisplay(for:nil,on:$0) != nil } == true
         desktopAnchorEstablished = !startsInFullscreen
+        updateRingVisibility()
         if desktopAnchorEstablished && !overlayActive { panel.orderFrontRegardless() }
         redraw()
         if automaticRefresh { configureRefreshTimer() }
@@ -285,7 +293,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
                 codexPanel?.orderOut(nil);redraw();return
             case .free:
                 cancelOverlayNotice()
-                if overlayActive {
+                if overlayActive || hidesWithoutCodexWindow {
                     beginCodexFollow(frame:expandedFrame ?? panel.frame)
                     codexPanel?.orderOut(nil);redraw();return
                 }
@@ -366,7 +374,6 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             frame=CodexFollow.frame(in:area,size:circleSize,anchor:preferences.codexAnchor)
         }
         beginCodexFollow(frame:frame)
-        panel.ignoresMouseEvents=false
         hideWork?.cancel();dockEdge=nil;dockScreen=nil;isTucked=false
         if panel.frame != frame { move(to:frame,animated:false) }
         material.frame=NSRect(origin:.zero,size:frame.size)
@@ -388,7 +395,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         overlayNoticeWork?.cancel();overlayNoticeWork=nil;overlayNoticeWindow=nil
     }
     private func scheduleOverlayNotice(windowID:UInt32) {
-        guard !overlayNoticeShown,overlayNoticeWindow != windowID else { return }
+        guard !ringIsHidden,!overlayNoticeShown,overlayNoticeWindow != windowID else { return }
         cancelOverlayNotice();overlayNoticeWindow=windowID
         let generation=overlayNoticeGeneration
         let work=DispatchWorkItem { [weak self] in
@@ -408,7 +415,6 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     }
     private func endCodexFollow() {
         codexPanel?.orderOut(nil);codexTarget=nil
-        codexPanel?.ignoresMouseEvents=false
         usePanel(desktopPanel,layout:desktopLayout)
         if desktopAnchorEstablished,desktopPanel.isOnActiveSpace { desktopPanel.orderFrontRegardless() }
     }
@@ -437,6 +443,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         hideWork?.cancel();isDragging=false
         let content=panel.contentView;panel.contentView=nil
         panel=next;panel.contentView=content
+        updateRingVisibility()
         dockEdge=layout.edge;dockScreen=layout.screen;isTucked=layout.tucked
         let previous=layout.expandedFrame ?? panel.frame
         let expanded=Docking.clamped(NSRect(x:previous.midX-circleSize/2,y:previous.midY-circleSize/2,width:circleSize,height:circleSize),to:screenFrame)
@@ -510,15 +517,31 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         oldAnchor?.close()
     }
     func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool {
-        if preferences.overlayCodexUsage { openSettings();return false }
+        if preferences.overlayCodexUsage || ringIsHidden { openSettings();return false }
         synchronizeSpace()
         if followingCodex { if !panel.isVisible { openSettings() } }
         else if showingFullscreen { reveal(animated:false);moveFullscreenPanelToActiveSpace() }
         else if panel.isOnActiveSpace { restore() }
         return false
     }
+    private func updateRingVisibility() {
+        guard let content=panel.contentView else { return }
+        let hidden=ringIsHidden
+        // Keep the desktop window anchored to its Space while hiding its content.
+        if content.isHidden != hidden {
+            if hidden {
+                hideWork?.cancel()
+                cancelOverlayNotice()
+                ring.dismissHover()
+                isDragging=false
+            }
+            content.isHidden=hidden
+        }
+        panel.ignoresMouseEvents=hidden
+    }
     private func redraw() {
         guard ring != nil else { return }
+        updateRingVisibility()
         let visible=displaySnapshot
         let composition=RingComposition(snapshot:visible,preferences:preferences,fiveHourSupport:fiveHourSupport)
         ring.composition=composition
@@ -585,7 +608,9 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             if value.followCodex || value.overlayCodexUsage { codexMonitor.start();codexMonitor.invalidate() }
             else { codexMonitor.stop() }
         }
-        if old.followCodex != value.followCodex || old.overlayCodexUsage != value.overlayCodexUsage || (followingCodex && old.size != value.size) { synchronizeSpace() }
+        if old.followCodex != value.followCodex || old.overlayCodexUsage != value.overlayCodexUsage
+            || old.ringHidden != value.ringHidden || old.hideRingWithoutCodex != value.hideRingWithoutCodex
+            || (followingCodex && old.size != value.size) { synchronizeSpace() }
         store.save(preferences); redraw()
     }
     private func applyLanguage() {
@@ -600,7 +625,6 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         let frame=Docking.clamped(NSRect(x:center.x-circleSize/2,y:center.y-circleSize/2,width:circleSize,height:circleSize),to:screenFrame)
         panel.setFrame(frame,display:true);expandedFrame=frame
         material.frame=NSRect(origin:.zero,size:frame.size);material.layer?.cornerRadius=circleSize/2;ring.frame=material.bounds
-        panel.ignoresMouseEvents=false
     }
     private func updateMenuBar() {
         if quotaMenuBar == nil {
@@ -665,7 +689,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     }
     private func scheduleHide(force:Bool = false) {
         hideWork?.cancel()
-        guard !followingCodex,panel.isOnActiveSpace,preferences.autoHide,!isDragging,!isTucked,dockEdge != nil,settings?.window?.isVisible != true,debugWindow?.window?.isVisible != true else { return }
+        guard !ringIsHidden,!followingCodex,panel.isOnActiveSpace,preferences.autoHide,!isDragging,!isTucked,dockEdge != nil,settings?.window?.isVisible != true,debugWindow?.window?.isVisible != true else { return }
         let work=DispatchWorkItem { [weak self] in
             guard let self,self.panel.isOnActiveSpace,let edge=self.dockEdge,let screen=self.dockScreen else { return }
             if !force && self.panel.frame.contains(NSEvent.mouseLocation) { return }
@@ -773,6 +797,9 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             case .positionLock(let locked):item=NSMenuItem(title:L10n.string("menu.pin"),action:#selector(togglePositionLock),keyEquivalent:"");item.image=NSImage(systemSymbolName:locked ? "pin.fill":"pin",accessibilityDescription:locked ? L10n.string("menu.pin.locked"):L10n.string("menu.pin.unlocked"))
                 item.isEnabled=preferences.canTogglePositionLock
                 if !item.isEnabled { item.toolTip=L10n.string("menu.pin.overlay") }
+            case .hideRing:
+                item=NSMenuItem(title:L10n.string("menu.hideRing"),action:#selector(hideRing),keyEquivalent:"")
+                item.image=NSImage(systemSymbolName:"eye.slash",accessibilityDescription:item.title)
             case .quit:menu.addItem(.separator());item=NSMenuItem(title:L10n.string("menu.quitShort"),action:#selector(quit),keyEquivalent:"q")
             }
             item.target=self;menu.addItem(item)
@@ -785,6 +812,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             menu.popUp(positioning:nil,at:NSPoint(x:ring.bounds.midX,y:ring.bounds.midY),in:ring)
         }
     }
+    @objc private func hideRing() { model.preferences.ringHidden=true }
     private func resetMenu()->NSMenu {
         let menu=NSMenu(title:L10n.string("menu.resetInfo"));menu.autoenablesItems=false
         let font=NSFont.menuFont(ofSize:0)

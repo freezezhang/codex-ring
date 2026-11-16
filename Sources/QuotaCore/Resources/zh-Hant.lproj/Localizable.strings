@@ -177,6 +177,8 @@
 "menu.pin.locked" = "已固定";
 "menu.pin.unlocked" = "未固定";
 "menu.pin.overlay" = "覆蓋模式會自動鎖定位置";
+"menu.hideRing" = "隱藏圓環";
+"menu.showRing" = "顯示圓環";
 "menu.quitShort" = "結束";
 "menu.quit" = "結束 CodexRing";
 "menu.disableOverlay" = "關閉 Codex 額度覆蓋";
@@ -189,7 +191,7 @@
 "panel.account.a11y" = "使用者帳號：%@";
 "panel.plan.missing" = "未提供訂閱類型";
 "panel.plan.a11y" = "訂閱類型：%@";
-"panel.subscription" = "OpenAI 訂閱";
+"panel.subscription" = "ChatGPT 訂閱";
 "panel.resetCards" = "重設卡";
 "panel.card.help" = "到期時間：%@";
 "panel.card.a11y" = "重設卡：%@";
@@ -244,7 +246,6 @@
 "api.settings.budget.help" = "留空依已識別的 Pro 方案使用完整週期的預期 API 額度；輸入金額可手動覆寫，清空則恢復自動。需已領取福利並綁定目前 API 組織。首次領取依剩餘時間折算，可手動修正；這不是實際餘額。Business 方案需手動填寫。";
 "api.settings.save" = "儲存並重新整理";
 "api.settings.deleteKey" = "刪除 Key";
-"api.panel.organization" = "整個組織";
 "api.panel.organization.help" = "統計整個 API 組織的費用";
 "api.panel.project" = "專案";
 "api.panel.stale" = "資料已過期，請重新整理";
@@ -284,7 +285,9 @@
 "settings.quota.pool.automatic" = "自動";
 "settings.appearance.section" = "外觀與選單列";
 "settings.menuBar.toggle" = "選單列顯示額度";
-"settings.menuBar.help" = "依圓環中勾選的本週、5小時額度顯示百分比，雙選時以 | 分隔；按一下開啟額度進度面板。";
+"settings.menuBar.help" = "依「圓環」中勾選的週期顯示額度百分比，兩者皆選時以 | 分隔。";
+"settings.menuBar.visibility" = "選單列顯示";
+"settings.menuBar.visibility.help" = "在選單列顯示 CodexRing 圖示。按一下圖示可開啟額度面板。";
 "settings.metric.picker" = "顯示項目";
 "settings.metric.remaining" = "剩餘";
 "settings.metric.used" = "已用";
@@ -317,6 +320,9 @@
 "settings.ring.animations" = "展開與收起動畫";
 "settings.ring.follow" = "跟隨 Codex 移動";
 "settings.ring.follow.help" = "圓環跟隨 Codex 視窗，支援一般視窗和全螢幕；沒有 Codex 視窗時恢復自由位置。";
+"settings.ring.show" = "圓環顯示";
+"settings.ring.show.help" = "顯示浮動圓環。若圓環和選單列圖示皆已隱藏，重新開啟 CodexRing 可進入設定。";
+"settings.ring.hideWithoutCodex" = "沒有 Codex 視窗時隱藏圓環";
 "settings.ring.overlay" = "覆蓋 Codex 額度控制項";
 "settings.ring.overlay.help" = "自動縮為小號並覆蓋頭像上方的用量圓環；按一下仍開啟 Codex 用量選單。關閉後恢復原本的大小和位置。";
 "settings.ring.overlay.permission" = "需要輔助使用權限";

@@ -190,7 +190,13 @@ private struct RingSettingsView:View {
     }
     private var appearanceSection:some View {
         Section(L10n.string("settings.appearance.section")) {
-            Toggle(L10n.string("settings.menuBar.toggle"),isOn:$model.preferences.showMenuBar)
+            Toggle(L10n.string("settings.ring.show"),isOn:Binding(
+                get:{ !model.preferences.ringHidden },
+                set:{ model.preferences.ringHidden = !$0 }
+            )).help(L10n.string("settings.ring.show.help"))
+            Toggle(L10n.string("settings.menuBar.visibility"),isOn:$model.preferences.showMenuBar)
+                .help(L10n.string("settings.menuBar.visibility.help"))
+            Toggle(L10n.string("settings.menuBar.toggle"),isOn:$model.preferences.showMenuBarQuota)
                 .help(L10n.string("settings.menuBar.help"))
             Picker(L10n.string("settings.metric.picker"),selection:$model.preferences.metric) {
                 Text(L10n.string("settings.metric.remaining")).tag(DisplayMetric.remaining)
@@ -234,6 +240,9 @@ private struct RingSettingsView:View {
             Toggle(L10n.string("settings.ring.follow"),isOn:$model.preferences.followCodex)
                 .disabled(model.preferences.overlayCodexUsage)
                 .help(L10n.string("settings.ring.follow.help"))
+            Toggle(L10n.string("settings.ring.hideWithoutCodex"),isOn:$model.preferences.hideRingWithoutCodex)
+                .disabled(!model.preferences.followCodex && !model.preferences.overlayCodexUsage)
+                .padding(.leading,16)
             VStack(alignment:.leading,spacing:0) {
                 Toggle(L10n.string("settings.ring.overlay"),isOn:$model.preferences.overlayCodexUsage)
                     .help(L10n.string("settings.ring.overlay.help"))
