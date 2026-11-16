@@ -209,32 +209,45 @@ private struct QuotaMenuView:View {
                 contentSizeChanged()
             }
     }
-    private func cards(_ data:QuotaMenuPresentation)->some View {
+    @ViewBuilder private func cards(_ data:QuotaMenuPresentation)->some View {
+        if model.menuPanelVisible {
+            TimelineView(.periodic(from:.now,by:1)) { context in
+                cards(data,at:context.date)
+            }
+        } else {
+            cards(data,at:Date())
+        }
+    }
+    private func cards(_ data:QuotaMenuPresentation,at now:Date)->some View {
         VStack(alignment:.leading,spacing:8) {
             HStack {
                 Text("重置卡").font(.system(size:12,weight:.medium)).foregroundStyle(.secondary)
                 Spacer()
                 Text(data.cardsSummary).font(.system(size:11)).foregroundStyle(.secondary)
             }
-            ForEach(data.cardRows.indices,id:\.self) { index in
-                cardLine(data.cardRows[index])
-            }
+            VStack(alignment:.leading,spacing:8) {
+                ForEach(data.cardRows.indices,id:\.self) { index in
+                    cardLine(data.cardRows[index],at:now)
+                }
+            }.padding(.leading,16)
         }
     }
-    private func cardLine(_ row:QuotaMenuCardRow)->some View {
+    private func cardLine(_ row:QuotaMenuCardRow,at now:Date)->some View {
+        let text=row.displayText(at:now)
         let color:Color? = {
-            switch row.expiryBand {
+            switch row.expiryBand(at:now) {
             case .normal:return nil
             case .yellow:return .yellow
             case .orange:return .orange
             case .red:return .red
             }
         }()
-        return HStack(alignment:.firstTextBaseline,spacing:8) {
+        return HStack(alignment:.firstTextBaseline,spacing:12) {
             Image(systemName:"clock").foregroundStyle(color ?? .secondary)
-            Text(row.text).font(.system(size:12)).monospacedDigit().foregroundStyle(color ?? .secondary)
+            Text(text).font(.system(size:12)).monospacedDigit().foregroundStyle(color ?? .secondary)
             Spacer(minLength:0)
-        }.accessibilityElement(children:.ignore).accessibilityLabel("重置卡到期 "+row.text)
+        }.help("到期时间："+row.text)
+            .accessibilityElement(children:.ignore).accessibilityLabel("重置卡："+text)
     }
     @ViewBuilder private func quota(_ row:QuotaMenuRow)->some View {
         if model.menuPanelVisible && (row.panel.showPace || row.panel.resetStyle == .countdown) {

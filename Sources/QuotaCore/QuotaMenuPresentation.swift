@@ -3,6 +3,19 @@ import Foundation
 public struct QuotaMenuCardRow:Equatable {
     public let text:String
     public let expiryBand:ResetCardExpiryBand
+    public let expiresAt:Date?
+    public func expiryBand(at now:Date)->ResetCardExpiryBand {
+        ResetCardExpiryBand(expiresAt:expiresAt,now:now)
+    }
+    public func displayText(at now:Date)->String {
+        guard let expiresAt else { return text }
+        let remaining=expiresAt.timeIntervalSince(now)
+        guard remaining.isFinite else { return text }
+        guard remaining>0 else { return "已过期" }
+        guard expiryBand(at:now) == .red else { return text }
+        let seconds=Int(ceil(remaining))
+        return "\(seconds/3600)时\((seconds%3600)/60)分\(seconds%60)秒"
+    }
 }
 
 public struct QuotaMenuRow:Equatable,Identifiable {
@@ -99,14 +112,14 @@ public struct QuotaMenuPresentation:Equatable {
         let details=QuotaDetailsPresentation(snapshot:snapshot,metadataSnapshot:metadata,preferences:preferences,
                                             fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt,now:now)
         // Preserve unknown, expired and partially available metadata notices.
-        let cardLines=showsResetCards ? details.resetMenuLines.filter { $0.hasPrefix("重置卡到期 ") }
-            .map { String($0.dropFirst("重置卡到期 ".count)) }:[]
+        let cardLines=showsResetCards ? details.resetMenuLines.filter { $0.hasPrefix("重置卡过期 ") }
+            .map { String($0.dropFirst("重置卡过期 ".count)) }:[]
         // The detail presentation emits available cards in metadata order,
         // followed by any missing-detail notice, which has no expiry date.
         let available=metadata.resetCards?.details?.filter(\.available) ?? []
         cardRows=cardLines.enumerated().map { index,text in
             let expiry=available.indices.contains(index) ? available[index].expiresAt:nil
-            return QuotaMenuCardRow(text:text,expiryBand:ResetCardExpiryBand(expiresAt:expiry,now:now))
+            return QuotaMenuCardRow(text:text,expiryBand:ResetCardExpiryBand(expiresAt:expiry,now:now),expiresAt:expiry)
         }
         metadataNotice=details.metadataNotice
     }

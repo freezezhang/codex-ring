@@ -111,6 +111,23 @@ final class QuotaMenuTests:XCTestCase {
         let later=QuotaMenuPresentation(snapshot:debug,metadata:real,preferences:RingPreferences(),fiveHourSupport:true,lastRefreshedAt:now,now:now.addingTimeInterval(12*3600))
         XCTAssertEqual(later.cardRows[0].expiryBand,.red)
     }
+    func testCardCountdownTransitionsWithoutRefreshingSnapshot() throws {
+        let expiry=now.addingTimeInterval(86401)
+        let cards=ResetCards(availableCount:1,details:[ResetCard(title:"Reset",expiresAt:expiry,status:"available")])
+        let snapshot=QuotaSnapshot(source:.official,fetchedAt:now,quotas:live().quotas,resetCards:cards)
+        let row=try XCTUnwrap(data(snapshot).cardRows.first)
+        XCTAssertEqual(row.displayText(at:now),row.text)
+        XCTAssertEqual(row.expiryBand(at:now),.orange)
+        XCTAssertEqual(row.displayText(at:now.addingTimeInterval(1)),"24时0分0秒")
+        XCTAssertEqual(row.expiryBand(at:now.addingTimeInterval(1)),.red)
+        XCTAssertEqual(row.displayText(at:expiry.addingTimeInterval(-3661)),"1时1分1秒")
+        XCTAssertEqual(row.displayText(at:expiry.addingTimeInterval(-60)),"0时1分0秒")
+        XCTAssertEqual(row.displayText(at:expiry.addingTimeInterval(-0.2)),"0时0分1秒")
+        XCTAssertEqual(row.displayText(at:expiry),"已过期")
+        XCTAssertEqual(row.displayText(at:expiry.addingTimeInterval(1)),"已过期")
+        let unknown=QuotaMenuCardRow(text:"时间未提供",expiryBand:.normal,expiresAt:nil)
+        XCTAssertEqual(unknown.displayText(at:now),"时间未提供")
+    }
     func testCardsSectionOnlyAppearsWhenAvailableCardsAreReported() {
         let available=ResetCard(title:"Full reset",expiresAt:now.addingTimeInterval(3600),status:"available")
         let used=ResetCard(title:"Full reset",expiresAt:nil,status:"used")

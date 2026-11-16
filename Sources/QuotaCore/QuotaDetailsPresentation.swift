@@ -67,11 +67,11 @@ public struct QuotaDetailsPresentation {
         if let cards=metadata.resetCards {
             let available=cards.details?.filter(\.available) ?? []
             rows += available.map { card in
-                "重置卡到期 "+(card.expiresAt.map { date($0)+($0<=now ? "（已过期）":"") } ?? "时间未提供")
+                "重置卡过期 "+(card.expiresAt.map { date($0)+($0<=now ? "（已过期）":"") } ?? "时间未提供")
             }
-            if cards.availableCount == 0,available.isEmpty { rows.append("重置卡到期 无可用卡") }
-            else if available.isEmpty || cards.availableCount.map({$0>available.count}) == true { rows.append("重置卡到期 部分时间未提供") }
-        } else { rows.append("重置卡到期 未提供") }
+            if cards.availableCount == 0,available.isEmpty { rows.append("重置卡过期 无可用卡") }
+            else if available.isEmpty || cards.availableCount.map({$0>available.count}) == true { rows.append("重置卡过期 部分时间未提供") }
+        } else { rows.append("重置卡过期 未提供") }
         if let metadataNotice { rows.append(metadataNotice) }
         resetMenuLines=rows
     }

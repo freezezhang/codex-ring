@@ -63,7 +63,7 @@ final class HoverAndDebugTests:XCTestCase {
             "完全重置　将于 \(QuotaDateText.string(expiry)) 到期","Other　到期时间未知","重置卡到期时间未提供"])
         for line in information.cardLines { XCTAssertTrue(information.tooltip.contains(line)) }
         XCTAssertFalse(information.tooltip.contains("Redeemed"))
-        XCTAssertTrue(information.resetMenuLines.contains("重置卡到期 2026.11.03 20:46"))
+        XCTAssertTrue(information.resetMenuLines.contains("重置卡过期 2026.11.03 20:46"))
     }
     func testZeroUnknownAndExpiredCardsRemainDistinct() {
         XCTAssertEqual(details(live(cards:ResetCards(availableCount:0,details:[]))).cardLines,["重置卡：0 张可用"])
