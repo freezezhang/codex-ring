@@ -1,6 +1,6 @@
 # CodexRing 开发说明
 
-用户操作、下载和界面介绍见 [README](../README.md)。
+用户操作、下载和界面介绍见 [中文 README](../README.zh-CN.md)。
 
 ## 构建
 

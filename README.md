@@ -1,127 +1,179 @@
 <p align="center">
-  <img src="assets/AppIcon-source.png" width="112" alt="CodexRing：冰蓝额度环和终端符号">
+  <img src="assets/AppIcon-source.png" width="112" alt="CodexRing app icon">
 </p>
 
 # CodexRing
 
-**在 Mac 上随时查看 Codex 额度。** 悬浮圆环适合快速看一眼，菜单栏面板可以展开查看两个额度周期的进度、重置时间和重置卡。还可在同一面板里查看 OpenAI API 费用。
+**English** · [简体中文](README.zh-CN.md)
 
-A native macOS utility for tracking Codex quotas and optional OpenAI API costs. CodexRing 是独立的开源项目，与 OpenAI 无隶属关系。
+**Keep an eye on your Codex quota on macOS.** Check the floating ring at a glance, or open the menu bar panel for usage, reset times, and any available reset cards. The panel can also show OpenAI API costs.
 
-[下载最新版](https://github.com/freezezhang/codex-ring/releases/latest) · [安装与首次使用](#安装与首次使用) · [界面说明](#界面说明) · [设置速查](#设置速查) · [常见问题](#常见问题)
+CodexRing is an independent, open-source project and is not affiliated with OpenAI.
 
-## 安装与首次使用
+[Download the latest release](https://github.com/freezezhang/codex-ring/releases/latest) · [Install](#installation) · [Interface](#interface-guide) · [Settings](#settings-reference) · [Troubleshooting](#troubleshooting)
 
-1. 确认 Mac 已安装官方 Codex 桌面版或独立 Codex CLI，并已登录可用的账号。只安装桌面版也可以，CodexRing 优先使用桌面版内附的 App Server。
-2. 从 [GitHub Releases](https://github.com/freezezhang/codex-ring/releases/latest) 下载一个 ZIP。可在苹果菜单的「关于本机」查看芯片类型。
+## Installation
 
-   | 下载包 | 适用设备 |
+1. Install the official Codex desktop app or standalone Codex CLI and sign in. The desktop app alone is sufficient. CodexRing prefers its bundled App Server when available.
+2. Download one ZIP from [GitHub Releases](https://github.com/freezezhang/codex-ring/releases/latest). Check your chip in **Apple menu → About This Mac**.
+
+   | Package suffix | Mac |
    | --- | --- |
-   | `macOS-arm64.zip` | Apple 芯片 Mac，例如 M 系列 |
+   | `macOS-arm64.zip` | Apple silicon, such as an M-series Mac |
    | `macOS-x86_64.zip` | Intel Mac |
-   | `macOS-universal.zip` | 两种 Mac 均可使用，适合不确定芯片类型时选择 |
+   | `macOS-universal.zip` | Either chip type |
 
-3. 解压后将 `CodexRing.app` 拖入「应用程序」并打开。升级时先退出当前运行的 CodexRing，再替换应用。外观、位置和 API 等设置会保留。
-4. 等待首次额度刷新。点击菜单栏的 CodexRing 图标打开详情，点面板底部的齿轮进入设置。也可以直接点击普通悬浮圆环进入设置。
+3. Unzip the download, drag `CodexRing.app` into **Applications**, and open it. When upgrading, quit the current CodexRing first, then replace the app. Your settings carry over.
+4. Wait for the first quota refresh. Click the CodexRing icon in the menu bar to open the panel, then click its gear icon to open Settings. You can also click the regular floating ring to open Settings.
 
-应用的构建最低目标为 **macOS 13.0**，还需满足所用 Codex 版本的系统要求。Release 提供 `SHA256SUMS.txt`，可用 `shasum -a 256 <下载的 ZIP>` 算出校验值并对照。安装包采用 ad-hoc 签名，首次打开时 macOS 可能提示未公证。确认下载来源和校验值后，可参考 [Apple 的安全打开说明](https://support.apple.com/zh-cn/102445)。
+The app targets **macOS 13.0 or later**. Your Mac also needs to meet the requirements of your Codex version. To verify the download, run `shasum -a 256 <downloaded ZIP>` and compare the result with the matching entry in `SHA256SUMS.txt`. Downloads are ad hoc signed and macOS may report that the app is not notarized. Verify the source and checksum before proceeding. [Apple’s guide to opening apps safely](https://support.apple.com/en-us/102445)
 
-## 界面说明
+Choose where you want to see your quota.
 
-以下截图来自 macOS 上运行的 CodexRing 界面。账号、金额、额度和日期均为演示数据。
-
-### 桌面悬浮圆环
-
-<img src="docs/images/rings.png" width="480" alt="左侧本周单环显示剩余 62%，右侧双环，外圈本周、内圈 5 小时，中心显示剩余 23%">
-
-- 在「设置 → 圆环」选择**单环或双环**需要显示的周期。双环时外圈是本周，内圈是 5 小时。只有 Codex 返回 5 小时窗口时才可选这一项。
-- 双环的**中心数字**可固定显示「本周」或「5小时」，也可选「较低项」。较低项优先显示已耗尽或预计更早耗尽的周期，无法预测时显示剩余比例更低的周期。
-- 在「设置 → 显示 → 显示项」切换剩余和已用。剩余从顶部逆时针绘制，已用从顶部顺时针绘制。**颜色始终按实际已用比例变化**，低于 70% 为蓝色，达到 70%、80%、90% 时分别变为黄色、橙色、红色。
-- **悬停**约 0.35 秒显示各周期额度，**拖动**可以调整位置。右键或 Control 点按可以查看「重置信息」、立即刷新、固定位置、隐藏圆环、打开设置或退出。自由移动时可开启贴边自动收起，移回边缘展开。
-- **显示尺寸**可选 26、32、56、64 或 76 点。26、32 点显示环和百分比，较大的尺寸还会显示简短文字。
-
-### 菜单栏额度面板
-
-点击菜单栏图标展开。图标旁的百分比跟随圆环选中的周期，两个周期同时显示时以 `|` 分隔。面板会列出账户实际支持的额度周期。
-
-<img src="docs/images/menu-panel.png" width="360" alt="菜单栏额度面板，依次显示示例账号、ChatGPT 订阅、重置卡、OpenAI API 费用，以及刷新、设置和退出按钮">
-
-| 区域 | 如何看 |
+| Goal | Setting |
 | --- | --- |
-| 账号 | 当前 Codex 登录邮箱、订阅套餐和最近一次成功刷新时间。长邮箱会缩短，悬停可查看完整地址。 |
-| ChatGPT 订阅 | 显示本周及适用时的 5 小时额度。每行有百分比、进度条和重置时间。百分比方向跟随「显示项」。 |
-| 重置卡 | 有可用卡时显示数量和到期时间。进入 7 天、3 天、1 天时分别显示黄、橙、红色。红色项显示时、分、秒倒计时，圆环右键菜单也可查询卡片日期。 |
-| OpenAI API | 开启并配置 Admin API Key 后显示，单独列出本期费用、周期、总额度和使用比例。 |
-| 底部按钮 | 从左到右为立即刷新、打开设置、退出。点击面板外部或按 Esc 可收起。 |
+| Keep a floating ring on the desktop | Leave **Display → Show ring** on and turn off both Codex window modes under **Ring**. |
+| Use the menu bar only | Turn off **Show ring** and leave **Show in menu bar** on. To show the icon without percentages, also turn off **Show quota in menu bar**. |
+| Keep the ring with the Codex window | Turn on **Ring → Follow Codex window**. You can also enable **Hide ring when no Codex window is open**. |
+| Display CodexRing over the usage ring in the Codex sidebar | Turn on **Ring → Overlay Codex quota control** and follow the Accessibility steps below. |
 
-进度条上的日／小时刻度表示周期经过的时间。红色或绿色短线标记当前时间下的均匀用量位置，红色表示实际用量已超出均匀节奏，绿色表示仍有余量。「预计耗尽」按本周期已观察到的平均使用速度估算，继续使用或暂停都会改变结果。可在「设置 → 订阅」调整每周工作日、刻度外观、重置时间的显示方式，或关掉用量节奏。
+## Interface guide
 
-### 设置窗口
+The screenshots show CodexRing running on macOS with sample account, quota, cost, and date values.
 
-<img src="docs/images/ring-settings.png" width="760" alt="CodexRing 设置窗口，左侧是七个设置页，右侧显示圆环额度选择、中心数字、尺寸、跟随与覆盖选项">
+### Floating ring
 
-## 设置速查
+<img src="docs/images/en/rings.png" width="480" alt="A weekly ring with 62% left and a dual ring with 23% left in the 5-hour period">
 
-| 页面 | 常用选项 |
+- Under **Settings → Ring**, choose the periods you want on the floating ring. With both selected, the outer ring shows the weekly quota and the inner ring shows the 5-hour quota. The 5-hour option requires a quota window from Codex.
+- With two rings, **Center number** can show **Weekly**, **5-hour**, or **Lower**. **Lower** picks an exhausted quota first, then the one forecast to run out sooner. When there is no usable forecast, it picks the lower remaining percentage.
+- Under **Display → Show**, choose remaining or used. Remaining fills counterclockwise from the top and used fills clockwise. Colors always follow the share actually used. Blue indicates less than 70% used, followed by yellow at 70%, orange at 80%, and red at 90%.
+- Hover for about 0.35 seconds to see the periods at a glance. Drag to move the ring. Right-click or Control-click for **Reset Info**, **Refresh Now**, **Pin Position**, **Hide Ring**, Settings, or Quit. With free movement, the ring can tuck away at a screen edge and reappear when you point at that edge.
+- Choose a 26, 32, 56, 64, or 76 pt ring. The two smallest sizes show the ring and percentage. Larger sizes also show a short caption.
+
+**Pin Position** locks mouse dragging. A pinned ring can still follow the Codex window, and overlay mode automatically locks the ring to the native control. Hiding the floating ring leaves the menu bar and refreshes available.
+
+In free mode, the ring stays on its regular macOS desktop. It can appear over a fullscreen app and return to its previous desktop when you leave fullscreen.
+
+### Menu bar quota panel
+
+Click the menu bar icon to expand the panel. The percentages next to the icon follow the selected ring periods and are separated by `|` when both are selected. The expanded panel lists every quota period the account supports. You can therefore have one floating ring and two rows in the panel. If Codex reports multiple quota pools, choose one under **General** or **Subscription**.
+
+<img src="docs/images/en/menu-panel.png" width="360" alt="Menu bar panel with a sample account, ChatGPT subscription quotas, reset cards, API costs, and refresh, settings, and quit buttons">
+
+| Section | What it shows |
 | --- | --- |
-| 通用 | 登录时启动、界面语言、刷新间隔和当前额度状态。刷新间隔可选 1、2、5 分钟。 |
-| 显示 | 分别控制桌面圆环、菜单栏图标及图标旁的额度百分比。可选剩余／已用、跟随系统／浅色／深色主题。 |
-| 圆环 | 额度周期、中心数字、大小、贴边隐藏、展开与收起动画，以及跟随或覆盖 Codex 窗口。 |
-| 订阅 | 用量节奏、每周工作日、周期刻度和重置倒计时／日期时间。 |
-| API | 配置 OpenAI Admin API Key、项目、每月统计起始日和总额度。 |
-| 提醒 | 配置额度及重置卡通知，另可开启和预览额度恢复彩带。 |
-| 关于 | 查看版本。连续点击应用图标 5 次可打开调试窗口。 |
+| Account | The Codex sign-in email, subscription plan, and time of the last successful refresh. Hover over a truncated email to see the full address. |
+| ChatGPT Subscription | Weekly and, when available, 5-hour quotas. Each row shows a percentage, a progress bar, and a reset time. The percentage follows the remaining or used setting. |
+| Reset Cards | The number of available cards and any expiry times Codex returned. Cards turn yellow, orange, and red at 7 days, 3 days, and 1 day remaining. Red items show a countdown in hours, minutes, and seconds. The ring’s **Reset Info** menu also shows expiry dates. |
+| OpenAI API | Current cycle costs, allowance, and percentage when API tracking is enabled and a key is configured. |
+| Footer buttons | Refresh, Settings, and Quit, from left to right. Click outside the panel or press Escape to close it. |
 
-界面支持 English、简体中文、繁體中文、日本語和 한국어。「通用 → 界面语言」默认跟随系统，切换后立即应用。订阅重置及卡片绝对日期使用北京时间。
+### Reading usage pace and reset times
 
-### 跟随和覆盖 Codex
+- The fixed ticks divide the window into days or hours. The moving marker shows the position you would reach by using quota evenly. If 40% of a window has elapsed and you have used 60%, you are 20 percentage points over pace. The marker is red when you are over pace and green when you are under. It is hidden when the difference is within two percentage points.
+- The run-out forecast uses the average usage rate within the current window. Continued use, a break, or a change in the workday setting can change it. It may be absent at the start of a window or when data is missing, expired, or exhausted.
+- In **Settings → Subscription**, workweek options of 4, 5, or 6 days start on Monday in your local time zone. **Auto (7 days)** uses all seven days and hides the weekly ticks. The 5-hour quota keeps its hourly scale. You can hide the fixed ticks and still show a forecast.
+- A countdown reaching zero means CodexRing is waiting for a successful refresh. Reset times and cards are read from Codex. The panel provides no controls for redeeming a card or resetting quota.
 
-- 开启「**跟随 Codex 移动**」后，圆环在 Codex 窗口内保持相对位置，窗口移动、缩放或进入全屏时一同移动。可以在窗口内拖动它。Codex 在其他桌面时，当前桌面会隐藏圆环。全部关闭或最小化后是否回到自由位置取决于系统窗口状态。可另开启「没有 Codex 窗口时隐藏圆环」。基本跟随无需辅助功能权限。
-- 「**覆盖 Codex 额度控件**」会将小号圆环对齐到 Codex 侧栏头像上方的原生用量控件，左键仍打开 Codex 自带的用量菜单。此模式需要辅助功能权限。点「辅助功能设置」授权后，回到 CodexRing 重新开启开关。找不到控件时会暂用普通圆环，重新定位后自动恢复覆盖。关闭覆盖会恢复先前圆环大小、位置和跟随设置。
+### Settings window
 
-### OpenAI API 费用
+<img src="docs/images/en/ring-settings.png" width="760" alt="CodexRing Ring settings, including periods, center number, ring size, window following, and overlay permission">
+
+## Settings reference
+
+| Page | Common controls |
+| --- | --- |
+| General | Launch at login, interface language, and a refresh interval of 1, 2, or 5 minutes. |
+| Display | Floating ring visibility, menu bar visibility, percentages, remaining or used, and system, light, or dark appearance. |
+| Ring | Quota periods, center number, size, edge hiding, animation, window following, and overlay. |
+| Subscription | Usage pace, workdays per week, tick style, and countdown or date and time. |
+| API | Admin API key, optional project ID, monthly cycle start, and allowance. |
+| Alerts | Quota and reset card notifications, plus the quota recovery confetti option and preview. |
+| About | Version information. Click the app icon five times to open the debug window. |
+
+**General → Interface language** follows macOS by default. English, Simplified Chinese, Traditional Chinese, Japanese, and Korean are available. Changing the language updates the app immediately. Subscription reset dates and reset card expiry dates use Beijing time (UTC+8).
+
+### Following or overlaying the Codex window
+
+| Mode | Ring position | Click behavior | Permission |
+| --- | --- | --- | --- |
+| Follow Codex window | Near the top right of Codex by default. Drag it anywhere within that window. | Opens CodexRing Settings | Basic following needs no permission |
+| Overlay Codex quota control | A fixed 26 pt ring over the original usage ring above the avatar in the Codex sidebar | Opens the native Codex usage menu | Requires Accessibility |
+
+#### Follow the window
+
+1. Open the Codex desktop app and show its window on the current desktop. The CLI alone can supply quota data. Window following needs the desktop app.
+2. Open **Settings → Ring** and turn on **Follow Codex window**. The ring starts near the top right, below the title bar. Drag it to choose another position within the window. CodexRing remembers that position separately from the free desktop position.
+3. Move, resize, or make Codex fullscreen. The ring keeps its relative position. With several visible windows, the focused window takes priority, followed by the frontmost visible window. Edge hiding applies only to free movement.
+4. Turn on **Hide ring when no Codex window is open** if you want the ring to disappear whenever Codex has no available window. The ring also hides when Codex is on another desktop or the app is hidden. With the option off, closing all Codex windows restores the free desktop position. Basic following may treat a minimized window as temporarily invisible and show the ring again when the window is restored.
+
+#### Overlay the original usage ring
+
+1. Expand the Codex sidebar and check that the small native usage ring above your avatar is visible.
+2. In **Settings → Ring**, click **Accessibility Settings** and allow CodexRing in **System Settings → Privacy & Security → Accessibility**. Turning on the overlay switch also requests permission if needed.
+3. Return to CodexRing, confirm the permission is **Granted**, then turn on **Overlay Codex quota control**. You need to enable the switch again after granting access. Overlay mode handles window following automatically and disables the separate following switch while active.
+4. Once aligned, the small CodexRing ring covers the native one and stays locked in place. Click it to open the Codex usage menu. To reach CodexRing Settings, right-click the ring or use the gear in the menu bar panel.
+
+The overlay sits over the existing control and leaves the Codex app files and control intact. With no available Codex window the overlay hides. If the window is visible but CodexRing cannot locate the control yet, it shows a regular ring in the window and resumes the overlay when the control becomes available. Check that the sidebar control is visible and hover over **Overlay status** for details. Turning off the overlay restores your previous ring size, position, and following preference.
+
+### OpenAI API costs
 
 <details>
-<summary>查看 API 设置截图</summary>
+<summary>View API settings screenshot</summary>
 
-<img src="docs/images/api-settings.png" width="760" alt="API 设置，包含 Admin API Key、项目 ID、周期起始日、订阅套餐、总额度和连接状态">
+<img src="docs/images/en/api-settings.png" width="760" alt="API settings with a key field, project ID, cycle start, subscription plan, total allowance, and connection status">
 
 </details>
 
-1. 打开「设置 → API → 显示 API 使用进度」。
-2. 填入能查询费用的 **OpenAI Admin API Key**。普通模型调用 Key 无法查询组织费用。可填写 `proj_` 开头的项目 ID，留空会统计整个组织。
-3. 选择「周期起始日」。统计从每月指定日的本地零点开始，短月份会取月底。留空「总额度（美元）」时，应用会尝试按识别出的 Pro 100、Pro 200、Pro 500 套餐设置预期额度。也可手动填写预算。
-4. 点击「保存并刷新」，然后在菜单栏面板查看费用。API 费用约每 5 分钟刷新，打开面板或手动刷新也可更新，官方统计可能延迟。
+1. Turn on **Settings → API → Show API usage progress**.
+2. Enter an **OpenAI Admin API key** with cost read access. Regular keys for model calls cannot query organization costs. Enter a `proj_` project ID to filter the costs or leave it blank for the organization total.
+3. Set the **Cycle start day**. The monthly cycle begins at local midnight on the chosen day and uses the final day in shorter months. The day must be set manually. Leave **Total allowance (USD)** blank to use the expected allowance for a detected Pro 100, Pro 200, or Pro 500 plan, or enter a positive USD budget.
+4. Click **Save & Refresh**, then open the menu bar panel. API costs refresh about every five minutes. Opening the panel can request an update, and you can also refresh manually. The upstream cost figures can be delayed.
 
-费用来自 OpenAI Costs API，比例以设置的预算或预期额度为基准。预期额度受实际福利领取、API 组织关联及首期折算影响。应用不会修改账号余额或支出限制。没有可识别的额度时可手动设置预算。Key 只保存在本机钥匙串，留空保留已保存的 Key，可用「删除 Key」移除。
+Costs come from the OpenAI Costs API. The percentage is relative to the budget or expected allowance, for example about 68% left after spending $32.50 of a $100 allowance. The expected allowance depends on the benefit being claimed for the correct API organization and may be prorated in the first cycle. CodexRing does not verify a live balance or change any spending limit. Enter a manual budget if an allowance cannot be inferred.
 
-### 提醒与彩带
+The key is stored in macOS Keychain. Leave the field blank to keep a saved key or use **Delete Key** to remove it. The API section appears only when the feature is enabled and a key is configured. API spending does not affect the Codex subscription rings or menu bar percentages. If the panel shows an error or stale data, check **Connection status**, verify the key’s permission and project ID, then use **Save & Refresh**.
+
+### Alerts, confetti, and debug mode
 
 <details>
-<summary>查看提醒设置截图</summary>
+<summary>View alert settings screenshot</summary>
 
-<img src="docs/images/alert-settings.png" width="760" alt="默认提醒设置，显示额度与重置卡通知、通知设置和额度恢复彩带开关">
+<img src="docs/images/en/alert-settings.png" width="760" alt="Notification settings for low quota, projected exhaustion, restored quota, card expiry, and confetti">
 
 </details>
 
-在「设置 → 提醒」开启「额度与重置卡通知」后，可分别配置剩余额度不足、预计即将耗尽、额度恢复和重置卡过期。默认低额度阈值为 20%，预计耗尽提醒提前 1 小时，重置卡提醒提前 3 天。通知按真实额度刷新检查，同一周期同类事件只提醒一次。首次开启时按 macOS 提示授权，是否弹出仍取决于系统通知和专注模式。
+Turn on **Alerts → Quota and reset card notifications** to configure low quota, projected exhaustion, restored quota, and reset card expiry. Defaults are a 20% remaining threshold, one hour of forecast warning, and three days before card expiry. Notifications use live quota across supported periods, including those hidden from the ring. A run-out alert needs a valid forecast, and card alerts need expiry dates. Each event type is sent once per relevant period, even after restarting. macOS notification permissions and Focus settings still apply.
 
-「额度恢复时播放彩带」可单独开启，并用「预览彩带」查看效果。检测到实际额度恢复时才触发，遵守系统「减少动态效果」设置。调试窗口可临时模拟使用比例，便于查看阈值和显示效果。关闭调试后恢复真实额度查询，模拟值不会触发通知或彩带。
+**Play confetti when quota is restored** is separate from notifications. Turn it on to see **Preview Confetti**. Automatic confetti requires a detected quota recovery and honors Reduce Motion.
 
-## 常见问题
+To test the display, click the app icon five times under **About**, enable debugging, and adjust the weekly and 5-hour percentages. Turn off debugging to resume live quota queries. Demo values are temporary and do not trigger notifications or confetti.
 
-- **圆环显示「—」或面板提示无法读取额度**。先确认本机官方 Codex 已登录，再点菜单栏的刷新按钮。如果只安装了桌面版，尝试打开一次 Codex 后再刷新。无有效数据时显示状态和横线，避免把加载、失败或过期误读为余额为零。
-- **看不到 5 小时额度或重置卡**。这两部分依照 Codex 接口实际返回内容显示。账户没有提供 5 小时窗口时，仍可查看本周额度。
-- **圆环和菜单栏图标都隐藏了**。从「应用程序」再次打开 CodexRing，然后到「设置 → 显示」恢复任一入口。
-- **更新后覆盖失效**。如设置提示旧辅助功能授权可能失效，在 macOS「系统设置 → 隐私与安全性 → 辅助功能」移除旧授权，重新授权当前应用，再打开覆盖开关。
-- **更新后 Finder 仍显示旧图标**。确认下载的是 Release 当前提供的 ZIP。如果安装到「应用程序」后仍看到缓存的旧图标，可在终端运行 `touch /Applications/CodexRing.app` 刷新应用目录的修改时间，再到 Finder 查看。
+## Troubleshooting
 
-## 数据与权限
+- **The ring shows a dash or quota is unavailable.** Check that the official Codex app or CLI is installed and signed in. If you use the desktop app, open it once and click refresh in CodexRing. A dash represents missing, loading, failed, or stale data.
+- **The 5-hour quota or reset cards are missing.** These are displayed when the account’s Codex data includes them. You can still see the weekly quota when no 5-hour window is available.
+- **Both the ring and the menu bar icon are hidden.** Open CodexRing again from Applications, then restore either control under **Settings → Display**.
+- **The overlay stopped working after an update.** If the previous Accessibility permission is no longer valid, remove the old entry under **System Settings → Privacy & Security → Accessibility**, allow the current app, and enable the overlay again.
+- **An alert did not arrive.** Check the permission status and the specific alert in **Settings → Alerts**, then review macOS Notifications and Focus. Events already reported for the current quota period do not repeat after a restart.
+- **Finder shows the old icon after an update.** Confirm you have the current ZIP from the Release page. If Finder still shows a cached icon for the app in Applications, run `touch /Applications/CodexRing.app` and check Finder again.
 
-CodexRing 使用本机官方 Codex App Server 读取额度和账号显示信息。额度响应、账号邮箱和套餐仅在内存中使用，应用不读取 Codex 登录令牌文件。常规显示和基本窗口跟随无需辅助功能权限，启用覆盖时才需要授权。可选的 API 费用查询使用保存在本机钥匙串的 Admin API Key。更多数据边界和漏洞报告方式见 [安全说明](SECURITY.md)。
+## Data and permissions
 
-## 构建与贡献
+CodexRing reads quota and display information from the official Codex App Server running on your Mac. Usage responses, account email, and subscription plan are used in memory. CodexRing does not read Codex login token files. Display preferences, ring position, and alert history are stored locally to restore your settings and avoid duplicate alerts.
 
-在 macOS 上准备 Swift 工具链，运行 `zsh build.sh` 得到 `build/CodexRing.app`，运行 `zsh test.sh` 执行单元测试。对于 macOS 26 的原生图标构建，使用 Xcode 26 或更新版本。完整开发、测试、本地化及 Release 流程见 [开发说明](docs/development.md)。
+| Optional feature | macOS access |
+| --- | --- |
+| Overlay Codex quota control | Accessibility allows CodexRing to find the usage control and open its native menu when clicked. Basic display and following work without granting it. |
+| Quota and reset card alerts | Notifications are requested when you enable alerts. Confetti can be enabled independently. |
+| Launch at login | CodexRing registers a macOS login item when you turn it on. If macOS asks for approval, use **General → Login Items Settings**. |
+| OpenAI API costs | The Admin API key is read from macOS Keychain when API costs are queried. |
 
-采用 [MIT 许可证](LICENSE)。欢迎提交变更，请先阅读 [贡献指南](CONTRIBUTING.md)。用量节奏等功能参考了 CodexBar，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。历史版本改动见 [更新记录](CHANGELOG.md)。
+[Security policy (Chinese)](SECURITY.md)
+
+## Building and contributing
+
+On macOS with a Swift toolchain, run `zsh build.sh` to create `build/CodexRing.app` and `zsh test.sh` to run the test suite. Use Xcode 26 or later to compile the native macOS 26 icon resources. The developer guide covers build options, localization, tests, and the release workflow. [Developer guide (Chinese)](docs/development.md)
+
+CodexRing is available under the [MIT License](LICENSE). See the [contribution guide](CONTRIBUTING.md) before submitting changes. Usage pacing and related features draw on CodexBar. [Third-party notices](THIRD_PARTY_NOTICES.md) · [Changelog](CHANGELOG.md)

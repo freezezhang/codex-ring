@@ -1,6 +1,6 @@
-/* CodexRing 界面文案。参数使用 %@ 或 %1$@，百分号写作 %%。 */
+/* CodexRing interface text. Use %@ or %1$@ for arguments and %% for a literal percent sign. */
 
-/* 通用 */
+/* Common */
 "common.done" = "完成";
 "common.settings" = "设置";
 "common.refresh" = "刷新";
@@ -18,7 +18,7 @@
 "duration.separator" = "";
 "debug.badge" = "调试";
 
-/* 额度周期与显示项 */
+/* Quota periods and metrics */
 "period.week.title" = "1周";
 "period.fiveHours.title" = "5小时";
 "period.week.short" = "本周";
@@ -35,7 +35,7 @@
 "metric.remaining.compactValue" = "剩余%@";
 "metric.used.compactValue" = "已用%@";
 
-/* 额度状态 */
+/* Quota status */
 "status.paused" = "查询已暂停";
 "status.debug" = "调试模式";
 "status.loading" = "正在读取真实额度";
@@ -48,7 +48,7 @@
 "status.protocolError" = "接口不可用";
 "status.missingCLI" = "未找到 Codex";
 
-/* 圆环副标题 */
+/* Ring captions */
 "caption.loading" = "加载中";
 "caption.stale" = "过期";
 "caption.offline" = "离线";
@@ -60,14 +60,14 @@
 "ring.caption.week" = "周%@";
 "ring.caption.fiveHours" = "5h%@";
 
-/* 用量颜色 */
+/* Usage colors */
 "band.normal" = "正常";
 "band.yellow" = "黄色提醒";
 "band.orange" = "橙色提醒";
 "band.red" = "红色提醒";
 "band.unknown" = "额度未知";
 
-/* 圆环无障碍 */
+/* Ring accessibility */
 "a11y.debugPrefix" = "调试模式；";
 "a11y.ring.single" = "%1$@：%2$@";
 "a11y.ring.outer" = "外圈%1$@：%2$@";
@@ -86,7 +86,7 @@
 "hover.windowTitle" = "CodexRing 额度详情";
 "hover.periodStatus" = "%1$@ %2$@";
 
-/* 额度详情与重置信息 */
+/* Quota details and reset information */
 "details.periodLine" = "%1$@：%2$@";
 "details.center" = "中心数字：%1$@ · %2$@";
 "details.autoReset" = "%1$@系统自动重置：%2$@";
@@ -117,7 +117,7 @@
 "reset.waiting" = "等待重置";
 "reset.countdown" = "%@ 后重置";
 
-/* 用量节奏 */
+/* Usage pace */
 "pace.balanced" = "节奏正常";
 "pace.ahead" = "超额 %@%%";
 "pace.behind" = "余量 %@%%";
@@ -130,7 +130,7 @@
 "pace.basis.elapsed" = "按本周期已用额度和已过时间估算。";
 "pace.explanation" = "%@超额／余量表示相对均匀使用进度的百分点差，不代表额外收费；后续使用速度变化会影响预测。";
 
-/* 面板偏好 */
+/* Panel preferences */
 "schedule.automatic" = "自动（按7天）";
 "schedule.days" = "%@天";
 "tick.hidden" = "隐藏";
@@ -142,7 +142,7 @@
 "theme.light" = "浅色";
 "theme.dark" = "深色";
 
-/* 通知 */
+/* Notifications */
 "alert.restored.title" = "%@已恢复";
 "alert.restored.body" = "当前剩余 %@%%。";
 "alert.low.title" = "%@不足";
@@ -153,7 +153,7 @@
 "alert.card.body" = "重置卡将于 %@ 到期。";
 "notification.sendFailed" = "发送失败";
 
-/* 权限与登录项 */
+/* Permissions and login item */
 "permission.granted" = "已授权";
 "permission.denied" = "未授权";
 "permission.notRequested" = "未申请";
@@ -163,12 +163,12 @@
 "login.disabled" = "未启用";
 "login.unknown" = "未知";
 
-/* 覆盖 Codex */
+/* Codex overlay */
 "overlay.controlMissing" = "未找到 Codex 额度控件，已暂时显示普通圆环。请确认头像上方的用量控件可见；找到后会自动恢复覆盖。";
 "overlay.updateNotice" = "应用已更新，旧授权可能已失效，请删除旧版本授权，重新授权。";
 "overlay.pressFailed" = "暂时无法打开 Codex 用量菜单，请稍后重试。";
 
-/* 右键与菜单栏菜单 */
+/* Context and status menus */
 "menu.refreshNow" = "立即刷新";
 "menu.settings" = "设置…";
 "menu.resetInfo" = "重置信息";
@@ -180,7 +180,7 @@
 "menu.quitShort" = "退出";
 "menu.quit" = "退出 CodexRing";
 
-/* 菜单栏面板 */
+/* Menu bar panel */
 "panel.account" = "账号";
 "panel.account.loading" = "正在读取账号…";
 "panel.account.missing" = "账号未提供";
@@ -200,7 +200,7 @@
 "panel.ticks.fiveHours" = "细刻度为每小时进度";
 "panel.ticks.pace" = "红／绿标记为当前时间的均匀用量进度";
 
-/* OpenAI API 使用 */
+/* OpenAI API usage */
 "api.budgetMissing" = "未识别到总额度，请在设置中填写";
 "api.error.authorization" = "Key 无效或已过期";
 "api.error.permission" = "需要有查询权限的 Admin API Key";
@@ -254,7 +254,7 @@
 "api.panel.total.estimated.help" = "按订阅套餐估算的完整周期额度；首次领取可能折算，不代表已到账或剩余余额。";
 "api.panel.period.help" = "统计周期；刷新于 %@";
 
-/* 设置窗口 */
+/* Settings window */
 "settings.windowTitle" = "CodexRing 设置";
 "settings.sidebar.a11y" = "设置分类";
 "settings.page.general" = "通用";
@@ -343,13 +343,13 @@
 "settings.alerts.confetti.help" = "检测到额度重置或从耗尽恢复时播放；不会因打开应用或调试数值触发。遵守系统减少动态效果设置。";
 "settings.alerts.confetti.preview" = "预览彩带";
 
-/* 关于 */
+/* About */
 "about.windowTitle" = "关于 CodexRing";
 "about.icon.a11y" = "CodexRing 图标";
 "about.version" = "版本 %@";
 "about.devVersion" = "开发版本";
 
-/* 调试窗口 */
+/* Debug window */
 "debug.windowTitle" = "CodexRing 调试";
 "debug.enable" = "启用调试";
 "debug.enable.help" = "调试值仅本次运行生效，关闭后恢复真实额度。";
