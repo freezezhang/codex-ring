@@ -170,7 +170,6 @@
 
 /* Context and status menus */
 "menu.refreshNow" = "立即重新整理";
-"menu.refreshQuota" = "重新整理額度";
 "menu.settings" = "設定…";
 "menu.resetInfo" = "重設資訊";
 "menu.pin" = "固定位置";
@@ -178,10 +177,8 @@
 "menu.pin.unlocked" = "未固定";
 "menu.pin.overlay" = "覆蓋模式會自動鎖定位置";
 "menu.hideRing" = "隱藏圓環";
-"menu.showRing" = "顯示圓環";
 "menu.quitShort" = "結束";
 "menu.quit" = "結束 CodexRing";
-"menu.disableOverlay" = "關閉 Codex 額度覆蓋";
 
 /* Menu bar panel */
 "panel.account" = "帳號";

@@ -170,7 +170,6 @@
 
 /* Context and status menus */
 "menu.refreshNow" = "지금 새로고침";
-"menu.refreshQuota" = "한도 새로고침";
 "menu.settings" = "설정…";
 "menu.resetInfo" = "초기화 정보";
 "menu.pin" = "위치 고정";
@@ -178,10 +177,8 @@
 "menu.pin.unlocked" = "고정 안 됨";
 "menu.pin.overlay" = "오버레이 모드에서는 위치가 자동으로 고정됩니다";
 "menu.hideRing" = "링 숨기기";
-"menu.showRing" = "링 표시";
 "menu.quitShort" = "종료";
 "menu.quit" = "CodexRing 종료";
-"menu.disableOverlay" = "Codex 한도 오버레이 끄기";
 
 /* Menu bar panel */
 "panel.account" = "계정";

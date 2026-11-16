@@ -170,7 +170,6 @@
 
 /* 右键与菜单栏菜单 */
 "menu.refreshNow" = "立即刷新";
-"menu.refreshQuota" = "刷新额度";
 "menu.settings" = "设置…";
 "menu.resetInfo" = "重置信息";
 "menu.pin" = "固定位置";
@@ -178,10 +177,8 @@
 "menu.pin.unlocked" = "未固定";
 "menu.pin.overlay" = "覆盖模式自动锁定位置";
 "menu.hideRing" = "隐藏圆环";
-"menu.showRing" = "显示圆环";
 "menu.quitShort" = "退出";
 "menu.quit" = "退出 CodexRing";
-"menu.disableOverlay" = "关闭覆盖 Codex 额度";
 
 /* 菜单栏面板 */
 "panel.account" = "账号";

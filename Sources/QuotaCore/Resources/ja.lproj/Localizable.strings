@@ -170,7 +170,6 @@
 
 /* Context and status menus */
 "menu.refreshNow" = "今すぐ更新";
-"menu.refreshQuota" = "使用枠を更新";
 "menu.settings" = "設定…";
 "menu.resetInfo" = "リセット情報";
 "menu.pin" = "位置を固定";
@@ -178,10 +177,8 @@
 "menu.pin.unlocked" = "未固定";
 "menu.pin.overlay" = "重ねて表示中は位置が自動的に固定されます";
 "menu.hideRing" = "リングを非表示";
-"menu.showRing" = "リングを表示";
 "menu.quitShort" = "終了";
 "menu.quit" = "CodexRing を終了";
-"menu.disableOverlay" = "Codex 使用枠の重ね表示をオフ";
 
 /* Menu bar panel */
 "panel.account" = "アカウント";

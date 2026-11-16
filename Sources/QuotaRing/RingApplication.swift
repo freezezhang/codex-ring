@@ -632,12 +632,10 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             bar.onRefresh={ [weak self] in self?.refreshFromMenu() }
             bar.onSettings={ [weak self] in self?.openSettings() }
             bar.onQuit={ [weak self] in self?.quit() }
-            bar.onDisableOverlay={ [weak self] in self?.disableUsageOverlay() }
             quotaMenuBar=bar
         }
         quotaMenuBar?.update(enabled:preferences.showMenuBar)
     }
-    @objc private func disableUsageOverlay() { var p=preferences;p.overlayCodexUsage=false;model.preferences=p }
     private func applyTheme() {
         let appearance:NSAppearance?
         switch preferences.theme { case .system:appearance=nil;case .light:appearance=NSAppearance(named:.aqua);case .dark:appearance=NSAppearance(named:.darkAqua) }

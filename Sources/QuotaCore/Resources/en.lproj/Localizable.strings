@@ -170,7 +170,6 @@
 
 /* Context and status menus */
 "menu.refreshNow" = "Refresh Now";
-"menu.refreshQuota" = "Refresh Quota";
 "menu.settings" = "Settings…";
 "menu.resetInfo" = "Reset Info";
 "menu.pin" = "Pin Position";
@@ -178,10 +177,8 @@
 "menu.pin.unlocked" = "Not pinned";
 "menu.pin.overlay" = "Overlay mode locks the position automatically";
 "menu.hideRing" = "Hide Ring";
-"menu.showRing" = "Show Ring";
 "menu.quitShort" = "Quit";
 "menu.quit" = "Quit CodexRing";
-"menu.disableOverlay" = "Turn Off Codex Quota Overlay";
 
 /* Menu bar panel */
 "panel.account" = "Account";

@@ -39,7 +39,7 @@ final class QuotaMenuBar:NSObject {
         prompt.stroke()
         return true
     }
-    var onRefresh:(()->Void)?,onSettings:(()->Void)?,onQuit:(()->Void)?,onDisableOverlay:(()->Void)?
+    var onRefresh:(()->Void)?,onSettings:(()->Void)?,onQuit:(()->Void)?
     init(model:SettingsModel) {
         self.model=model
         super.init()
@@ -75,7 +75,7 @@ final class QuotaMenuBar:NSObject {
         if item == nil {
             let newItem=NSStatusBar.system.statusItem(withLength:NSStatusItem.variableLength)
             newItem.button?.target=self;newItem.button?.action=#selector(togglePanel)
-            newItem.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])
+            newItem.button?.sendAction(on:.leftMouseUp)
             item=newItem
         }
         if let button=item?.button {
@@ -136,35 +136,9 @@ final class QuotaMenuBar:NSObject {
         globalMonitor=NSEvent.addGlobalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown,.otherMouseDown]) { [weak self] _ in self?.close() }
     }
     @objc private func togglePanel() {
-        guard let button=item?.button else { return }
-        if let event=NSApp.currentEvent,event.type == .rightMouseUp {
-            close()
-            let menu=NSMenu()
-            for (title,action) in [(L10n.string("menu.refreshQuota"),#selector(refresh)),(L10n.string("menu.settings"),#selector(settings))] {
-                let entry=NSMenuItem(title:title,action:action,keyEquivalent:"");entry.target=self;menu.addItem(entry)
-            }
-            if model.preferences.overlayCodexUsage {
-                let entry=NSMenuItem(title:L10n.string("menu.disableOverlay"),action:#selector(disableOverlay),keyEquivalent:"");entry.target=self;menu.addItem(entry)
-            }
-            let ringHidden=model.preferences.ringHidden
-            let ringVisibilityTitle=ringHidden ? L10n.string("menu.showRing"):L10n.string("menu.hideRing")
-            let ringVisibility=NSMenuItem(title:ringVisibilityTitle,action:#selector(toggleRingVisibility),keyEquivalent:"")
-            ringVisibility.image=NSImage(systemSymbolName:ringHidden ? "eye":"eye.slash",accessibilityDescription:ringVisibilityTitle)
-            ringVisibility.target=self
-            menu.addItem(ringVisibility)
-            menu.addItem(.separator())
-            let quit=NSMenuItem(title:L10n.string("menu.quit"),action:#selector(quit),keyEquivalent:"");quit.target=self;menu.addItem(quit)
-            NSMenu.popUpContextMenu(menu,with:event,for:button)
-            return
-        }
         if panel.isVisible { close();return }
         show()
     }
-    @objc private func refresh() { onRefresh?() }
-    @objc private func settings() { close();onSettings?() }
-    @objc private func quit() { close();onQuit?() }
-    @objc private func disableOverlay() { close();onDisableOverlay?() }
-    @objc private func toggleRingVisibility() { model.preferences.ringHidden.toggle() }
 }
 
 private struct QuotaContentHeight:PreferenceKey {
