@@ -12,6 +12,12 @@ public struct QuotaDetailsPresentation {
                 fiveHourSupport:Bool?,lastRefreshedAt:Date?,now:Date=Date()) {
         let metadata=metadataSnapshot ?? snapshot
         let pool=metadata.selectedPoolID(preferences.bucketID)
+        func resetDate(_ period:QuotaPeriod)->Date? {
+            if snapshot.source == .debug,period == .fiveHours {
+                return snapshot.display(selectedID:preferences.bucketID,period:period,now:now).quota?.resetsAt
+            }
+            return metadata.display(selectedID:pool,period:period,now:now).quota?.resetsAt
+        }
         let composition=RingComposition(snapshot:snapshot,preferences:preferences,fiveHourSupport:fiveHourSupport,now:now)
         var usage=["\(composition.outerPeriod.title)：\(Self.usage(composition.outer))"]
         if let inner=composition.inner,let period=composition.innerPeriod {
@@ -21,7 +27,7 @@ public struct QuotaDetailsPresentation {
         if snapshot.source == .debug { usage.insert("调试模式",at:0) }
         let periods:[QuotaPeriod]=fiveHourSupport == true ? [.week,.fiveHours]:[.week]
         resetLines=periods.map { period in
-            let date=metadata.display(selectedID:pool,period:period,now:now).quota?.resetsAt
+            let date=resetDate(period)
             return "\(period.title)系统自动重置：\(date.map { QuotaDateText.string($0) } ?? "未提供")"
         }
         if let cards=metadata.resetCards {
@@ -42,12 +48,9 @@ public struct QuotaDetailsPresentation {
         var sections=[usage.joined(separator:"\n"),refresh,resetLines.joined(separator:"\n"),cardLines.joined(separator:"\n")]
         if let metadataNotice { sections.append(metadataNotice) }
         tooltip=sections.joined(separator:"\n\n")
-        let formatter=DateFormatter()
-        formatter.locale=Locale(identifier:"zh_CN");formatter.calendar=Calendar(identifier:.gregorian)
-        formatter.timeZone=TimeZone(identifier:"Asia/Shanghai")
-        func date(_ value:Date?,format:String)->String {
+        func date(_ value:Date?)->String {
             guard let value else { return "未提供" }
-            formatter.dateFormat=format;return formatter.string(from:value)
+            return QuotaDateText.string(value)
         }
         let usagePool=snapshot.selectedPoolID(preferences.bucketID)
         let quotaItems=periods.map { period -> String in
@@ -56,11 +59,15 @@ public struct QuotaDetailsPresentation {
             return item.value == nil ? name+" "+item.display.subtitle:name+preferences.metric.shortTitle+" "+item.text
         }
         hoverCardText=((snapshot.source == .debug ? ["调试模式"]:[])+quotaItems).joined(separator:"\n")
-        var rows=["自动重置于 "+date(metadata.display(selectedID:pool,period:.week,now:now).quota?.resetsAt,format:"yyyy.MM.dd HH:mm")]
+        let menuPeriods:[QuotaPeriod]=fiveHourSupport == true ? [.fiveHours,.week]:[.week]
+        var rows=menuPeriods.map { period in
+            let name=period == .week ? "本周":"5小时"
+            return name+"重置于 "+date(resetDate(period))
+        }
         if let cards=metadata.resetCards {
             let available=cards.details?.filter(\.available) ?? []
             rows += available.map { card in
-                "重置卡到期 "+(card.expiresAt.map { date($0,format:"yyyy-MM-dd HH:mm")+($0<=now ? "（已过期）":"") } ?? "时间未提供")
+                "重置卡到期 "+(card.expiresAt.map { date($0)+($0<=now ? "（已过期）":"") } ?? "时间未提供")
             }
             if cards.availableCount == 0,available.isEmpty { rows.append("重置卡到期 无可用卡") }
             else if available.isEmpty || cards.availableCount.map({$0>available.count}) == true { rows.append("重置卡到期 部分时间未提供") }

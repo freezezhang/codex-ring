@@ -31,6 +31,17 @@ final class HoverAndDebugTests:XCTestCase {
             "5小时系统自动重置：\(QuotaDateText.string(now.addingTimeInterval(3600)))"
         ])
         for line in information.resetLines { XCTAssertTrue(information.tooltip.contains(line)) }
+        XCTAssertEqual(Array(information.resetMenuLines.prefix(2)),[
+            "5小时重置于 2026.11.03 19:00",
+            "本周重置于 2026.11.04 18:00"
+        ])
+    }
+    func testResetMenuUsesAccountWindowsRegardlessOfVisibleRings() {
+        // The default only shows the weekly ring, but both reset times matter.
+        XCTAssertTrue(details(live()).resetMenuLines.contains("5小时重置于 2026.11.03 19:00"))
+        let weekOnly=details(live(five:false),support:false).resetMenuLines
+        XCTAssertEqual(weekOnly.first,"本周重置于 2026.11.04 18:00")
+        XCTAssertFalse(weekOnly.contains { $0.hasPrefix("5小时") })
     }
     func testFirstLoadDoesNotInventRefreshOrResetDates() {
         let information=details(QuotaSnapshot(source:.official,fetchedAt:now,loading:true),support:nil)
@@ -52,6 +63,7 @@ final class HoverAndDebugTests:XCTestCase {
             "完全重置　将于 \(QuotaDateText.string(expiry)) 到期","Other　到期时间未知","重置卡到期时间未提供"])
         for line in information.cardLines { XCTAssertTrue(information.tooltip.contains(line)) }
         XCTAssertFalse(information.tooltip.contains("Redeemed"))
+        XCTAssertTrue(information.resetMenuLines.contains("重置卡到期 2026.11.03 20:46"))
     }
     func testZeroUnknownAndExpiredCardsRemainDistinct() {
         XCTAssertEqual(details(live(cards:ResetCards(availableCount:0,details:[]))).cardLines,["重置卡：0 张可用"])
@@ -93,15 +105,17 @@ final class HoverAndDebugTests:XCTestCase {
         var capabilities=QuotaCapabilities();capabilities.observe(real);capabilities.observe(visible)
         XCTAssertEqual(capabilities.fiveHourSupport,false)
     }
-    func testDebugNeverInventsRefreshTimeResetTimeOrCards() {
+    func testDebugSimulatesMissingFiveHourResetButPreservesOtherMetadata() {
         let real=live(five:false),state=QuotaDebugState(isEnabled:true,weekUsed:12,fiveHoursUsed:34)
-        let visible=state.snapshot(live:real)
+        let visible=state.snapshot(live:real,now:now)
         XCTAssertEqual(visible.fetchedAt,real.fetchedAt)
-        XCTAssertNil(visible.display(period:.fiveHours,now:now).quota?.resetsAt)
+        XCTAssertEqual(visible.display(period:.fiveHours,now:now).quota?.resetsAt,now.addingTimeInterval(3600))
+        XCTAssertNil(real.display(period:.fiveHours,now:now).quota?.resetsAt)
         XCTAssertNil(visible.resetCards)
         let information=QuotaDetailsPresentation(snapshot:visible,metadataSnapshot:real,preferences:RingPreferences(),fiveHourSupport:true,lastRefreshedAt:now,now:now)
         XCTAssertTrue(information.tooltip.hasPrefix("调试模式"))
-        XCTAssertTrue(information.resetLines.contains("5小时系统自动重置：未提供"))
+        XCTAssertTrue(information.resetLines.contains("5小时系统自动重置：\(QuotaDateText.string(now.addingTimeInterval(3600)))"))
+        XCTAssertTrue(information.resetMenuLines.contains("5小时重置于 2026.11.03 19:00"))
         XCTAssertTrue(information.tooltip.contains("上次刷新时间：\(QuotaDateText.string(now))"))
     }
     func testDebugStillWorksWhenLiveQueryIsFailedOrExpiredAndDisablingRestoresFailure() {
@@ -127,11 +141,12 @@ final class HoverAndDebugTests:XCTestCase {
         var p=RingPreferences();p.bucketID="other/secondary";p.showFiveHours=true
         let other=WeeklyQuota(id:"other/secondary",label:"Other",remaining:40,resetsAt:now.addingTimeInterval(2000))
         let real=QuotaSnapshot(source:.official,fetchedAt:now,quotas:live().quotas+[other])
-        let visible=QuotaDebugState(isEnabled:true,weekUsed:25,fiveHoursUsed:50).snapshot(live:real,selectedID:p.bucketID)
+        let visible=QuotaDebugState(isEnabled:true,weekUsed:25,fiveHoursUsed:50).snapshot(live:real,selectedID:p.bucketID,now:now)
         XCTAssertEqual(Set(visible.quotas.map(\.poolID)),["other"])
         let composition=RingComposition(snapshot:visible,preferences:p,fiveHourSupport:true,now:now)
         XCTAssertEqual(composition.outer.value,75);XCTAssertEqual(composition.inner?.value,50)
         let information=QuotaDetailsPresentation(snapshot:visible,metadataSnapshot:real,preferences:p,fiveHourSupport:true,lastRefreshedAt:now,now:now)
-        XCTAssertEqual(information.resetLines.last,"5小时系统自动重置：未提供")
+        XCTAssertEqual(information.resetLines.last,"5小时系统自动重置：\(QuotaDateText.string(now.addingTimeInterval(3600)))")
+        XCTAssertTrue(information.resetMenuLines.contains("5小时重置于 2026.11.03 19:00"))
     }
 }

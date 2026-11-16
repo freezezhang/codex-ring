@@ -2,7 +2,7 @@ import AppKit
 import ApplicationServices
 import QuotaCore
 
-final class RingApplication: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class RingApplication: NSObject, NSApplicationDelegate {
     private struct PanelLayout {
         var expandedFrame:NSRect?
         var edge:DockEdge?
@@ -18,7 +18,7 @@ final class RingApplication: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var codexAction:CodexFollowAction = .free
     private var codexTarget:CodexFollowWindow?
     private var overlayAccessibilityGranted=false
-    private var overlayStatusItem:NSStatusItem?
+    private var quotaMenuBar:QuotaMenuBar?
     private var activeContextMenu:NSMenu?
     private var overlayActive:Bool { preferences.overlayCodexUsage && overlayAccessibilityGranted }
     private var trackingCodex:Bool { preferences.followCodex || overlayActive }
@@ -78,7 +78,6 @@ final class RingApplication: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.onDiagnostics = { [weak self] in self?.redraw() }
         model.onDebugState = { [weak self] in self?.applyDebugState($0) }
         model.onOpenDebug = { [weak self] in self?.openDebug() }
-        model.onOpenAccessibilitySettings = { [weak self] in self?.openAccessibilitySettings() }
         let fallback = NSScreen.screens.first?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         let position = preferences.position.map { NSPoint(x: $0.x, y: $0.y) }
         let screen = position.flatMap { p in NSScreen.screens.first(where: { $0.frame.contains(p) })?.visibleFrame } ?? fallback
@@ -150,10 +149,12 @@ final class RingApplication: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.resizeCircle();self.synchronizeSpace();self.redraw()
         }
         codexMonitor.tracksUsageControl=preferences.overlayCodexUsage
-        updateOverlayStatusItem()
         if preferences.followCodex || preferences.overlayCodexUsage { codexMonitor.start() }
         spaceChanged()
         if automaticRefresh { refresh() }
+        if ProcessInfo.processInfo.arguments.contains("--show-quota-panel") {
+            DispatchQueue.main.asyncAfter(deadline:.now()+0.5) { [weak self] in self?.quotaMenuBar?.show() }
+        }
     }
     func applicationWillTerminate(_ notification: Notification) {
         spaceRevision += 1;presentationObservation=nil
@@ -441,10 +442,15 @@ final class RingApplication: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.snapshot = visible; model.source = visible.source; model.isRefreshing = fetching
         model.fiveHourSupport=fiveHourSupport
         model.overlayAccessibilityGranted=overlayAccessibilityGranted
-        model.overlayStatus=overlayActive ? (followingCodex && panel.isVisible ? "已覆盖；通过菜单栏 CodexRing 打开设置。":"等待 Codex 用量控件显示；可从菜单栏打开设置。") : ""
+        let settingsHint=preferences.showMenuBar ? "可从菜单栏打开设置。":"重新打开 CodexRing 可进入设置。"
+        model.overlayStatus=overlayActive ? ((followingCodex && panel.isVisible ? "已覆盖；":"等待 Codex 用量控件显示；")+settingsHint) : ""
         model.updatedText = dateText(lastRefreshedAt)
         if model.debugState != debugState { model.debugState=debugState }
         model.diagnosticText = diagnostics
+        let menuData=QuotaMenuPresentation(snapshot:visible,metadata:snapshot,preferences:preferences,
+                                          fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt)
+        if model.menuPresentation != menuData { model.menuPresentation=menuData }
+        updateMenuBar()
     }
     func applyPreferences(_ value: RingPreferences) {
         guard value != preferences else { return }
@@ -455,7 +461,7 @@ final class RingApplication: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // change by the user. Launching and ordinary following never prompt.
                 overlayAccessibilityGranted=AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary)
             }
-            ring.dismissHover();updateOverlayStatusItem()
+            ring.dismissHover()
         }
         if old.size != value.size || old.overlayCodexUsage != value.overlayCodexUsage { resizeCircle() }
         if !value.autoHide { reveal(animated: false) }
@@ -478,29 +484,18 @@ final class RingApplication: NSObject, NSApplicationDelegate, NSMenuDelegate {
         material.frame=NSRect(origin:.zero,size:frame.size);material.layer?.cornerRadius=circleSize/2;ring.frame=material.bounds
         panel.ignoresMouseEvents=false
     }
-    private func updateOverlayStatusItem() {
-        guard preferences.overlayCodexUsage else {
-            if let item=overlayStatusItem { NSStatusBar.system.removeStatusItem(item);overlayStatusItem=nil }
-            return
+    private func updateMenuBar() {
+        if quotaMenuBar == nil {
+            let bar=QuotaMenuBar(model:model)
+            bar.onRefresh={ [weak self] in self?.refreshFromMenu() }
+            bar.onSettings={ [weak self] in self?.openSettings() }
+            bar.onQuit={ [weak self] in self?.quit() }
+            bar.onDisableOverlay={ [weak self] in self?.disableUsageOverlay() }
+            quotaMenuBar=bar
         }
-        guard overlayStatusItem == nil else { return }
-        let item=NSStatusBar.system.statusItem(withLength:NSStatusItem.squareLength)
-        item.button?.image=NSImage(systemSymbolName:"circle.dashed.inset.filled",accessibilityDescription:"CodexRing")
-        item.button?.toolTip="CodexRing · 设置与重置信息"
-        let menu=NSMenu()
-        let settings=NSMenuItem(title:"CodexRing 设置…",action:#selector(openSettings),keyEquivalent:",");settings.target=self;menu.addItem(settings)
-        let reset=NSMenuItem(title:"重置信息",action:nil,keyEquivalent:"");reset.submenu=resetMenu();menu.addItem(reset)
-        let disable=NSMenuItem(title:"关闭覆盖 Codex 额度",action:#selector(disableUsageOverlay),keyEquivalent:"");disable.target=self;menu.addItem(disable)
-        menu.addItem(.separator())
-        let quit=NSMenuItem(title:"退出 CodexRing",action:#selector(quit),keyEquivalent:"q");quit.target=self;menu.addItem(quit)
-        menu.delegate=self;item.menu=menu;overlayStatusItem=item
+        quotaMenuBar?.update(enabled:preferences.showMenuBar)
     }
     @objc private func disableUsageOverlay() { var p=preferences;p.overlayCodexUsage=false;model.preferences=p }
-    private func openAccessibilitySettings() {
-        guard preferences.overlayCodexUsage,
-              let url=URL(string:"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
-        NSWorkspace.shared.open(url)
-    }
     private func applyTheme() {
         let appearance:NSAppearance?
         switch preferences.theme { case .system:appearance=nil;case .light:appearance=NSAppearance(named:.aqua);case .dark:appearance=NSAppearance(named:.darkAqua) }
@@ -602,6 +597,7 @@ final class RingApplication: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if wasEnabled && !value.isEnabled { refresh() }
     }
     private func openDebug() {
+        quotaMenuBar?.close()
         hideWork?.cancel();reveal(animated:false)
         if debugWindow == nil { debugWindow=RingDebugWindow(model:model,onClose:{ [weak self] in self?.scheduleHide() }) }
         redraw();debugWindow?.showWindow(nil);NSApp.activate(ignoringOtherApps:true);debugWindow?.window?.makeKeyAndOrderFront(nil)
@@ -615,6 +611,7 @@ final class RingApplication: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     @objc private func openSettings() {
+        quotaMenuBar?.close()
         hideWork?.cancel();reveal(animated:false)
         if settings == nil { settings=RingSettingsWindow(model:model,onClose:{ [weak self] in self?.scheduleHide() }) }
         redraw();settings?.showWindow(nil);NSApp.activate(ignoringOtherApps:true);settings?.window?.makeKeyAndOrderFront(nil)
@@ -648,18 +645,29 @@ final class RingApplication: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func resetMenu()->NSMenu {
         let menu=NSMenu(title:"重置信息");menu.autoenablesItems=false
         let font=NSFont.menuFont(ofSize:0)
+        let dateFont=NSFont.monospacedDigitSystemFont(ofSize:12,weight:.regular)
         let pattern=try! NSRegularExpression(pattern:#"\d{4}[.-]\d{2}[.-]\d{2} \d{2}:\d{2}"#)
-        for line in details.resetMenuLines {
+        let lines=details.resetMenuLines
+        let dateColumn=lines.compactMap { line -> CGFloat? in
+            let string=line as NSString
+            guard let match=pattern.firstMatch(in:line,range:NSRange(location:0,length:string.length)) else { return nil }
+            return (string.substring(to:match.range.location) as NSString).size(withAttributes:[.font:font]).width
+        }.max() ?? 0
+        for line in lines {
             let item=NSMenuItem(title:line,action:nil,keyEquivalent:"");item.isEnabled=false
             let text=NSMutableAttributedString(string:line,attributes:[.font:font])
             for match in pattern.matches(in:line,range:NSRange(location:0,length:(line as NSString).length)) {
-                text.addAttribute(.font,value:NSFont.monospacedSystemFont(ofSize:font.pointSize,weight:.regular),range:match.range)
+                text.addAttribute(.font,value:dateFont,range:match.range)
+                // Pad the separator by the measured label width so dates align
+                // even when a label mixes Chinese characters and digits.
+                if match.range.location>0 {
+                    let prefix=(line as NSString).substring(to:match.range.location) as NSString
+                    let padding=max(0,dateColumn-prefix.size(withAttributes:[.font:font]).width)
+                    text.addAttribute(.kern,value:padding,range:NSRange(location:match.range.location-1,length:1))
+                }
             }
             item.attributedTitle=text;menu.addItem(item)
         }
         return menu
-    }
-    func menuNeedsUpdate(_ menu:NSMenu) {
-        if menu === overlayStatusItem?.menu { menu.item(withTitle:"重置信息")?.submenu=resetMenu() }
     }
 }

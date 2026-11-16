@@ -42,6 +42,7 @@ private struct RingDebugView:View {
                 }.disabled(!model.debugState.isEnabled)
                 DisclosureGroup("窗口信息") {
                     Toggle("显示窗口诊断信息",isOn:$model.diagnostics)
+                        .padding(.top,12)
                         .onChange(of:model.diagnostics) { _ in model.onDiagnostics?() }
                     if model.diagnostics { Text(model.diagnosticText).font(.caption.monospaced()).textSelection(.enabled) }
                 }
@@ -61,7 +62,7 @@ private struct RingDebugView:View {
                     .frame(width:64).accessibilityLabel("\(title)百分比")
                 Text("%")
             }
-            Slider(value:value,in:0...100,step:0.1).accessibilityLabel(title)
+            Slider(value:value,in:0...100,step:1).accessibilityLabel(title)
         }
     }
 }

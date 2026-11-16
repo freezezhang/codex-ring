@@ -29,6 +29,7 @@ public struct RingPreferences: Codable, Equatable {
     public var positionLocked = false
     public var followCodex = false
     public var overlayCodexUsage = false
+    public var showMenuBar = true
     /// Relative position inside Codex; independent of the free desktop position.
     public var codexAnchor:PanelPosition? = nil
     public var showWeek = true
@@ -39,7 +40,7 @@ public struct RingPreferences: Codable, Equatable {
     public var bucketID: String? = nil
     public var position: PanelPosition? = nil
     public init() {}
-    private enum CodingKeys:String,CodingKey { case metric,size,autoHide,animations,positionLocked,followCodex,overlayCodexUsage,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position }
+    private enum CodingKeys:String,CodingKey { case metric,size,autoHide,animations,positionLocked,followCodex,overlayCodexUsage,showMenuBar,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position }
     public init(from decoder:Decoder) throws {
         let c=try decoder.container(keyedBy:CodingKeys.self)
         metric=(try? c.decode(DisplayMetric.self,forKey:.metric)) ?? .remaining
@@ -49,6 +50,7 @@ public struct RingPreferences: Codable, Equatable {
         positionLocked=(try? c.decode(Bool.self,forKey:.positionLocked)) ?? false
         followCodex=(try? c.decode(Bool.self,forKey:.followCodex)) ?? false
         overlayCodexUsage=(try? c.decode(Bool.self,forKey:.overlayCodexUsage)) ?? false
+        showMenuBar=(try? c.decode(Bool.self,forKey:.showMenuBar)) ?? true
         codexAnchor=try? c.decodeIfPresent(PanelPosition.self,forKey:.codexAnchor)
         showWeek=(try? c.decode(Bool.self,forKey:.showWeek)) ?? true
         showFiveHours=(try? c.decode(Bool.self,forKey:.showFiveHours)) ?? false

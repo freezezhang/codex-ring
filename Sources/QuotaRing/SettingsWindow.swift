@@ -13,11 +13,11 @@ final class SettingsModel:ObservableObject {
     @Published var fiveHourSupport:Bool?
     @Published var overlayAccessibilityGranted=false
     @Published var overlayStatus=""
+    @Published var menuPresentation:QuotaMenuPresentation?
     @Published var debugState=QuotaDebugState() { didSet { onDebugState?(debugState) } }
     var onPreferences:((RingPreferences)->Void)?
     var onDebugState:((QuotaDebugState)->Void)?
     var onRestore:(()->Void)?,onDiagnostics:(()->Void)?,onOpenDebug:(()->Void)?
-    var onOpenAccessibilitySettings:(()->Void)?
     init(preferences:RingPreferences) { self.preferences=preferences }
     var composition:RingComposition { RingComposition(snapshot:snapshot,preferences:preferences,fiveHourSupport:fiveHourSupport) }
     var display:QuotaDisplay { composition.center.display }
@@ -46,13 +46,15 @@ private struct RingSettingsView:View {
         VStack(spacing:0) {
             Form {
                 appearanceSection
-                quotaSection
+                ringSection
+                quotaStatusSection
                 DisclosureGroup("更多") {
                     HStack(spacing:12) {
                         Button("调试") { model.onOpenDebug?() }
                         Button("归位") { model.onRestore?() }
                             .help("恢复圆圈到屏幕内")
                     }.frame(maxWidth:.infinity,alignment:.leading)
+                        .padding(.top,12)
                     if model.debugState.isEnabled { Text("调试模式").font(.caption).foregroundStyle(.orange) }
                 }
             }.formStyle(.grouped)
@@ -70,6 +72,8 @@ private struct RingSettingsView:View {
             Picker("刷新间隔",selection:$model.preferences.refreshInterval) {
                 ForEach(RefreshInterval.allCases,id:\.rawValue) { Text($0.title).tag($0) }
             }.pickerStyle(.menu)
+            Toggle("菜单栏显示额度",isOn:$model.preferences.showMenuBar)
+                .help("按下方勾选的本周、5小时额度显示百分比，双选时用 | 分隔；点击打开额度进度面板。")
             Picker("显示项",selection:$model.preferences.metric) {
                 Text("剩余").tag(DisplayMetric.remaining);Text("已用").tag(DisplayMetric.used)
             }.pickerStyle(.segmented)
@@ -82,43 +86,41 @@ private struct RingSettingsView:View {
             Picker("主题",selection:$model.preferences.theme) {
                 ForEach(ThemePreference.allCases,id:\.rawValue) { Text($0.title).tag($0) }
             }.pickerStyle(.menu)
+        }
+    }
+    private var ringSection:some View {
+        Section("圆环") {
+            quotaControls
             Toggle("贴边自动隐藏",isOn:$model.preferences.autoHide)
                 .help("自由移动时贴近屏幕边缘自动收起；跟随 Codex 窗口时保持显示在窗口内。")
             Toggle("展开与收起动画",isOn:$model.preferences.animations)
-            Toggle("跟随 Codex",isOn:$model.preferences.followCodex)
+            Toggle("跟随 Codex 移动",isOn:$model.preferences.followCodex)
                 .disabled(model.preferences.overlayCodexUsage)
                 .help("圆圈跟随 Codex 窗口，支持普通窗口和全屏；没有 Codex 窗口时恢复自由位置。")
-            Toggle("覆盖 Codex 额度",isOn:$model.preferences.overlayCodexUsage)
+            Toggle("覆盖 Codex 额度控件",isOn:$model.preferences.overlayCodexUsage)
                 .help("自动缩为小号并覆盖头像上方的用量圆环；点击仍打开 Codex 用量菜单。关闭后恢复原来的大小和位置。")
-            if model.preferences.overlayCodexUsage {
-                if !model.overlayAccessibilityGranted {
-                    Text("需要辅助功能权限，授权后自动生效。").font(.caption).foregroundStyle(.secondary)
-                    Button("打开辅助功能设置") { model.onOpenAccessibilitySettings?() }
-                } else if !model.overlayStatus.isEmpty {
-                    Text(model.overlayStatus).font(.caption).foregroundStyle(.secondary)
-                }
+            if model.preferences.overlayCodexUsage && model.overlayAccessibilityGranted && !model.overlayStatus.isEmpty {
+                Text(model.overlayStatus).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
-    @ViewBuilder private var quotaSection:some View {
-        Section("显示圆圈") {
-            Toggle("本周额度",isOn:Binding(get:{model.fiveHourSupport == false ? true:model.preferences.showWeek},set:{model.preferences.showWeek=$0}))
-                .disabled(model.fiveHourSupport == false || (model.preferences.showWeek && !model.preferences.showFiveHours))
-            Toggle("5小时额度",isOn:Binding(get:{model.fiveHourSupport == false ? false:model.preferences.showFiveHours},set:{model.preferences.showFiveHours=$0}))
-                .disabled(model.fiveHourSupport != true || (model.preferences.showFiveHours && !model.preferences.showWeek))
-                .accessibilityHint(model.fiveHourSupport == false ? "账户未提供5小时窗口。":"双圈时外圈本周、内圈5小时；中心数字可单独选择。")
+    @ViewBuilder private var quotaControls:some View {
+        Toggle("本周额度",isOn:Binding(get:{model.fiveHourSupport == false ? true:model.preferences.showWeek},set:{model.preferences.showWeek=$0}))
+            .disabled(model.fiveHourSupport == false || (model.preferences.showWeek && !model.preferences.showFiveHours))
+        Toggle("5小时额度",isOn:Binding(get:{model.fiveHourSupport == false ? false:model.preferences.showFiveHours},set:{model.preferences.showFiveHours=$0}))
+            .disabled(model.fiveHourSupport != true || (model.preferences.showFiveHours && !model.preferences.showWeek))
+            .accessibilityHint(model.fiveHourSupport == false ? "账户未提供5小时窗口。":"双圈时外圈本周、内圈5小时；中心数字可单独选择。")
+        if model.composition.inner != nil {
+            Picker("中心数字",selection:$model.preferences.centerPeriod) {
+                Text("本周额度").tag(QuotaPeriod.week)
+                Text("5小时额度").tag(QuotaPeriod.fiveHours)
+            }.pickerStyle(.segmented)
+                .help("只切换圆圈中心的数字来源；双圈和菜单栏仍分别显示两种额度。")
+        } else {
+            valueRow("中心数字",value:model.composition.centerPeriod == .week ? "本周额度（自动）":"5小时额度（自动）")
         }
-        Section("中心数字") {
-            if model.composition.inner != nil {
-                Picker("显示额度",selection:$model.preferences.centerPeriod) {
-                    Text("本周额度").tag(QuotaPeriod.week)
-                    Text("5小时额度").tag(QuotaPeriod.fiveHours)
-                }.pickerStyle(.segmented)
-                    .help("只切换中心数字，两个圆圈仍各自显示对应额度。")
-            } else {
-                valueRow("显示额度",value:model.composition.centerPeriod == .week ? "本周额度（自动）":"5小时额度（自动）")
-            }
-        }
+    }
+    @ViewBuilder private var quotaStatusSection:some View {
         if model.display.status != .available || model.pools.count>1 {
             Section {
                 if model.display.status != .available {

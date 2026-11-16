@@ -3,13 +3,14 @@ import XCTest
 
 final class DateAndCardPresentationTests:XCTestCase {
     func date(_ text:String)throws->Date { try XCTUnwrap(ISO8601DateFormatter().date(from:text)) }
-    func testDatesUseOneChineseFormatAndBeijingMinutePrecision()throws {
+    func testDatesUseOneDottedFormatAndBeijingMinutePrecision()throws {
         let cases=[
-            ("2026-11-06T16:02:59Z","2026年11月7日 GMT+8 00:02"),
-            ("2026-11-06T23:39:00Z","2026年11月7日 GMT+8 07:39"),
-            ("2026-12-31T16:00:00Z","2027年1月1日 GMT+8 00:00")
+            ("2026-11-06T16:02:59Z","2026.11.07 00:02"),
+            ("2026-11-06T23:39:00Z","2026.11.07 07:39"),
+            ("2026-12-31T16:00:00Z","2027.01.01 00:00")
         ]
         for (input,expected) in cases { XCTAssertEqual(QuotaDateText.string(try date(input)),expected) }
+        XCTAssertEqual(QuotaDateText.string(try date("2026-11-06T16:02:59Z"),includeSeconds:true),"2026.11.07 00:02:59")
     }
     func testMissingDateNeverInventsExpiry() { XCTAssertEqual(QuotaDateText.string(nil),"—") }
     func testCardTitleLocalizesFullResetWithoutRenamingOtherKinds() {
@@ -22,8 +23,8 @@ final class DateAndCardPresentationTests:XCTestCase {
     func testCardExpiryIsSingleLineAndHandlesPastAndUnknown()throws {
         let expiry=try date("2026-11-06T23:39:00Z")
         let card=ResetCard(title:"Full reset",expiresAt:expiry,status:"available")
-        XCTAssertEqual(card.expiryText(now:expiry.addingTimeInterval(-1)),"将于 2026年11月7日 GMT+8 07:39 到期")
-        XCTAssertEqual(card.expiryText(now:expiry),"已于 2026年11月7日 GMT+8 07:39 到期")
+        XCTAssertEqual(card.expiryText(now:expiry.addingTimeInterval(-1)),"将于 2026.11.07 07:39 到期")
+        XCTAssertEqual(card.expiryText(now:expiry),"已于 2026.11.07 07:39 到期")
         XCTAssertFalse(card.expiryText(now:expiry).contains("\n"))
         XCTAssertEqual(ResetCard(title:"Full reset",expiresAt:nil,status:"available").expiryText(now:expiry),"到期时间未知")
     }
