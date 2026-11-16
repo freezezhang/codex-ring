@@ -27,8 +27,7 @@ private struct RingDebugView:View {
             Form {
                 Section {
                     Toggle("启用调试",isOn:$model.debugState.isEnabled)
-                } footer: {
-                    Text("调试值仅本次运行生效，关闭后恢复真实额度。")
+                        .help("调试值仅本次运行生效，关闭后恢复真实额度。")
                 }
                 Section("已用额度") {
                     percentageRow("1周已用",value:$model.debugState.weekUsed)
@@ -46,7 +45,7 @@ private struct RingDebugView:View {
                         .padding(.top,12)
                         .onChange(of:model.diagnostics) { _ in model.onDiagnostics?() }
                     if model.diagnostics {
-                        Text(model.diagnosticText).font(.caption.monospaced()).textSelection(.enabled).padding(.leading,16)
+                        Text(model.diagnosticText).font(.system(.body,design:.monospaced)).textSelection(.enabled).padding(.leading,16)
                     }
                 }
             }.formStyle(.grouped)

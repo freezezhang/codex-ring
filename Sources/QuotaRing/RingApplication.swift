@@ -74,6 +74,8 @@ final class RingApplication: NSObject, NSApplicationDelegate {
                                  fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt)
     }
     private let client = AppServerClient()
+    private let notifications=QuotaNotificationController()
+    private let confetti=ResetConfetti()
     private var coveringUsage:Bool { overlayActive && !overlayControlMissing }
     private var circleSize: CGFloat { coveringUsage ? 26:CGFloat(preferences.size.rawValue) }
 
@@ -96,6 +98,19 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         model.onDebugState = { [weak self] in self?.applyDebugState($0) }
         model.onOpenAccessibilitySettings = { [weak self] in self?.openAccessibilitySettings() }
         model.onAbout = { [weak self] in self?.openAbout() }
+        notifications.onStatus = { [weak self] in self?.model.notificationStatus=$0 }
+        notifications.onCelebrate = { [weak self] in self?.confetti.play() }
+        notifications.refreshStatus()
+        model.onNotificationSettings = { [weak self] in self?.notifications.openSettings() }
+        model.onPreviewConfetti = { [weak self] in self?.confetti.play() }
+        model.launchAtLogin=LaunchAtLogin.enabled;model.loginStatus=LaunchAtLogin.statusText
+        model.onLoginChange = { [weak self] enabled in
+            let error=LaunchAtLogin.setEnabled(enabled)
+            self?.model.loginError=error
+            self?.model.launchAtLogin=LaunchAtLogin.enabled
+            self?.model.loginStatus=LaunchAtLogin.statusText
+        }
+        model.onLoginSettings = { LaunchAtLogin.openSettings() }
         let fallback = NSScreen.screens.first?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         let position = preferences.position.map { NSPoint(x: $0.x, y: $0.y) }
         let screen = position.flatMap { p in NSScreen.screens.first(where: { $0.frame.contains(p) })?.visibleFrame } ?? fallback
@@ -142,6 +157,9 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             guard let self else { return }
             if self.settings?.window?.isVisible == true {
                 self.updateAccessibilityTrust(AXIsProcessTrusted())
+                self.notifications.refreshStatus()
+                self.model.launchAtLogin=LaunchAtLogin.enabled
+                self.model.loginStatus=LaunchAtLogin.statusText
             }
             self.synchronizeSpace()
         }
@@ -178,6 +196,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         }
     }
     func applicationWillTerminate(_ notification: Notification) {
+        confetti.dismiss()
         cancelOverlayNotice()
         spaceRevision += 1;presentationObservation=nil
         codexMonitor.stop()
@@ -505,7 +524,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         }
         if model.diagnostics { accessibilityHelp += "\n" + diagnostics }
         if overlayActive && overlayControlMissing { accessibilityHelp += "\n"+overlayMissingMessage }
-        ring.hoverDetails=information.hoverCardText + (overlayActive && overlayControlMissing ? "\n"+overlayMissingMessage:"")
+        ring.hoverDetails=information.hoverCardText + (preferences.automaticCenter && composition.inner != nil ? "\n中心数字：\(composition.centerPeriod == .week ? "本周":"5小时")":"") + (overlayActive && overlayControlMissing ? "\n"+overlayMissingMessage:"")
         ring.setAccessibilityHelp(accessibilityHelp)
         panel.title = "CodexRing"
         model.snapshot = visible; model.source = visible.source; model.isRefreshing = fetching
@@ -526,6 +545,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         guard requested != preferences else { return }
         let old=preferences
         var value=requested
+        value.alerts.normalize()
         if !old.overlayCodexUsage && value.overlayCodexUsage {
             // Request only on an explicit off→on change. Keep the switch off
             // until the OS confirms trust; granting later never enables it.
@@ -533,6 +553,9 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         }
         value.reconcileOverlayPermission(granted:overlayAccessibilityGranted)
         preferences=value
+        if !old.alerts.enabled && value.alerts.enabled { notifications.requestPermission() }
+        if old.bucketID != value.bucketID { notifications.clearBaseline() }
+        if old.resetConfetti && !value.resetConfetti { confetti.dismiss() }
         if model.preferences != value { model.preferences=value }
         if old.overlayCodexUsage != value.overlayCodexUsage {
             ring.dismissHover();cancelOverlayNotice();overlayControlMissing=false;overlayNoticeShown=false
@@ -646,17 +669,19 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async { [weak self] in
                 guard let self,self.generation == request,self.source == .official else { return }
                 self.fetching=false;self.snapshot=result
-                if result.failure == nil,!result.loading { self.lastRefreshedAt=result.fetchedAt }
+                if result.failure == nil,!result.loading { self.lastRefreshedAt=result.fetchedAt;self.notifications.observe(result,preferences:self.preferences) }
                 self.capabilities.observe(result)
                 self.redraw()
             }
         }
     }
     private func connectLive() {
+        notifications.clearBaseline()
         generation += 1;client.cancel();source = .official;fetching=false
         snapshot=QuotaSnapshot(source:.official,fetchedAt:Date(),loading:true);refresh()
     }
     private func disconnect() {
+        notifications.clearBaseline()
         generation += 1;source = .disconnected;fetching=false;client.cancel()
         snapshot=QuotaSnapshot(source:.disconnected,fetchedAt:Date(),failure:.unavailable);redraw()
     }
@@ -665,6 +690,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         let wasEnabled=debugState.isEnabled
         debugState=value
         if value.isEnabled != wasEnabled {
+            notifications.clearBaseline()
             debugFallbackFiveHourReset=value.isEnabled ? Date().addingTimeInterval(3600):nil
             generation += 1;client.cancel();fetching=false
         }

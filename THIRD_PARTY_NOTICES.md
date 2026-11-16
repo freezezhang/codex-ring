@@ -2,7 +2,7 @@
 
 ## CodexBar
 
-Quota pacing calculations and display conventions are adapted from [CodexBar](https://github.com/steipete/CodexBar), commit `20ada8abf0e4e2267aaa8c7cc9cf891cdf866838`, specifically `Sources/CodexBarCore/UsagePace.swift` and `Sources/CodexBar/UsagePaceText.swift`.
+Quota pacing calculations and display conventions are adapted from [CodexBar](https://github.com/steipete/CodexBar), commit `20ada8abf0e4e2267aaa8c7cc9cf891cdf866838`, specifically `Sources/CodexBarCore/UsagePace.swift` `Sources/CodexBar/UsagePaceText.swift`, and `Sources/CodexBar/AutomaticQuotaSelection.swift`. Notification deduplication, login-item management, and the confetti feature also reference CodexBar’s corresponding implementations; their integration here is specific to CodexRing.
 
 MIT License
 

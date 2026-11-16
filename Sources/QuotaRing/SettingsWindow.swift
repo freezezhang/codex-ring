@@ -10,6 +10,10 @@ final class SettingsModel:ObservableObject {
     @Published var updatedText="—"
     @Published var diagnosticText=""
     @Published var diagnostics=false
+    @Published var notificationStatus="未申请"
+    @Published var launchAtLogin=false
+    @Published var loginStatus=""
+    @Published var loginError:String?
     @Published var fiveHourSupport:Bool?
     @Published var overlayAccessibilityGranted=false
     @Published var overlayAuthorizationNotice:String?
@@ -22,6 +26,10 @@ final class SettingsModel:ObservableObject {
     var onDiagnostics:(()->Void)?
     var onOpenAccessibilitySettings:(()->Void)?
     var onAbout:(()->Void)?
+    var onLoginChange:((Bool)->Void)?
+    var onLoginSettings:(()->Void)?
+    var onNotificationSettings:(()->Void)?
+    var onPreviewConfetti:(()->Void)?
     init(preferences:RingPreferences) { self.preferences=preferences }
     var composition:RingComposition { RingComposition(snapshot:snapshot,preferences:preferences,fiveHourSupport:fiveHourSupport) }
     var display:QuotaDisplay { composition.center.display }
@@ -52,6 +60,8 @@ private struct RingSettingsView:View {
                 appearanceSection
                 quotaPanelSection
                 ringSection
+                alertsSection
+                generalSection
                 quotaStatusSection
             }.formStyle(.grouped)
             HStack {
@@ -115,19 +125,19 @@ private struct RingSettingsView:View {
                 Toggle("覆盖 Codex 额度控件",isOn:$model.preferences.overlayCodexUsage)
                     .help("自动缩为小号并覆盖头像上方的用量圆环；点击仍打开 Codex 用量菜单。关闭后恢复原来的大小和位置。")
                 valueRow("需要辅助功能权限",value:model.overlayAccessibilityGranted ? "已授权":"未授权")
+                    .help(model.overlayAuthorizationNotice ?? "开启覆盖功能需要辅助功能权限。授权后请重新开启覆盖。")
                     .padding(.leading,16)
                     .padding(.top,12)
-                if !model.overlayStatus.isEmpty {
-                    Text(model.overlayStatus).font(.caption).foregroundStyle(.orange)
+                if let notice=model.overlayAuthorizationNotice {
+                    Text(notice).font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal:false,vertical:true)
                         .padding(.leading,16).padding(.top,8)
                 }
-                if let notice=model.overlayAuthorizationNotice {
-                    VStack(alignment:.leading,spacing:8) {
-                        Text(notice).font(.caption).foregroundStyle(.secondary)
-                            .fixedSize(horizontal:false,vertical:true)
-                        Button("辅助功能设置") { model.onOpenAccessibilitySettings?() }
-                    }.frame(maxWidth:.infinity,alignment:.leading)
+                Button("辅助功能设置") { model.onOpenAccessibilitySettings?() }
+                    .padding(.leading,16).padding(.top,8)
+                if !model.overlayStatus.isEmpty {
+                    valueRow("覆盖状态",value:"暂不可用",warning:true)
+                        .help(model.overlayStatus)
                         .padding(.leading,16).padding(.top,8)
                 }
             }
@@ -140,20 +150,74 @@ private struct RingSettingsView:View {
             .disabled(model.fiveHourSupport != true || (model.preferences.showFiveHours && !model.preferences.showWeek))
             .accessibilityHint(model.fiveHourSupport == false ? "账户未提供5小时窗口。":"双圈时外圈本周、内圈5小时；中心数字可单独选择。")
         if model.composition.inner != nil {
-            Picker("中心数字",selection:$model.preferences.centerPeriod) {
-                Text("本周额度").tag(QuotaPeriod.week)
-                Text("5小时额度").tag(QuotaPeriod.fiveHours)
+            Picker("中心数字",selection:Binding(get:{ model.preferences.automaticCenter ? "auto":model.preferences.centerPeriod.rawValue },set:{ value in
+                var preferences=model.preferences
+                preferences.automaticCenter=value == "auto"
+                if let period=QuotaPeriod(rawValue:value) { preferences.centerPeriod=period }
+                model.preferences=preferences
+            })) {
+                Text("本周").tag(QuotaPeriod.week.rawValue)
+                Text("5小时").tag(QuotaPeriod.fiveHours.rawValue)
+                Text("较低项").tag("auto")
             }.pickerStyle(.segmented)
-                .help("只切换圆圈中心的数字来源；双圈和菜单栏仍分别显示两种额度。")
+                .help("较低项优先显示已耗尽或预计更早耗尽的额度；无法预测时显示剩余额度更低的一项。双圈和菜单栏仍分别显示两种额度。")
         } else {
             valueRow("中心数字",value:model.composition.centerPeriod == .week ? "本周额度（自动）":"5小时额度（自动）")
+        }
+    }
+    private var alertsSection:some View {
+        Section("提醒") {
+            VStack(alignment:.leading,spacing:0) {
+                Toggle("额度与重置卡通知",isOn:$model.preferences.alerts.enabled)
+                    .help("按刷新间隔检查真实额度；同一周期、同类事件只提醒一次。预测沿用每周工作日设置。")
+                valueRow("需要通知权限",value:model.notificationStatus)
+                    .help("开启提醒时申请通知权限；未授权时可在系统通知设置中允许 CodexRing。")
+                    .padding(.leading,16).padding(.top,12)
+                Button("通知设置") { model.onNotificationSettings?() }
+                    .padding(.leading,16).padding(.top,8)
+            }
+            if model.preferences.alerts.enabled {
+                Toggle("剩余额度不足",isOn:$model.preferences.alerts.lowQuota)
+                if model.preferences.alerts.lowQuota {
+                    Stepper("低于 \(model.preferences.alerts.remainingThreshold)%",value:$model.preferences.alerts.remainingThreshold,in:1...99,step:1).padding(.leading,16)
+                }
+                Toggle("预计即将耗尽",isOn:$model.preferences.alerts.predictedExhaustion)
+                if model.preferences.alerts.predictedExhaustion {
+                    Picker("提前提醒",selection:$model.preferences.alerts.predictionMinutes) {
+                        Text("15分钟").tag(15);Text("30分钟").tag(30);Text("1小时").tag(60);Text("2小时").tag(120)
+                    }.padding(.leading,16)
+                }
+                Toggle("额度恢复",isOn:$model.preferences.alerts.restored)
+                Toggle("重置卡即将到期",isOn:$model.preferences.alerts.resetCards)
+                if model.preferences.alerts.resetCards {
+                    Stepper("提前 \(model.preferences.alerts.cardDays) 天",value:$model.preferences.alerts.cardDays,in:1...30).padding(.leading,16)
+                }
+            }
+            Toggle("额度恢复时播放彩带",isOn:$model.preferences.resetConfetti)
+                .help("检测到额度重置或从耗尽恢复时播放；不会因打开应用或调试数值触发。遵守系统减少动态效果设置。")
+            if model.preferences.resetConfetti {
+                Button("预览彩带") { model.onPreviewConfetti?() }
+                    .padding(.leading,16)
+            }
+        }
+    }
+    private var generalSection:some View {
+        Section("通用") {
+            VStack(alignment:.leading,spacing:0) {
+                Toggle("登录时启动",isOn:Binding(get:{model.launchAtLogin},set:{model.onLoginChange?($0)}))
+                valueRow("登录项状态",value:model.loginError == nil ? model.loginStatus:"设置失败")
+                    .help(model.loginError ?? "与系统登录项状态同步。")
+                    .padding(.leading,16).padding(.top,12)
+                Button("登录项设置") { model.onLoginSettings?() }
+                    .padding(.leading,16).padding(.top,8)
+            }
         }
     }
     @ViewBuilder private var quotaStatusSection:some View {
         if model.display.status != .available || model.pools.count>1 {
             Section {
                 if model.display.status != .available {
-                    Text(model.display.subtitle).font(.caption).foregroundStyle(.secondary)
+                    valueRow("额度状态",value:model.display.subtitle)
                 }
                 if model.pools.count>1 {
                     Picker("额度池",selection:$model.preferences.bucketID) {

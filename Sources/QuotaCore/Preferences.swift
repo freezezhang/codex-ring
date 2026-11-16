@@ -31,6 +31,9 @@ public struct RingPreferences: Codable, Equatable {
     public var overlayCodexUsage = false
     public var showMenuBar = true
     public var quotaPanel=QuotaPanelPreferences()
+    public var alerts=QuotaAlertPreferences()
+    public var resetConfetti=false
+    public var automaticCenter=false
     /// Relative position inside Codex; independent of the free desktop position.
     public var codexAnchor:PanelPosition? = nil
     public var showWeek = true
@@ -51,7 +54,7 @@ public struct RingPreferences: Codable, Equatable {
         if !granted { overlayCodexUsage=false }
     }
     public init() {}
-    private enum CodingKeys:String,CodingKey { case metric,size,autoHide,animations,positionLocked,followCodex,overlayCodexUsage,showMenuBar,quotaPanel,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position }
+    private enum CodingKeys:String,CodingKey { case alerts,resetConfetti,automaticCenter,metric,size,autoHide,animations,positionLocked,followCodex,overlayCodexUsage,showMenuBar,quotaPanel,codexAnchor,showWeek,showFiveHours,centerPeriod,refreshInterval,theme,bucketID,position }
     public init(from decoder:Decoder) throws {
         let c=try decoder.container(keyedBy:CodingKeys.self)
         metric=(try? c.decode(DisplayMetric.self,forKey:.metric)) ?? .remaining
@@ -63,6 +66,10 @@ public struct RingPreferences: Codable, Equatable {
         overlayCodexUsage=(try? c.decode(Bool.self,forKey:.overlayCodexUsage)) ?? false
         showMenuBar=(try? c.decode(Bool.self,forKey:.showMenuBar)) ?? true
         quotaPanel=(try? c.decode(QuotaPanelPreferences.self,forKey:.quotaPanel)) ?? QuotaPanelPreferences()
+        alerts=(try? c.decode(QuotaAlertPreferences.self,forKey:.alerts)) ?? QuotaAlertPreferences()
+        alerts.normalize()
+        resetConfetti=(try? c.decode(Bool.self,forKey:.resetConfetti)) ?? false
+        automaticCenter=(try? c.decode(Bool.self,forKey:.automaticCenter)) ?? false
         codexAnchor=try? c.decodeIfPresent(PanelPosition.self,forKey:.codexAnchor)
         showWeek=(try? c.decode(Bool.self,forKey:.showWeek)) ?? true
         showFiveHours=(try? c.decode(Bool.self,forKey:.showFiveHours)) ?? false
@@ -96,7 +103,9 @@ public struct RingComposition {
         else if preferences.showFiveHours { periods = [.fiveHours] }
         else { periods = [.week] }
         outerPeriod=periods[0];innerPeriod=periods.count>1 ? periods[1]:nil
-        centerPeriod=periods.count>1 ? preferences.centerPeriod:periods[0]
+        centerPeriod=periods.count>1
+            ? (preferences.automaticCenter ? AutomaticQuotaSelection.select(snapshot:snapshot,preferences:preferences,periods:periods,now:now) ?? preferences.centerPeriod:preferences.centerPeriod)
+            : periods[0]
         let pool=snapshot.selectedPoolID(preferences.bucketID)
         outer=RingPresentation(display:snapshot.display(selectedID:pool,period:periods[0],now:now),metric:preferences.metric)
         inner=periods.count>1 ? RingPresentation(display:snapshot.display(selectedID:pool,period:periods[1],now:now),metric:preferences.metric):nil

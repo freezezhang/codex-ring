@@ -56,7 +56,7 @@ final class PreferencesTests: XCTestCase {
     func testPreferencesDoNotContainConnectionOrCredentials() throws {
         let data = try JSONEncoder().encode(RingPreferences())
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])
-        XCTAssertEqual(Set(json.keys), Set(["metric","size","autoHide","animations","positionLocked","followCodex","overlayCodexUsage","showMenuBar","showWeek","showFiveHours","centerPeriod","refreshInterval","theme","quotaPanel"]))
+        XCTAssertEqual(Set(json.keys), Set(["alerts","resetConfetti","automaticCenter","metric","size","autoHide","animations","positionLocked","followCodex","overlayCodexUsage","showMenuBar","showWeek","showFiveHours","centerPeriod","refreshInterval","theme","quotaPanel"]))
         let panel=try XCTUnwrap(json["quotaPanel"] as? [String:Any])
         XCTAssertEqual(Set(panel.keys),Set(["showPace","weeklySchedule","tickStyle","resetStyle"]))
     }
