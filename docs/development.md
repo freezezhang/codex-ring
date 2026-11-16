@@ -73,8 +73,8 @@ git push origin v0.1.1
 
 标签必须指向 `main` 上已验证的提交。标签决定应用版本号及下载文件名。`VERSION` 提供本地构建及手动工作流的默认版本。
 
-GitHub 在 Intel 和 Apple 芯片的 macOS 26 环境运行测试并构建，再合成通用包。三个安装包经 Developer ID 签名，启用 Hardened Runtime，分别提交 Apple 公证，附上公证票据并通过 Gatekeeper 校验。发布任务先上传三个 ZIP 和校验文件到草稿，再下载复核，最后公开。启用 GitHub 不可变发布后，新发布的附件和标签会锁定。已发布的安装包需要修正时，使用新的版本号和标签。
+GitHub 在 Intel 和 Apple 芯片的 macOS 26 环境运行测试并构建，再合成通用包。配置 Apple 凭证并启用公证后，三个安装包会经 Developer ID 签名，启用 Hardened Runtime，分别提交 Apple 公证，附上公证票据并通过 Gatekeeper 校验。启用前继续以 ad-hoc 签名发布，Release 说明会标明签名方式。发布任务先上传三个 ZIP 和校验文件到草稿，再下载复核，最后公开。启用 GitHub 不可变发布后，新发布的附件和标签会锁定。已发布的安装包需要修正时，使用新的版本号和标签。
 
 推送 `main` 或打开 PR 时运行 Swift 测试和隐私检查。在 Actions 手动运行 **Build and release** 可得到 ad-hoc 签名的 `test-packages`。在 `main` 勾选 **Sign and notarize a test build from main** 可验证 Apple 签名流程并下载 `release-packages`。这两种手动运行都只产出构建文件。
 
-Apple 签名使用 GitHub Actions 的 `apple-signing` 环境，限定 `main` 和 `v*` 发布标签。按[签名凭证说明](development.en.md#apple-credentials)配置五项环境密钥。凭证缺失或公证失败时，标签运行会在公开前停止。
+Apple 签名使用 GitHub Actions 的 `apple-signing` 环境，限定 `main` 和 `v*` 发布标签。按[签名凭证说明](development.en.md#apple-credentials)配置五项环境密钥。手动签名验证通过后，将仓库 Actions 变量 `APPLE_NOTARIZE_RELEASES` 设为 `true`。启用后若凭证缺失或公证失败，标签运行会在公开前停止。

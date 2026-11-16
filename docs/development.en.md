@@ -67,7 +67,7 @@ git tag -a v0.8.0 -m "CodexRing v0.8.0"
 git push origin v0.8.0
 ```
 
-The release workflow tests and builds on both architectures, assembles Intel, Apple silicon, and universal packages, and verifies their contents. The signing job applies Developer ID and hardened runtime, submits each ZIP to Apple's notary service, staples the ticket to the app, and verifies the final ZIP and Gatekeeper assessment. The publish job uploads the three ZIPs and checksums to a draft, downloads and verifies them, then publishes. GitHub locks assets and their tag for releases published with release immutability enabled. Correct a published package with a new version and tag.
+The release workflow tests and builds on both architectures, assembles Intel, Apple silicon, and universal packages, and verifies their contents. With notarization enabled, the signing job applies Developer ID and hardened runtime, submits each ZIP to Apple's notary service, staples the ticket to the app, and verifies the final ZIP and Gatekeeper assessment. Until notarization is enabled, tagged builds use ad hoc signing. The release notes report the signing method. The publish job uploads the three ZIPs and checksums to a draft, downloads and verifies them, then publishes. GitHub locks assets and their tag for releases published with release immutability enabled. Correct a published package with a new version and tag.
 
 Run **Build and release** from Actions to produce ad hoc `test-packages` without publishing. Run the workflow on `main` with **Sign and notarize a test build from main** selected to validate signing and download the signed `release-packages` without creating a GitHub Release.
 
@@ -83,4 +83,4 @@ Use the GitHub Actions `apple-signing` environment. Restrict it to the `main` br
 | `APPLE_NOTARY_KEY_ID` | ID of that API key |
 | `APPLE_NOTARY_ISSUER_ID` | Issuer ID from App Store Connect |
 
-Only the signing step receives these secrets. A tagged build with missing or rejected signing credentials fails before publishing. See [Apple's notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow).
+Only the signing step receives these secrets. After a successful manual signing run, set the repository Actions variable `APPLE_NOTARIZE_RELEASES` to `true`. With that variable enabled, missing or rejected signing credentials stop a tagged build before publication. See [Apple's notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow).

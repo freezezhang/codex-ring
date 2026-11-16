@@ -26,7 +26,7 @@ CodexRing 是独立的开源项目，与 OpenAI 无隶属关系。
 3. 解压后将 `CodexRing.app` 拖入「应用程序」并打开。升级时先退出当前运行的 CodexRing，再替换应用。外观、位置和 API 等设置会保留。
 4. 等待首次额度刷新。点击菜单栏的 CodexRing 图标打开详情，点面板底部的齿轮进入设置。也可以直接点击普通悬浮圆环进入设置。
 
-应用的构建最低目标为 **macOS 13.0**，还需满足所用 Codex 版本的系统要求。自动运行测试目前覆盖 macOS 26 上的 Intel 和 Apple 芯片。Release 提供 `SHA256SUMS.txt`，可用 `shasum -a 256 <下载的 ZIP>` 算出校验值并对照。0.7.6 及更早版本采用 ad-hoc 签名，首次打开时 macOS 可能提示未公证。确认下载来源和校验值后，可参考 [Apple 的安全打开说明](https://support.apple.com/zh-cn/102445)。
+应用的构建最低目标为 **macOS 13.0**，还需满足所用 Codex 版本的系统要求。自动运行测试目前覆盖 macOS 26 上的 Intel 和 Apple 芯片。Release 提供 `SHA256SUMS.txt`，可用 `shasum -a 256 <下载的 ZIP>` 算出校验值并对照。下载包的公证状态见 Release 说明。采用 ad-hoc 签名的版本首次打开时，可能受到 macOS 安全检查限制。确认下载来源和校验值后，可参考 [Apple 的安全打开说明](https://support.apple.com/zh-cn/102445)。
 
 启动后可按自己的使用方式选择入口。
 

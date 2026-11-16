@@ -26,7 +26,7 @@ CodexRing is an independent, open-source project and is not affiliated with Open
 3. Unzip the download, drag `CodexRing.app` into **Applications**, and open it. When upgrading, quit the current CodexRing first, then replace the app. Your settings carry over.
 4. Wait for the first quota refresh. Click the CodexRing icon in the menu bar to open the panel, then click its gear icon to open Settings. You can also click the regular floating ring to open Settings.
 
-The app targets **macOS 13.0 or later**. Automated runtime tests currently run on macOS 26 on Intel and Apple silicon. Your Mac also needs to meet the requirements of your Codex version. To verify the download, run `shasum -a 256 <downloaded ZIP>` and compare the result with the matching entry in `SHA256SUMS.txt`. Version 0.7.6 and earlier use ad hoc signing, so macOS may report that the app is not notarized. Verify the source and checksum before proceeding. [Apple’s guide to opening apps safely](https://support.apple.com/en-us/102445)
+The app targets **macOS 13.0 or later**. Automated runtime tests currently run on macOS 26 on Intel and Apple silicon. Your Mac also needs to meet the requirements of your Codex version. To verify the download, run `shasum -a 256 <downloaded ZIP>` and compare the result with the matching entry in `SHA256SUMS.txt`. The release notes indicate whether a download is notarized. macOS may block the first launch of an ad hoc signed build. Verify the source and checksum before proceeding. [Apple’s guide to opening apps safely](https://support.apple.com/en-us/102445)
 
 Choose where you want to see your quota.
 
