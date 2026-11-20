@@ -2,6 +2,21 @@ import XCTest
 @testable import QuotaCore
 
 final class CodexFollowTests:XCTestCase {
+    func testContentWindowFilterRejectsCompactUpdateProgressWindows() {
+        for size in [CGSize(width:400,height:140),CGSize(width:540,height:210),
+                     CGSize(width:800,height:280)] {
+            XCTAssertFalse(CodexFollow.isContentWindow(frame:CGRect(origin:.zero,size:size)))
+        }
+    }
+    func testContentWindowFilterAllowsCompactAndFullscreenMainWindows() {
+        for frame in [CGRect(x:0,y:0,width:320,height:300),
+                      CGRect(x:-1920,y:100,width:900,height:700),
+                      CGRect(x:0,y:0,width:2304,height:1440)] {
+            XCTAssertTrue(CodexFollow.isContentWindow(frame:frame))
+        }
+        XCTAssertFalse(CodexFollow.isContentWindow(frame:CGRect(x:0,y:0,width:300,height:700)))
+        XCTAssertFalse(CodexFollow.isContentWindow(frame:CGRect(x:0,y:0,width:CGFloat.infinity,height:700)))
+    }
     func testBasicFollowingRetainsWindowOnInactiveDesktopWithoutAXPermission() {
         let main=window(),offscreen=window(onScreen:false)
         let result=CodexFollow.basicWindows(candidates:[offscreen],previous:[main],hasObservedWindow:true)

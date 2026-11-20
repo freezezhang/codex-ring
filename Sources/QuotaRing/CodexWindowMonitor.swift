@@ -146,7 +146,8 @@ final class CodexWindowMonitor {
                   ((info[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1)>0,
                   let id=(info[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
                   let bounds=info[kCGWindowBounds as String] as? [String:Any],
-                  let frame=CGRect(dictionaryRepresentation:bounds as CFDictionary),frame.width>=160,frame.height>=120 else { return nil }
+                  let frame=CGRect(dictionaryRepresentation:bounds as CFDictionary),
+                  CodexFollow.isContentWindow(frame:frame) else { return nil }
             return CodexFollowWindow(id:id,frame:CGRect(x:frame.minX,y:top-frame.maxY,width:frame.width,height:frame.height),
                 isOnScreen:(info[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == true)
         }
@@ -176,16 +177,18 @@ final class CodexWindowMonitor {
             let focused=attribute(app,kAXFocusedWindowAttribute as CFString)
             for window in windows.prefix(32) {
                 var values:CFArray?
-                let names=[kAXPositionAttribute,kAXSizeAttribute,kAXMinimizedAttribute,kAXSubroleAttribute] as CFArray
+                let names=[kAXPositionAttribute,kAXSizeAttribute,kAXMinimizedAttribute,kAXSubroleAttribute,kAXModalAttribute] as CFArray
                 guard AXUIElementCopyMultipleAttributeValues(window,names,[],&values) == .success,
-                      let fields=values as? [AnyObject],fields.count == 4 else { return .unavailable }
+                      let fields=values as? [AnyObject],fields.count == 5 else { return .unavailable }
                 if (fields[2] as? NSNumber)?.boolValue == true { continue }
+                if (fields[4] as? NSNumber)?.boolValue == true { continue }
                 if let role=fields[3] as? String,role != (kAXStandardWindowSubrole as String) { continue }
                 guard CFGetTypeID(fields[0]) == AXValueGetTypeID(),CFGetTypeID(fields[1]) == AXValueGetTypeID() else { continue }
                 var origin=CGPoint.zero,size=CGSize.zero
                 guard AXValueGetValue(fields[0] as! AXValue,.cgPoint,&origin),
-                      AXValueGetValue(fields[1] as! AXValue,.cgSize,&size),size.width>=160,size.height>=120 else { continue }
+                      AXValueGetValue(fields[1] as! AXValue,.cgSize,&size) else { continue }
                 let axFrame=CGRect(origin:origin,size:size)
+                guard CodexFollow.isContentWindow(frame:axFrame) else { continue }
                 let matches=records.compactMap { info -> CodexFollowWindow? in
                     guard (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid,
                           (info[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,

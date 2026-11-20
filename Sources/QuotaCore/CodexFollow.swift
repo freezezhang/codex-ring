@@ -14,6 +14,13 @@ public enum CodexFollowAction:Equatable {
     case free,hidden,attach(CodexFollowWindow)
 }
 public enum CodexFollow {
+    /// Update progress windows can share the main application's PID and normal
+    /// window layer. Require space for a content window in both tracking paths,
+    /// including the WindowServer-only path without Accessibility permission.
+    public static func isContentWindow(frame:CGRect)->Bool {
+        [frame.minX,frame.minY,frame.width,frame.height].allSatisfy(\.isFinite)
+            && frame.width>=320 && frame.height>=300
+    }
     /// Probe only the lower sidebar. A 20-point grid intersects every eligible
     /// control (at least 26 points wide/high), including on secondary displays.
     /// Points are discovery hints, never an assumed overlay position.

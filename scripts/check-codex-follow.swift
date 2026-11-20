@@ -10,12 +10,18 @@ final class FollowCheck:NSObject,NSApplicationDelegate,NSWindowDelegate {
     var fixture:NSWindow!
     var preferences=RingPreferences()
     var initialFollowFrame:CGRect?
+    var filterMonitor:CodexWindowMonitor?
+    var filterWindows:[CodexFollowWindow]?
     var phase="starting"
     var finished=false
     let basic=ProcessInfo.processInfo.arguments.contains("--basic-follow")
     func applicationDidFinishLaunching(_ notification:Notification) {
         guard basic || AXIsProcessTrusted() else { finish("test runner needs Accessibility permission",success:false);return }
         guard let screen=NSScreen.screens.first else { finish("no display",success:false);return }
+        if ProcessInfo.processInfo.arguments.contains("--window-filter-only") {
+            testWindowFilter(screen:screen)
+            return
+        }
         preferences.followCodex=true;preferences.size = .large;preferences.autoHide=false;preferences.positionLocked=true
         preferences.position=PanelPosition(x:screen.visibleFrame.minX+30,y:screen.visibleFrame.minY+40)
         let store=PreferencesStore(defaults:UserDefaults(suiteName:suite)!);store.save(preferences)
@@ -35,6 +41,53 @@ final class FollowCheck:NSObject,NSApplicationDelegate,NSWindowDelegate {
         fixture.title="CodexRing 跟随验证（自动关闭）";fixture.isReleasedWhenClosed=false
         fixture.collectionBehavior=[.fullScreenPrimary];fixture.delegate=self
         fixture.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)
+    }
+    private func updateDialog()->NSWindow {
+        let dialog=NSWindow(contentRect:NSRect(x:fixture.frame.midX-260,y:fixture.frame.midY-90,width:520,height:180),
+                            styleMask:[.titled,.closable],backing:.buffered,defer:false)
+        dialog.title="Updating CodexRing follow fixture"
+        dialog.isReleasedWhenClosed=false
+        dialog.makeKeyAndOrderFront(nil)
+        return dialog
+    }
+    private func testWindowFilter(screen:NSScreen) {
+        let rect=NSRect(x:screen.visibleFrame.midX-450,y:screen.visibleFrame.midY-300,width:900,height:600)
+        openFixture(contentRect:rect)
+        let dialog=updateDialog()
+        fixture.close();fixture=nil
+        let monitor=CodexWindowMonitor(bundleIdentifier:"local.freeze.codex-ring.follow-check",
+                                       accessibilityTrusted:{ [self] in !basic && AXIsProcessTrusted() })
+        filterMonitor=monitor
+        monitor.onChange = { [weak self] snapshot in
+            switch snapshot {
+            case .windows(let windows,_),.basicWindows(let windows,_):self?.filterWindows=windows
+            case .waiting:self?.filterWindows=[]
+            case .unavailable:self?.filterWindows=nil
+            }
+        }
+        monitor.start()
+        after(2) { [self] in
+            guard filterWindows?.isEmpty == true else { finish("updater-only startup became a follow target",success:false);return }
+            print("PASS updater-only startup excluded")
+            openFixture(contentRect:rect)
+            dialog.makeKeyAndOrderFront(nil)
+            after(2) { [self] in
+                guard filterWindows?.map(\.id) == [UInt32(fixture.windowNumber)] else {
+                    finish("focused updater displaced the content window",success:false);return
+                }
+                print("PASS focused updater excluded while main window remains tracked")
+                fixture.close();fixture=nil
+                after(2) { [self] in
+                    guard let windows=filterWindows,
+                          !windows.contains(where:\.isOnScreen) else {
+                        finish("updater became a follow target after main window closed",success:false);return
+                    }
+                    dialog.close()
+                    finish("window filtering passed",success:true)
+                }
+            }
+        }
+        after(15) { [self] in finish("window filter timeout",success:false) }
     }
     private func testHover(then completion:@escaping ()->Void) {
         func find(_ view:NSView)->RingView? {
@@ -174,6 +227,7 @@ final class FollowCheck:NSObject,NSApplicationDelegate,NSWindowDelegate {
     }
     private func finish(_ message:String,success:Bool) {
         guard !finished else { return };finished=true
+        filterMonitor?.stop()
         ring?.applicationWillTerminate(Notification(name:NSApplication.willTerminateNotification))
         UserDefaults(suiteName:suite)?.removePersistentDomain(forName:suite)
         fixture?.orderOut(nil)
