@@ -124,7 +124,7 @@ final class OverlayCheck:NSObject,NSApplicationDelegate {
         for controlClick in [false,true] {
             var opened:NSMenu?,wasStable=false
             let observer=NotificationCenter.default.addObserver(forName:NSMenu.didBeginTrackingNotification,object:nil,queue:nil) { notification in
-                guard let menu=notification.object as? NSMenu,menu.item(withTitle:L10n.string("menu.resetInfo")) != nil else { return }
+                guard let menu=notification.object as? NSMenu,menu.item(withTitle:L10n.string("menu.refreshNow")) != nil else { return }
                 opened=menu
                 // App activation caused by a background context menu must not
                 // hide/reparent the panel while its native menu tracks input.

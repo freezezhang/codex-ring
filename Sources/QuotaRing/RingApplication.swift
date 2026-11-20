@@ -111,6 +111,9 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         }
         applyTheme()
         model = SettingsModel(preferences: preferences)
+        #if canImport(Sparkle)
+        model.updater = AppUpdater()
+        #endif
         model.onPreferences = { [weak self] in self?.applyPreferences($0) }
         model.onDiagnostics = { [weak self] in self?.redraw() }
         model.onDebugState = { [weak self] in self?.applyDebugState($0) }
@@ -216,6 +219,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         }
     }
     func applicationWillTerminate(_ notification: Notification) {
+        quotaMenuBar?.close()
         confetti.dismiss()
         cancelOverlayNotice()
         spaceRevision += 1;presentationObservation=nil
@@ -252,6 +256,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         }
     }
     @objc private func actualSpaceChanged() {
+        quotaMenuBar?.close()
         activeContextMenu?.cancelTracking()
         activeContextMenu=nil
         spaceChanged()
@@ -440,6 +445,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     }
     private var panelLayout:PanelLayout { PanelLayout(expandedFrame:expandedFrame,edge:dockEdge,screen:dockScreen,tucked:isTucked) }
     private func usePanel(_ next:NSPanel,layout:PanelLayout) {
+        if panel !== next { quotaMenuBar?.closeRingPanel() }
         hideWork?.cancel();isDragging=false
         let content=panel.contentView;panel.contentView=nil
         panel=next;panel.contentView=content
@@ -547,8 +553,10 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         ring.composition=composition
         ring.positionLocked = preferences.effectivePositionLocked
         ring.coversNativeUsage=followingCodex && coveringUsage
+        if ring.coversNativeUsage { quotaMenuBar?.closeRingPanel() }
         let information=details
-        var accessibilityHelp = information.tooltip + "\n" + (coveringUsage ? L10n.string("ring.help.overlay"):(followingCodex ? L10n.string("ring.help.follow"):L10n.string("ring.help.free")))
+        var accessibilityHelp = information.tooltip + "\n" + (ring.coversNativeUsage ? L10n.string("ring.help.overlay"):(followingCodex ? L10n.string("ring.help.follow"):L10n.string("ring.help.free")))
+        if !ring.coversNativeUsage { accessibilityHelp += "\n"+L10n.string("ring.help.quotaPanel") }
         if preferences.overlayCodexUsage { accessibilityHelp += "\n" + L10n.string("ring.help.overlayLocked") }
         else if preferences.positionLocked { accessibilityHelp += "\n" + L10n.string("ring.help.locked") }
         let top = NSScreen.screens.first?.frame.maxY ?? 0
@@ -632,6 +640,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             bar.onRefresh={ [weak self] in self?.refreshFromMenu() }
             bar.onSettings={ [weak self] in self?.openSettings() }
             bar.onQuit={ [weak self] in self?.quit() }
+            bar.onRingClose={ [weak self] in self?.scheduleHide() }
             quotaMenuBar=bar
         }
         quotaMenuBar?.update(enabled:preferences.showMenuBar)
@@ -687,7 +696,8 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     }
     private func scheduleHide(force:Bool = false) {
         hideWork?.cancel()
-        guard !ringIsHidden,!followingCodex,panel.isOnActiveSpace,preferences.autoHide,!isDragging,!isTucked,dockEdge != nil,settings?.window?.isVisible != true,debugWindow?.window?.isVisible != true else { return }
+        guard !ringIsHidden,!followingCodex,panel.isOnActiveSpace,preferences.autoHide,!isDragging,!isTucked,dockEdge != nil,settings?.window?.isVisible != true,debugWindow?.window?.isVisible != true,
+              quotaMenuBar?.isShowingFromRing != true else { return }
         let work=DispatchWorkItem { [weak self] in
             guard let self,self.panel.isOnActiveSpace,let edge=self.dockEdge,let screen=self.dockScreen else { return }
             if !force && self.panel.frame.contains(NSEvent.mouseLocation) { return }
@@ -747,9 +757,15 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         redraw();debugWindow?.showWindow(nil);NSApp.activate(ignoringOtherApps:true);debugWindow?.window?.makeKeyAndOrderFront(nil)
     }
     private func handleRingClick() {
-        guard coveringUsage,followingCodex else { openSettings();return }
+        guard panel.isVisible,panel.isOnActiveSpace,!ringIsHidden else { return }
         ring.dismissHover()
-        guard panel.isVisible,panel.isOnActiveSpace,let target=codexTarget else { return }
+        guard ring.coversNativeUsage else {
+            quotaMenuBar?.toggleFromRing(ring)
+            if quotaMenuBar?.isShowingFromRing == true { hideWork?.cancel() }
+            return
+        }
+        guard let target=codexTarget else { return }
+        quotaMenuBar?.close()
         codexMonitor.pressUsageControl(windowID:target.id) { [weak self] success in
             if !success { self?.model.overlayStatus=L10n.string("overlay.pressFailed") }
         }
@@ -784,6 +800,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     }
     private func showMenu(event:NSEvent? = nil) {
         guard activeContextMenu == nil else { return }
+        quotaMenuBar?.close()
         ring.dismissHover()
         hideWork?.cancel();reveal(animated:false);let menu=NSMenu();menu.autoenablesItems=false
         for entry in RingMenuSpec.entries(for:preferences) {
@@ -791,7 +808,6 @@ final class RingApplication: NSObject, NSApplicationDelegate {
             switch entry {
             case .refresh:item=NSMenuItem(title:L10n.string("menu.refreshNow"),action:#selector(refreshFromMenu),keyEquivalent:"r");item.image=NSImage(systemSymbolName:"arrow.clockwise",accessibilityDescription:L10n.string("common.refresh"));item.isEnabled = !fetching && !debugState.isEnabled
             case .settings:item=NSMenuItem(title:L10n.string("menu.settings"),action:#selector(openSettings),keyEquivalent:",")
-            case .reset:item=NSMenuItem(title:L10n.string("menu.resetInfo"),action:nil,keyEquivalent:"");item.image=NSImage(systemSymbolName:"arrow.counterclockwise",accessibilityDescription:L10n.string("menu.resetInfo"));item.submenu=resetMenu()
             case .positionLock(let locked):item=NSMenuItem(title:L10n.string("menu.pin"),action:#selector(togglePositionLock),keyEquivalent:"");item.image=NSImage(systemSymbolName:locked ? "pin.fill":"pin",accessibilityDescription:locked ? L10n.string("menu.pin.locked"):L10n.string("menu.pin.unlocked"))
                 item.isEnabled=preferences.canTogglePositionLock
                 if !item.isEnabled { item.toolTip=L10n.string("menu.pin.overlay") }
@@ -811,32 +827,4 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         }
     }
     @objc private func hideRing() { model.preferences.ringHidden=true }
-    private func resetMenu()->NSMenu {
-        let menu=NSMenu(title:L10n.string("menu.resetInfo"));menu.autoenablesItems=false
-        let font=NSFont.menuFont(ofSize:0)
-        let dateFont=NSFont.monospacedDigitSystemFont(ofSize:12,weight:.regular)
-        let pattern=try! NSRegularExpression(pattern:#"\d{4}[.-]\d{2}[.-]\d{2} \d{2}:\d{2}"#)
-        let lines=details.resetMenuLines
-        let dateColumn=lines.compactMap { line -> CGFloat? in
-            let string=line as NSString
-            guard let match=pattern.firstMatch(in:line,range:NSRange(location:0,length:string.length)) else { return nil }
-            return (string.substring(to:match.range.location) as NSString).size(withAttributes:[.font:font]).width
-        }.max() ?? 0
-        for line in lines {
-            let item=NSMenuItem(title:line,action:nil,keyEquivalent:"");item.isEnabled=false
-            let text=NSMutableAttributedString(string:line,attributes:[.font:font])
-            for match in pattern.matches(in:line,range:NSRange(location:0,length:(line as NSString).length)) {
-                text.addAttribute(.font,value:dateFont,range:match.range)
-                // Pad the separator by the measured label width so dates align
-                // even when a label mixes Chinese characters and digits.
-                if match.range.location>0 {
-                    let prefix=(line as NSString).substring(to:match.range.location) as NSString
-                    let padding=max(0,dateColumn-prefix.size(withAttributes:[.font:font]).width)
-                    text.addAttribute(.kern,value:padding,range:NSRange(location:match.range.location-1,length:1))
-                }
-            }
-            item.attributedTitle=text;menu.addItem(item)
-        }
-        return menu
-    }
 }

@@ -4,11 +4,10 @@ import Foundation
 public struct QuotaDetailsPresentation {
     public let tooltip:String
     public let hoverCardText:String
-    public let resetMenuLines:[String]
     public let resetLines:[String]
     public let cardLines:[String]
     public let metadataNotice:String?
-    /// The reset-card entries of `resetMenuLines`, without their label.
+    /// Dates and availability messages for the quota panel.
     let cardExpiryTexts:[String]
     public init(snapshot:QuotaSnapshot,metadataSnapshot:QuotaSnapshot?=nil,preferences:RingPreferences,
                 fiveHourSupport:Bool?,lastRefreshedAt:Date?,now:Date=Date()) {
@@ -60,10 +59,6 @@ public struct QuotaDetailsPresentation {
                 : period.value(preferences.metric.value(item.text))
         }
         hoverCardText=((snapshot.source == .debug ? [L10n.string("status.debug")]:[])+quotaItems).joined(separator:"\n")
-        let menuPeriods:[QuotaPeriod]=fiveHourSupport == true ? [.fiveHours,.week]:[.week]
-        var rows=menuPeriods.map { period in
-            L10n.format("menu.resetAt",period.shortName,date(resetDate(period)))
-        }
         var cardTexts:[String]=[]
         if let cards=metadata.resetCards {
             let available=cards.details?.filter(\.available) ?? []
@@ -74,9 +69,6 @@ public struct QuotaDetailsPresentation {
             else if available.isEmpty || cards.availableCount.map({$0>available.count}) == true { cardTexts.append(L10n.string("cards.partialTimeMissing")) }
         } else { cardTexts.append(L10n.string("common.notProvided")) }
         cardExpiryTexts=cardTexts
-        rows += cardTexts.map { L10n.format("menu.cardExpiry",$0) }
-        if let metadataNotice { rows.append(metadataNotice) }
-        resetMenuLines=rows
     }
     static func cardCount(_ count:Int?)->String {
         count.map { L10n.format("cards.available",$0) } ?? L10n.string("cards.countUnknown")

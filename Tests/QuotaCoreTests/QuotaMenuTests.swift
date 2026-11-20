@@ -152,7 +152,7 @@ final class QuotaMenuTests:XCTestCase {
             XCTAssertEqual(view.cardLines.isEmpty,!visible)
         }
     }
-    func testDebugResetFallbackIsSharedByPanelAndMenuAndKeepsProvidedDates() {
+    func testDebugResetFallbackIsSharedByPanelAndTooltipAndKeepsProvidedDates() {
         let renderingTime=now.addingTimeInterval(120)
         var state=QuotaDebugState(isEnabled:true)
         for hasFive in [false,true] {
@@ -162,7 +162,7 @@ final class QuotaMenuTests:XCTestCase {
             let details=QuotaDetailsPresentation(snapshot:debug,metadataSnapshot:metadata,preferences:RingPreferences(),fiveHourSupport:true,lastRefreshedAt:now,now:renderingTime)
             let expected=hasFive ? "19:00":"19:02"
             XCTAssertEqual(view.rows[0].resetText,"2026.11.03 "+expected)
-            XCTAssertTrue(details.resetMenuLines.contains("5小时重置于 2026.11.03 "+expected))
+            XCTAssertTrue(details.resetLines.contains("5小时系统自动重置：2026.11.03 "+expected))
             XCTAssertEqual(view.rows[1].resetText,"2026.11.04 18:00")
         }
         state.isEnabled=false

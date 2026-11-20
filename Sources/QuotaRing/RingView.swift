@@ -9,7 +9,12 @@ final class RingView:NSView {
     private var dragged=false
     private var contextClick=false
     var positionLocked=false
-    var coversNativeUsage=false { didSet { if oldValue != coversNativeUsage { needsDisplay=true } } }
+    var coversNativeUsage=false {
+        didSet {
+            guard oldValue != coversNativeUsage else { return }
+            needsDisplay=true
+        }
+    }
     var constrainDragOrigin:((NSPoint)->NSPoint)?
     private var tracking:NSTrackingArea?
     var hoverDetails="" { didSet {
@@ -22,7 +27,12 @@ final class RingView:NSView {
     override init(frame:NSRect) { super.init(frame:frame);setAccessibilityElement(true);setAccessibilityRole(.button) }
     required init?(coder:NSCoder) { fatalError("init(coder:) is not used") }
     override func acceptsFirstMouse(for event:NSEvent?)->Bool { true }
-    override func accessibilityPerformPress()->Bool { dismissHover();onClick?();return true }
+    override func accessibilityPerformPress()->Bool {
+        guard let onClick else { return false }
+        dismissHover()
+        onClick()
+        return true
+    }
     override func accessibilityPerformShowMenu()->Bool { dismissHover();onMenu?(nil);return true }
     override func updateTrackingAreas() {
         super.updateTrackingAreas();if let tracking { removeTrackingArea(tracking) }

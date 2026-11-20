@@ -6,7 +6,7 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
-**Keep an eye on your Codex quota on macOS.** Check the floating ring at a glance, or open the menu bar panel for usage, reset times, and any available reset cards. The panel can also show OpenAI API costs.
+**Keep an eye on your Codex quota on macOS.** Check the floating ring at a glance, or open the quota panel for usage, reset times, and any available reset cards. The panel can also show OpenAI API costs.
 
 CodexRing is an independent, open-source project and is not affiliated with OpenAI.
 
@@ -24,7 +24,7 @@ CodexRing is an independent, open-source project and is not affiliated with Open
    | `macOS-universal.zip` | Either chip type |
 
 3. Unzip the download, drag `CodexRing.app` into **Applications**, and open it. When upgrading, quit the current CodexRing first, then replace the app. Your settings carry over.
-4. Wait for the first quota refresh. Click the CodexRing icon in the menu bar to open the panel, then click its gear icon to open Settings. You can also click the regular floating ring to open Settings.
+4. Wait for the first quota refresh. Click the CodexRing icon in the menu bar to open the panel, then click its gear icon to open Settings. You can also open Settings from the floating ring’s right-click menu.
 
 The app targets **macOS 13.0 or later**. Automated runtime tests currently run on macOS 26 on Intel and Apple silicon. Your Mac also needs to meet the requirements of your Codex version. To verify the download, run `shasum -a 256 <downloaded ZIP>` and compare the result with the matching entry in `SHA256SUMS.txt`. The release notes indicate whether a download is notarized. macOS may block the first launch of an ad hoc signed build. Verify the source and checksum before proceeding. [Apple’s guide to opening apps safely](https://support.apple.com/en-us/102445)
 
@@ -48,7 +48,8 @@ The screenshots show CodexRing running on macOS with sample account, quota, cost
 - Under **Settings → Ring**, choose the periods you want on the floating ring. With both selected, the outer ring shows the weekly quota and the inner ring shows the 5-hour quota. The 5-hour option requires a quota window from Codex.
 - With two rings, **Center number** can show **Weekly**, **5-hour**, or **Lower**. **Lower** picks an exhausted quota first, then the one forecast to run out sooner. When there is no usable forecast, it picks the lower remaining percentage.
 - Under **Display → Show**, choose remaining or used. Remaining fills counterclockwise from the top and used fills clockwise. Colors always follow the share actually used. Blue indicates less than 70% used, followed by yellow at 70%, orange at 80%, and red at 90%.
-- Hover for about 0.35 seconds to see the periods at a glance. Drag to move the ring. Right-click or Control-click for **Reset Info**, **Refresh Now**, **Pin Position**, **Hide Ring**, Settings, or Quit. With free movement, the ring can tuck away at a screen edge and reappear when you point at that edge.
+- Left-click the regular ring to show or hide subscription and OpenAI API usage next to the ring.
+- Hover for about 0.35 seconds to see the periods at a glance. Drag to move the ring. Right-click or Control-click for **Refresh Now**, **Pin Position**, **Hide Ring**, Settings, or Quit. With free movement, the ring can tuck away at a screen edge and reappear when you point at that edge.
 - Choose a 26, 32, 56, 64, or 76 pt ring. The two smallest sizes show the ring and percentage. Larger sizes also show a short caption.
 
 **Pin Position** locks mouse dragging. A pinned ring can still follow the Codex window, and overlay mode automatically locks the ring to the native control. Hiding the floating ring leaves the menu bar and refreshes available.
@@ -65,7 +66,7 @@ Click the menu bar icon to expand the panel. The percentages next to the icon fo
 | --- | --- |
 | Account | The Codex sign-in email, subscription plan, and time of the last successful refresh. Hover over a truncated email to see the full address. |
 | ChatGPT Subscription | Weekly and, when available, 5-hour quotas. Each row shows a percentage, a progress bar, and a reset time. The percentage follows the remaining or used setting. |
-| Reset Cards | The number of available cards and any expiry times Codex returned. Cards turn yellow, orange, and red at 7 days, 3 days, and 1 day remaining. Red items show a countdown in hours, minutes, and seconds. The ring’s **Reset Info** menu also shows expiry dates. |
+| Reset Cards | The number of available cards and any expiry times Codex returned. Cards turn yellow, orange, and red at 7 days, 3 days, and 1 day remaining. Red items show a countdown in hours, minutes, and seconds. |
 | OpenAI API | Current cycle costs, allowance, and percentage when API tracking is enabled and a key is configured. |
 | Footer buttons | Refresh, Settings, and Quit, from left to right. Click outside the panel or press Escape to close it. |
 
@@ -90,7 +91,9 @@ Click the menu bar icon to expand the panel. The percentages next to the icon fo
 | Subscription | Usage pace, workdays per week, tick style, and countdown or date and time. |
 | API | Admin API key, optional project ID, monthly cycle start, and allowance. |
 | Alerts | Quota and reset card notifications, plus the quota recovery confetti option and preview. |
-| About | Version information. Click the app icon five times to open the debug window. |
+| About | Version information, Check for Updates, and automatic update options. Click the app icon five times to open the debug window. |
+
+Download 0.8.0 or later from GitHub Releases to start using in-app updates. In **Settings → About**, you can check manually or enable automatic checks. Once automatic checks are on, you can also enable automatic installation.
 
 **General → Interface language** follows macOS by default. English, Simplified Chinese, Traditional Chinese, Japanese, and Korean are available. Changing the language updates the app immediately. Subscription reset dates and reset card expiry dates use Beijing time (UTC+8).
 
@@ -98,7 +101,7 @@ Click the menu bar icon to expand the panel. The percentages next to the icon fo
 
 | Mode | Ring position | Click behavior | Permission |
 | --- | --- | --- | --- |
-| Follow Codex window | Near the top right of Codex by default. Drag it anywhere within that window. | Opens CodexRing Settings | Basic following needs no permission |
+| Follow Codex window | Near the top right of Codex by default. Drag it anywhere within that window. | Toggles the CodexRing quota panel | Basic following needs no permission |
 | Overlay Codex quota control | A fixed 26 pt ring over the original usage ring above the avatar in the Codex sidebar | Opens the native Codex usage menu | Requires Accessibility |
 
 #### Follow the window
@@ -129,7 +132,7 @@ The overlay sits over the existing control and leaves the Codex app files and co
 1. Turn on **Settings → API → Show API usage progress**.
 2. Enter an **OpenAI Admin API key** with cost read access. Regular keys for model calls cannot query organization costs. Enter a `proj_` project ID to filter the costs or leave it blank for the organization total.
 3. Set the **Cycle start day**. The monthly cycle begins at local midnight on the chosen day and uses the final day in shorter months. The day must be set manually. Leave **Total allowance (USD)** blank to use the expected allowance for a detected Pro 100, Pro 200, or Pro 500 plan, or enter a positive USD budget.
-4. Click **Save & Refresh**, then open the menu bar panel. API costs refresh about every five minutes. Opening the panel can request an update, and you can also refresh manually. The upstream cost figures can be delayed.
+4. Click **Save & Refresh**, then open the quota panel. API costs refresh about every five minutes. Opening the panel can request an update, and you can also refresh manually. The upstream cost figures can be delayed.
 
 Costs come from the OpenAI Costs API. The percentage is relative to the budget or expected allowance, for example about 68% left after spending $32.50 of a $100 allowance. The expected allowance depends on the benefit being claimed for the correct API organization and may be prorated in the first cycle. CodexRing does not verify a live balance or change any spending limit. Enter a manual budget if an allowance cannot be inferred.
 

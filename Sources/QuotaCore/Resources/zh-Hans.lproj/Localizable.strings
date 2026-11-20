@@ -73,13 +73,14 @@
 "a11y.ring.outer" = "外圈%1$@：%2$@";
 "a11y.ring.inner" = "；内圈%1$@：%2$@";
 "a11y.ring.center" = "；中心数字仅表示%@额度。";
-"a11y.ring.presentation" = "CodexRing %1$@，%2$@，%3$@，%4$@，%5$@。点击打开设置。";
+"a11y.ring.presentation" = "CodexRing %1$@，%2$@，%3$@，%4$@，%5$@。";
 "a11y.clockwise" = "顺时针";
 "a11y.counterclockwise" = "逆时针";
 "ring.unavailable.a11y" = "CodexRing 额度不可用";
 "ring.help.overlay" = "覆盖 Codex 用量，点击打开 Codex 用量菜单；右键或菜单栏打开 CodexRing 设置。";
-"ring.help.follow" = "跟随 Codex 窗口，可在窗口内拖动；点击打开设置。";
-"ring.help.free" = "自由移动：拖动移动，贴边隐藏，移入边缘恢复；点击打开设置。";
+"ring.help.follow" = "跟随 Codex 窗口，可在窗口内拖动。右键打开菜单。";
+"ring.help.free" = "自由移动：拖动调整位置，贴边隐藏，移入边缘恢复。右键打开菜单。";
+"ring.help.quotaPanel" = "点击展开或收起额度面板。";
 "ring.help.overlayLocked" = "覆盖模式下位置已锁定，关闭覆盖后可调整固定状态。";
 "ring.help.locked" = "位置已固定，右键菜单取消固定可解锁。";
 "ring.hover.center" = "中心数字：%@";
@@ -108,8 +109,6 @@
 "card.expiryUnknown" = "到期时间未知";
 "card.expiredOn" = "已于 %@ 到期";
 "card.expiresOn" = "将于 %@ 到期";
-"menu.resetAt" = "%1$@重置于 %2$@";
-"menu.cardExpiry" = "重置卡过期 %@";
 "menu.cardExpired" = "%@（已过期）";
 "menu.refreshedAt" = "刷新于 %@";
 "reset.timeMissing" = "重置时间未提供";
@@ -171,7 +170,6 @@
 /* Context and status menus */
 "menu.refreshNow" = "立即刷新";
 "menu.settings" = "设置…";
-"menu.resetInfo" = "重置信息";
 "menu.pin" = "固定位置";
 "menu.pin.locked" = "已固定";
 "menu.pin.unlocked" = "未固定";
@@ -181,6 +179,7 @@
 "menu.quit" = "退出 CodexRing";
 
 /* Menu bar panel */
+"panel.windowTitle" = "额度面板";
 "panel.account" = "账号";
 "panel.account.loading" = "正在读取账号…";
 "panel.account.missing" = "账号未提供";
@@ -224,7 +223,7 @@
 "api.budget.automatic" = "自动 · %@";
 "api.budget.prompt" = "留空自动识别套餐";
 "api.settings.show" = "显示 API 使用进度";
-"api.settings.show.help" = "仅在菜单面板显示。按自定义月度周期统计，每5分钟刷新；官方统计可能延迟。";
+"api.settings.show.help" = "显示在额度面板中。按自定义月度周期统计，每5分钟刷新；官方统计可能延迟。";
 "api.settings.connection" = "连接";
 "api.settings.key" = "Admin API Key";
 "api.settings.key.prompt" = "留空保留已保存的 Key";
@@ -369,3 +368,8 @@
 "diagnostics.evidence.none" = "无";
 "diagnostics.evidence.window" = "窗口覆盖屏幕";
 "diagnostics.evidence.systemFlag" = "系统全屏标志";
+
+"updates.section" = "软件更新";
+"updates.check" = "检查更新…";
+"updates.automaticCheck" = "自动检查更新";
+"updates.automaticInstall" = "自动安装更新";

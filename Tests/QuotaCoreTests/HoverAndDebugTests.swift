@@ -32,16 +32,12 @@ final class HoverAndDebugTests:XCTestCase {
             "5小时系统自动重置：\(QuotaDateText.string(now.addingTimeInterval(3600)))"
         ])
         for line in information.resetLines { XCTAssertTrue(information.tooltip.contains(line)) }
-        XCTAssertEqual(Array(information.resetMenuLines.prefix(2)),[
-            "5小时重置于 2026.11.03 19:00",
-            "本周重置于 2026.11.04 18:00"
-        ])
     }
-    func testResetMenuUsesAccountWindowsRegardlessOfVisibleRings() {
+    func testResetDetailsUseAccountWindowsRegardlessOfVisibleRings() {
         // The default only shows the weekly ring, but both reset times matter.
-        XCTAssertTrue(details(live()).resetMenuLines.contains("5小时重置于 2026.11.03 19:00"))
-        let weekOnly=details(live(five:false),support:false).resetMenuLines
-        XCTAssertEqual(weekOnly.first,"本周重置于 2026.11.04 18:00")
+        XCTAssertTrue(details(live()).resetLines.contains("5小时系统自动重置：2026.11.03 19:00"))
+        let weekOnly=details(live(five:false),support:false).resetLines
+        XCTAssertEqual(weekOnly.first,"1周系统自动重置：2026.11.04 18:00")
         XCTAssertFalse(weekOnly.contains { $0.hasPrefix("5小时") })
     }
     func testFirstLoadDoesNotInventRefreshOrResetDates() {
@@ -52,7 +48,7 @@ final class HoverAndDebugTests:XCTestCase {
         XCTAssertEqual(information.metadataNotice,"重置信息：正在加载")
         XCTAssertFalse(information.tooltip.contains("0%"))
     }
-    func testHoverAndMenuShareCardNamesExpiryAndMissingDetails() {
+    func testDetailsAndPanelShareCardExpiryAndMissingDetails() {
         let expiry=now.addingTimeInterval(10000)
         let cards=ResetCards(availableCount:3,details:[
             ResetCard(title:"Full reset",expiresAt:expiry,status:"available"),
@@ -64,7 +60,7 @@ final class HoverAndDebugTests:XCTestCase {
             "完全重置　将于 \(QuotaDateText.string(expiry)) 到期","Other　到期时间未知","重置卡到期时间未提供"])
         for line in information.cardLines { XCTAssertTrue(information.tooltip.contains(line)) }
         XCTAssertFalse(information.tooltip.contains("Redeemed"))
-        XCTAssertTrue(information.resetMenuLines.contains("重置卡过期 2026.11.03 20:46"))
+        XCTAssertEqual(information.cardExpiryTexts,["2026.11.03 20:46","时间未提供","部分时间未提供"])
     }
     func testZeroUnknownAndExpiredCardsRemainDistinct() {
         XCTAssertEqual(details(live(cards:ResetCards(availableCount:0,details:[]))).cardLines,["重置卡：0 张可用"])
@@ -116,7 +112,6 @@ final class HoverAndDebugTests:XCTestCase {
         let information=QuotaDetailsPresentation(snapshot:visible,metadataSnapshot:real,preferences:RingPreferences(),fiveHourSupport:true,lastRefreshedAt:now,now:now)
         XCTAssertTrue(information.tooltip.hasPrefix("调试模式"))
         XCTAssertTrue(information.resetLines.contains("5小时系统自动重置：\(QuotaDateText.string(now.addingTimeInterval(3600)))"))
-        XCTAssertTrue(information.resetMenuLines.contains("5小时重置于 2026.11.03 19:00"))
         XCTAssertTrue(information.tooltip.contains("上次刷新时间：\(QuotaDateText.string(now))"))
     }
     func testDebugStillWorksWhenLiveQueryIsFailedOrExpiredAndDisablingRestoresFailure() {
@@ -148,6 +143,5 @@ final class HoverAndDebugTests:XCTestCase {
         XCTAssertEqual(composition.outer.value,75);XCTAssertEqual(composition.inner?.value,50)
         let information=QuotaDetailsPresentation(snapshot:visible,metadataSnapshot:real,preferences:p,fiveHourSupport:true,lastRefreshedAt:now,now:now)
         XCTAssertEqual(information.resetLines.last,"5小时系统自动重置：\(QuotaDateText.string(now.addingTimeInterval(3600)))")
-        XCTAssertTrue(information.resetMenuLines.contains("5小时重置于 2026.11.03 19:00"))
     }
 }

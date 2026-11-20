@@ -20,6 +20,7 @@ build_options=(-c release --product CodexRing --triple "${target_arch}-apple-mac
     --scratch-path "$build_scratch" --cache-path /tmp/codex-quota-swiftpm/cache
     --config-path /tmp/codex-quota-swiftpm/config --security-path /tmp/codex-quota-swiftpm/security
     --manifest-cache local -Xswiftc -module-cache-path -Xswiftc "$CLANG_MODULE_CACHE_PATH"
+    -Xlinker -rpath -Xlinker @executable_path/../Frameworks
     -Xswiftc -debug-prefix-map -Xswiftc "$PWD=/CodexRing"
     -Xswiftc -file-prefix-map -Xswiftc "$PWD=/CodexRing")
 swift build "${build_options[@]}"
@@ -27,8 +28,12 @@ bin_dir=$(swift build "${build_options[@]}" --show-bin-path)
 app_dir="${1:-$PWD/build/CodexRing.app}"
 swift -module-cache-path "$CLANG_MODULE_CACHE_PATH" scripts/make-icon.swift "$PWD/assets"
 iconutil -c icns "$PWD/assets/AppIcon.iconset" -o "$PWD/assets/AppIcon.icns"
-mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
+mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources" "$app_dir/Contents/Frameworks"
 cp "$bin_dir/CodexRing" "$app_dir/Contents/MacOS/CodexRing"
+sparkle_framework="$bin_dir/Sparkle.framework"
+test -d "$sparkle_framework"
+rm -rf "$app_dir/Contents/Frameworks/Sparkle.framework"
+ditto "$sparkle_framework" "$app_dir/Contents/Frameworks/Sparkle.framework"
 xcrun strip -S "$app_dir/Contents/MacOS/CodexRing"
 cp "$PWD/assets/AppIcon.icns" "$app_dir/Contents/Resources/AppIcon.icns"
 # macOS 26 puts a stock background behind legacy icons. Supply a native icon
@@ -102,6 +107,23 @@ $icon_name_plist
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
+if [[ -n "${CODEXRING_SPARKLE_PUBLIC_KEY:-}" ]]; then
+    if [[ ! "$CODEXRING_SPARKLE_PUBLIC_KEY" =~ '^[A-Za-z0-9+/]{43}=$' ]]; then
+        print -u2 -- "CODEXRING_SPARKLE_PUBLIC_KEY must be a base64 Ed25519 public key."
+        exit 1
+    fi
+    feed_url="${CODEXRING_UPDATE_FEED_URL:-https://github.com/freezezhang/codex-ring/releases/latest/download/appcast.xml}"
+    plist="$app_dir/Contents/Info.plist"
+    plutil -insert SUFeedURL -string "$feed_url" "$plist"
+    plutil -insert SUPublicEDKey -string "$CODEXRING_SPARKLE_PUBLIC_KEY" "$plist"
+    plutil -insert SUEnableAutomaticChecks -bool NO "$plist"
+    plutil -insert SUAutomaticallyUpdate -bool NO "$plist"
+    plutil -insert SUVerifyUpdateBeforeExtraction -bool YES "$plist"
+    plutil -insert SURequireSignedFeed -bool YES "$plist"
+    if [[ "$feed_url" == http://127.0.0.1:* ]]; then
+        plutil -insert NSAppTransportSecurity -json '{"NSAllowsLocalNetworking":true}' "$plist"
+    fi
+fi
 codesign --force --sign - "$app_dir"
 codesign --verify --deep --strict "$app_dir"
 python3 scripts/check-privacy.py "$app_dir"

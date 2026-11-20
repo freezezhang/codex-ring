@@ -51,6 +51,13 @@ for target_arch in x86_64 arm64 universal; do
     archive_name="CodexRing-$release_version-macOS-$target_arch.zip"
     app_path="$work_dir/$target_arch/CodexRing.app"
     ditto -x -k "$input_dir/$archive_name" "$work_dir/$target_arch"
+    sparkle="$app_path/Contents/Frameworks/Sparkle.framework"
+    if [[ -d "$sparkle" ]]; then
+        for component in "$sparkle"/Versions/Current/Autoupdate "$sparkle"/Versions/Current/Updater.app \
+                         "$sparkle"/Versions/Current/XPCServices/*.xpc(N) "$sparkle"; do
+            codesign --force --sign "$identity" --keychain "$keychain" --options runtime --timestamp "$component"
+        done
+    fi
     codesign --force --sign "$identity" --keychain "$keychain" --options runtime --timestamp "$app_path"
     codesign --verify --deep --strict "$app_path"
 

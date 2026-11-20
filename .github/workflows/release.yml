@@ -57,6 +57,7 @@ jobs:
     env:
       CODEXRING_VERSION: ${{ needs.version.outputs.version }}
       CODEXRING_BUILD_NUMBER: ${{ github.run_number }}
+      CODEXRING_SPARKLE_PUBLIC_KEY: ${{ vars.CODEXRING_SPARKLE_PUBLIC_KEY }}
       TARGET_ARCH: ${{ matrix.arch }}
       DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
     steps:
@@ -160,12 +161,11 @@ jobs:
       (needs.notarize.result == 'success' ||
       (needs.notarize.result == 'skipped' && vars.APPLE_NOTARIZE_RELEASES != 'true'))
     needs: [version, assemble, notarize]
-    runs-on: ubuntu-latest
+    runs-on: macos-26
     timeout-minutes: 10
     permissions:
       contents: write
     env:
-      GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ github.ref_name }}
       CODEXRING_VERSION: ${{ needs.version.outputs.version }}
@@ -178,12 +178,38 @@ jobs:
         with:
           name: ${{ needs.notarize.result == 'success' && 'release-packages' || 'test-packages' }}
           path: release
+      - name: Sign the Sparkle feed and universal package
+        if: vars.CODEXRING_SPARKLE_PUBLIC_KEY != ''
+        env:
+          CODEXRING_SPARKLE_PRIVATE_KEY: ${{ secrets.CODEXRING_SPARKLE_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools_dir=$(mktemp -d)
+          trap 'rm -rf "$tools_dir"' EXIT
+          sparkle_version=$(python3 -c 'import json; print(next(pin["state"]["version"] for pin in json.load(open("Package.resolved"))["pins"] if pin["identity"] == "sparkle"))')
+          test "$sparkle_version" = 2.10.1
+          curl --fail --silent --show-error --location \
+            "https://github.com/sparkle-project/Sparkle/releases/download/$sparkle_version/Sparkle-$sparkle_version.tar.xz" \
+            --output "$tools_dir/sparkle.tar.xz"
+          printf '%s  %s\n' 1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27 "$tools_dir/sparkle.tar.xz" | shasum -a 256 -c -
+          tar -xf "$tools_dir/sparkle.tar.xz" -C "$tools_dir" bin/sign_update
+          archive="CodexRing-$CODEXRING_VERSION-macOS-universal.zip"
+          notes=""
+          if grep -Fqx "## $RELEASE_TAG" .github/RELEASE_NOTES.md; then
+            notes=".github/RELEASE_NOTES.md"
+          fi
+          zsh scripts/make-appcast.sh "$tools_dir/bin/sign_update" "release/$archive" \
+            "https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/$archive" \
+            release/appcast.xml "$notes"
       - name: Upload, verify and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         working-directory: release
         run: |
           set -euo pipefail
-          sha256sum -c SHA256SUMS.txt
+          shasum -a 256 -c SHA256SUMS.txt
           cat > release-notes.md <<'NOTES'
           原生 macOS Codex 额度悬浮窗。
 
@@ -214,6 +240,9 @@ jobs:
             "CodexRing-$CODEXRING_VERSION-macOS-universal.zip"
             SHA256SUMS.txt
           )
+          if [[ -f appcast.xml ]]; then
+            packages+=(appcast.xml)
+          fi
           if is_draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null); then
             if [[ "$is_draft" != true ]]; then
               echo 'This tag already has a published release; use a new version tag.' >&2
@@ -227,5 +256,8 @@ jobs:
           fi
           gh release download "$RELEASE_TAG" --dir downloaded
           cmp SHA256SUMS.txt downloaded/SHA256SUMS.txt
-          (cd downloaded && sha256sum -c ../SHA256SUMS.txt)
+          (cd downloaded && shasum -a 256 -c ../SHA256SUMS.txt)
+          if [[ -f appcast.xml ]]; then
+            cmp appcast.xml downloaded/appcast.xml
+          fi
           gh release edit "$RELEASE_TAG" --draft=false

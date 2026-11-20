@@ -4,6 +4,9 @@ import QuotaCore
 
 final class SettingsModel:ObservableObject {
     let apiUsage:OpenAIUsageController
+    #if canImport(Sparkle)
+    var updater: AppUpdater?
+    #endif
     @Published var preferences:RingPreferences { didSet { onPreferences?(preferences) } }
     @Published var snapshot=QuotaSnapshot(source:.official,fetchedAt:Date(),loading:true)
     @Published var source:QuotaSource = .official
@@ -157,38 +160,52 @@ private struct RingSettingsView:View {
             .onChange(of:state.selected) { value in if value == nil { state.selected = .general } }
     }
     @ViewBuilder private func settingsPane(_ page:SettingsPage)->some View {
-        if page == .about {
-            VStack(spacing:16) {
-                Image(nsImage:NSApp.applicationIconImage).resizable().scaledToFit()
-                    .frame(width:88,height:88).contentShape(Rectangle())
-                    .onTapGesture(count:5) { model.onOpenDebug?() }
-                    .accessibilityLabel(L10n.string("about.icon.a11y"))
-                Text("CodexRing").font(.system(size:26,weight:.semibold))
-                Text(RingAboutWindow.versionText)
-                    .font(.body).foregroundStyle(.secondary)
-            }.frame(maxWidth:.infinity,maxHeight:.infinity)
-        } else {
-            Form {
-                switch page {
-                case .general:
-                    generalSection
-                    languageSection
-                    Section(L10n.string("settings.refresh.section")) {
-                        Picker(L10n.string("settings.refresh.interval"),selection:$model.preferences.refreshInterval) {
-                            ForEach(RefreshInterval.allCases,id:\.rawValue) { Text($0.title).tag($0) }
-                        }.pickerStyle(.menu).id("refresh-interval."+L10n.language.code)
-                    }
-                    quotaStatusSection
-                case .appearance:appearanceSection
-                case .ring:ringSection
-                case .panel:
-                    quotaPanelSection
-                    quotaStatusSection
-                case .api:OpenAIUsageSettings(controller:model.apiUsage,draft:state.apiDraft)
-                case .alerts:alertsSection
-                case .about:EmptyView()
+        Form {
+            switch page {
+            case .general:
+                generalSection
+                languageSection
+                Section(L10n.string("settings.refresh.section")) {
+                    Picker(L10n.string("settings.refresh.interval"),selection:$model.preferences.refreshInterval) {
+                        ForEach(RefreshInterval.allCases,id:\.rawValue) { Text($0.title).tag($0) }
+                    }.pickerStyle(.menu).id("refresh-interval."+L10n.language.code)
                 }
-            }.formStyle(.grouped).scrollContentBackground(.hidden)
+                quotaStatusSection
+            case .appearance:appearanceSection
+            case .ring:ringSection
+            case .panel:
+                quotaPanelSection
+                quotaStatusSection
+            case .api:OpenAIUsageSettings(controller:model.apiUsage,draft:state.apiDraft)
+            case .alerts:alertsSection
+            case .about:
+                aboutSection
+                #if canImport(Sparkle)
+                if let updater = model.updater {
+                    AppUpdateSettings(updater: updater)
+                }
+                #endif
+            }
+        }.formStyle(.grouped).scrollContentBackground(.hidden)
+    }
+    private var aboutSection: some View {
+        Section {
+            HStack(spacing: 14) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable().scaledToFit()
+                    .frame(width: 72, height: 72)
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 5) { model.onOpenDebug?() }
+                    .accessibilityLabel(L10n.string("about.icon.a11y"))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("CodexRing").font(.system(size: 20, weight: .semibold))
+                    Text(RingAboutWindow.versionText)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 8)
         }
     }
     private var languageSection:some View {

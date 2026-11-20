@@ -73,6 +73,12 @@ The release workflow tests and builds on both architectures, assembles Intel, Ap
 
 Run **Build and release** from Actions to produce ad hoc `test-packages` without publishing. Run the workflow on `main` with **Sign and notarize a test build from main** selected to validate signing and download the signed `release-packages` without creating a GitHub Release.
 
+### In-app updates
+
+Run `bin/generate_keys --account codexring` from the [official Sparkle 2.10.1 tools](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.1). Set the printed public key as the GitHub Actions repository variable `CODEXRING_SPARKLE_PUBLIC_KEY`. Export the matching private key with the tool's `-x` option and upload it with `gh secret set CODEXRING_SPARKLE_PRIVATE_KEY < private-key-file`. Keep a secure backup and reuse the same key for subsequent releases.
+
+Once the public key is configured, the release workflow signs both the final universal ZIP and `appcast.xml`. Sparkle reads the feed from GitHub Releases and verifies the download before installation. Users install the first updater-enabled version manually. They can then check for updates or enable automatic installation in **Settings → About**. For a local rehearsal, build two versions with `CODEXRING_SPARKLE_PUBLIC_KEY`, `CODEXRING_UPDATE_FEED_URL` and increasing `CODEXRING_BUILD_NUMBER` values, then use `scripts/make-appcast.sh` to generate a fixture feed.
+
 ### Apple credentials
 
 Use the GitHub Actions `apple-signing` environment. Restrict it to the `main` branch and release tags matching `v*`. Store these as environment secrets:

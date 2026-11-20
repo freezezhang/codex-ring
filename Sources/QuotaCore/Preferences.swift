@@ -97,10 +97,10 @@ public struct RingPreferences: Codable, Equatable {
     }
 }
 
-public enum RingMenuEntry:Equatable { case refresh,settings,reset,positionLock(locked:Bool),hideRing,quit }
+public enum RingMenuEntry:Equatable { case refresh,settings,positionLock(locked:Bool),hideRing,quit }
 public enum RingMenuSpec {
     public static func entries(for preferences:RingPreferences)->[RingMenuEntry] {
-        [.reset,.refresh,.positionLock(locked:preferences.effectivePositionLocked),.hideRing,.settings,.quit]
+        [.refresh,.positionLock(locked:preferences.effectivePositionLocked),.hideRing,.settings,.quit]
     }
 }
 public struct RingComposition {

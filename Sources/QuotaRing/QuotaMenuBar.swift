@@ -12,9 +12,15 @@ private final class QuotaPanelClock:ObservableObject {
 }
 
 final class QuotaMenuBar:NSObject {
+    private enum Anchor {
+        case menuBar, ring(NSView)
+    }
+
     private let model:SettingsModel
     private var item:NSStatusItem?
-    private let panel=QuotaFloatingPanel(contentRect:.zero,styleMask:[.borderless],backing:.buffered,defer:false)
+    private var anchor:Anchor?
+    private let panel=QuotaFloatingPanel(contentRect:.zero,styleMask:[.borderless,.nonactivatingPanel],
+                                         backing:.buffered,defer:false)
     private let clock=QuotaPanelClock()
     private var clockTimer:Timer?
     private var hostingView:NSView?
@@ -46,22 +52,24 @@ final class QuotaMenuBar:NSObject {
         prompt.stroke()
         return true
     }
-    var onRefresh:(()->Void)?,onSettings:(()->Void)?,onQuit:(()->Void)?
+    var onRefresh:(()->Void)?,onSettings:(()->Void)?,onQuit:(()->Void)?,onRingClose:(()->Void)?
+    var isShowingFromRing:Bool {
+        if case .ring? = anchor { return true }
+        return false
+    }
     init(model:SettingsModel) {
         self.model=model
         super.init()
         panel.isReleasedWhenClosed=false;panel.isOpaque=false;panel.backgroundColor = .clear
         panel.hasShadow=true;panel.level = .popUpMenu;panel.animationBehavior = .none
         panel.collectionBehavior=[.moveToActiveSpace,.fullScreenAuxiliary,.ignoresCycle]
-        panel.appearance=NSAppearance(named:.darkAqua)
         deactivationObserver=NotificationCenter.default.addObserver(forName:NSApplication.didResignActiveNotification,object:nil,queue:.main) { [weak self] _ in self?.close() }
     }
     private func mountPanelContent() {
         let material=NSVisualEffectView(frame:.zero)
         material.material = .popover;material.blendingMode = .behindWindow;material.state = .active
         material.wantsLayer=true;material.layer?.cornerRadius=16;material.layer?.masksToBounds=true
-        material.layer?.borderWidth=0.5;material.layer?.borderColor=NSColor.white.withAlphaComponent(0.12).cgColor
-        let host=NSHostingView(rootView:QuotaMenuView(model:model,clock:clock,
+        let host=NSHostingView(rootView:QuotaMenuView(model:model,clock:clock,showsAccountAndActions:!isShowingFromRing,
             contentSizeChanged:{ [weak self] in self?.scheduleFit() },
             refresh:{ [weak self] in self?.onRefresh?() },
             settings:{ [weak self] in self?.close();self?.onSettings?() },
@@ -76,8 +84,9 @@ final class QuotaMenuBar:NSObject {
     }
     func update(enabled:Bool) {
         guard enabled else {
-            close()
+            if case .menuBar? = anchor { close() }
             if let item { NSStatusBar.system.removeStatusItem(item);self.item=nil }
+            scheduleFit()
             return
         }
         if item == nil {
@@ -101,11 +110,21 @@ final class QuotaMenuBar:NSObject {
     }
     func close() {
         guard hostingView != nil else { return }
+        let wasFromRing=isShowingFromRing
+        anchor=nil
         clockTimer?.invalidate();clockTimer=nil
         removeMonitors()
         // An ordered-out NSWindow can still lay out its SwiftUI view tree.
         hostingView=nil
         panel.orderOut(nil);panel.contentView=nil
+        if wasFromRing { onRingClose?() }
+    }
+    func closeRingPanel() {
+        if isShowingFromRing { close() }
+    }
+    func toggleFromRing(_ view:NSView) {
+        if isShowingFromRing { close();return }
+        show(at:.ring(view))
     }
     private func removeMonitors() {
         if let localMonitor { NSEvent.removeMonitor(localMonitor);self.localMonitor=nil }
@@ -121,24 +140,60 @@ final class QuotaMenuBar:NSObject {
         }
     }
     private func fitPanel() {
-        guard let view=hostingView,let button=item?.button,let window=button.window else { return }
+        guard let view=hostingView,let anchor else { return }
+        guard let source=sourceView(for:anchor),let window=source.window else { close();return }
         view.layoutSubtreeIfNeeded()
         let size=view.fittingSize
         guard size.width>0,size.height>0 else { return }
-        let anchor=window.convertToScreen(button.convert(button.bounds,to:nil))
-        let screen=window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? anchor
-        let x=max(screen.minX+8,min(anchor.midX-size.width/2,screen.maxX-size.width-8))
-        let top=min(anchor.minY-6,screen.maxY-6)
-        let y=max(screen.minY+8,top-size.height)
+        let sourceFrame=window.convertToScreen(source.convert(source.bounds,to:nil))
+        let screen=window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? sourceFrame
+        let origin:CGPoint
+        switch anchor {
+        case .menuBar:
+            origin=CGPoint(x:sourceFrame.midX-size.width/2,y:min(sourceFrame.minY-6,screen.maxY-6)-size.height)
+        case .ring:
+            let gap:CGFloat=8
+            let right=sourceFrame.maxX+gap
+            let left=sourceFrame.minX-gap-size.width
+            if right+size.width<=screen.maxX-gap {
+                origin=CGPoint(x:right,y:sourceFrame.midY-size.height/2)
+            } else if left>=screen.minX+gap {
+                origin=CGPoint(x:left,y:sourceFrame.midY-size.height/2)
+            } else {
+                let below=sourceFrame.minY-gap-size.height
+                let above=sourceFrame.maxY+gap
+                let preferredY=below>=screen.minY+gap || sourceFrame.midY>=screen.midY ? below:above
+                origin=CGPoint(x:sourceFrame.midX-size.width/2,y:preferredY)
+            }
+        }
+        let x=max(screen.minX+8,min(origin.x,screen.maxX-size.width-8))
+        let y=max(screen.minY+8,min(origin.y,screen.maxY-size.height-8))
         let frame=NSRect(x:x,y:y,width:size.width,height:size.height).integral
         if panel.frame != frame { panel.setFrame(frame,display:true);panel.invalidateShadow() }
     }
     func show() {
-        guard item?.button != nil,hostingView == nil else { return }
+        guard hostingView == nil else { return }
+        show(at:.menuBar)
+    }
+    private func sourceView(for anchor:Anchor)->NSView? {
+        switch anchor {
+        case .menuBar:return item?.button
+        case .ring(let view):
+            guard let window=view.window,window.isVisible,window.isOnActiveSpace,
+                  !view.isHiddenOrHasHiddenAncestor else { return nil }
+            return view
+        }
+    }
+    private func show(at anchor:Anchor) {
+        guard sourceView(for:anchor)?.window != nil else { return }
+        close()
+        self.anchor=anchor
         clock.now=Date()
         mountPanelContent()
         fitPanel()
-        NSApp.activate(ignoringOtherApps:true)
+        guard hostingView != nil else { return }
+        if case .menuBar = anchor { NSApp.activate(ignoringOtherApps:true) }
+        panel.title=L10n.string("panel.windowTitle")
         panel.makeKeyAndOrderFront(nil)
         panel.makeFirstResponder(nil)
         scheduleFit()
@@ -151,10 +206,11 @@ final class QuotaMenuBar:NSObject {
             if event.type == .keyDown {
                 if event.keyCode == 53 { self.close();return nil }
             } else if event.window !== self.panel {
-                // Let the status button's action toggle the panel. Closing on its
-                // mouse-down would otherwise reopen it on the following mouse-up.
-                if let button=self.item?.button,event.window === button.window,
-                   button.bounds.contains(button.convert(event.locationInWindow,from:nil)) { return event }
+                // Keep the current anchor alive until its mouse-up toggles the panel.
+                if event.type == .leftMouseDown,!event.modifierFlags.contains(.control),
+                   let anchor=self.anchor,let source=self.sourceView(for:anchor),
+                   event.window === source.window,
+                   source.bounds.contains(source.convert(event.locationInWindow,from:nil)) { return event }
                 self.close()
             }
             return event
@@ -162,8 +218,8 @@ final class QuotaMenuBar:NSObject {
         globalMonitor=NSEvent.addGlobalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown,.otherMouseDown]) { [weak self] _ in self?.close() }
     }
     @objc private func togglePanel() {
-        if panel.isVisible { close();return }
-        show()
+        if case .menuBar? = anchor { close();return }
+        show(at:.menuBar)
     }
 }
 
@@ -181,38 +237,50 @@ private struct QuotaMenuView:View {
     @ObservedObject var model:SettingsModel
     @ObservedObject var clock:QuotaPanelClock
     @State private var contentHeight:CGFloat=440
+    let showsAccountAndActions:Bool
     let contentSizeChanged:()->Void
     let refresh:()->Void,settings:()->Void,quit:()->Void
     var body:some View {
         VStack(spacing:0) {
-            QuotaSectionCard {
-                QuotaMenuHeader(model:model,account:model.apiUsage)
-                    .background(GeometryReader { geometry in
-                        Color.clear.preference(key:QuotaHeaderHeight.self,value:geometry.size.height)
-                    })
-            }.padding(.horizontal,12).padding(.top,12)
+            if showsAccountAndActions {
+                QuotaSectionCard {
+                    QuotaMenuHeader(model:model,account:model.apiUsage)
+                        .background(GeometryReader { geometry in
+                            Color.clear.preference(key:QuotaHeaderHeight.self,value:geometry.size.height)
+                        })
+                }.padding(.horizontal,12).padding(.top,12)
+            }
             if let data=model.menuPresentation {
                 quotaContent(data)
             }
-            Divider()
-            HStack(spacing:12) {
-                Text("CodexRing").font(.system(size:15,weight:.medium)).foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    model.apiUsage.refreshAccountPlan();refresh()
-                } label: {
-                    Image(systemName:"arrow.clockwise").frame(width:28,height:28)
-                }.help(L10n.string("panel.refresh")).accessibilityLabel(L10n.string("panel.refresh")).disabled(model.isRefreshing)
-                Button(action:settings) {
-                    Image(systemName:"gearshape").frame(width:28,height:28)
-                }.help(L10n.string("common.settings")).accessibilityLabel(L10n.string("common.settings"))
-                Button(action:quit) {
-                    Image(systemName:"power").frame(width:28,height:28)
-                }.help(L10n.string("menu.quit")).accessibilityLabel(L10n.string("menu.quit"))
-            }.buttonStyle(.borderless).font(.system(size:14,weight:.medium)).padding(.horizontal,20).padding(.vertical,10)
+            if showsAccountAndActions {
+                Divider()
+                actions
+            }
         }.frame(width:320).fixedSize(horizontal:false,vertical:true)
-            .preferredColorScheme(.dark)
+            .overlay {
+                RoundedRectangle(cornerRadius:16)
+                    .strokeBorder(Color.primary.opacity(0.12),lineWidth:0.5)
+                    .allowsHitTesting(false)
+            }
             .onPreferenceChange(QuotaHeaderHeight.self) { _ in contentSizeChanged() }
+    }
+    private var actions:some View {
+        HStack(spacing:12) {
+            Text("CodexRing").font(.system(size:15,weight:.medium)).foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                model.apiUsage.refreshAccountPlan();refresh()
+            } label: {
+                Image(systemName:"arrow.clockwise").frame(width:28,height:28)
+            }.help(L10n.string("panel.refresh")).accessibilityLabel(L10n.string("panel.refresh")).disabled(model.isRefreshing)
+            Button(action:settings) {
+                Image(systemName:"gearshape").frame(width:28,height:28)
+            }.help(L10n.string("common.settings")).accessibilityLabel(L10n.string("common.settings"))
+            Button(action:quit) {
+                Image(systemName:"power").frame(width:28,height:28)
+            }.help(L10n.string("menu.quit")).accessibilityLabel(L10n.string("menu.quit"))
+        }.buttonStyle(.borderless).font(.system(size:14,weight:.medium)).padding(.horizontal,20).padding(.vertical,10)
     }
     private func quotaContent(_ data:QuotaMenuPresentation)->some View {
         let now=clock.now
@@ -223,7 +291,7 @@ private struct QuotaMenuView:View {
                         Text(L10n.string("panel.subscription")).font(.system(size:15,weight:.bold))
                         ForEach(data.rows) { row in quota(row,at:now) }
                         if data.showsResetCards {
-                            Divider().overlay(Color.white.opacity(0.03))
+                            Divider()
                             cards(data,at:now)
                         }
                         if let notice=data.metadataNotice {
@@ -336,8 +404,8 @@ struct QuotaSectionCard<Content:View>:View {
     @ViewBuilder var content:()->Content
     var body:some View {
         content().frame(maxWidth:.infinity,alignment:.leading).padding(12)
-            .background(Color.white.opacity(0.045),in:RoundedRectangle(cornerRadius:12))
-            .overlay(RoundedRectangle(cornerRadius:12).strokeBorder(Color.white.opacity(0.07),lineWidth:0.5))
+            .background(Color.primary.opacity(0.045),in:RoundedRectangle(cornerRadius:12))
+            .overlay(RoundedRectangle(cornerRadius:12).strokeBorder(Color.primary.opacity(0.07),lineWidth:0.5))
     }
 }
 

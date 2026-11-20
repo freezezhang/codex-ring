@@ -73,13 +73,14 @@
 "a11y.ring.outer" = "外側のリング、%1$@：%2$@";
 "a11y.ring.inner" = "；内側のリング、%1$@：%2$@";
 "a11y.ring.center" = "；中央の数字は%@の使用枠のみを表します。";
-"a11y.ring.presentation" = "CodexRing %1$@、%2$@、%3$@、%4$@、%5$@。クリックして設定を開きます。";
+"a11y.ring.presentation" = "CodexRing %1$@、%2$@、%3$@、%4$@、%5$@。";
 "a11y.clockwise" = "時計回り";
 "a11y.counterclockwise" = "反時計回り";
 "ring.unavailable.a11y" = "CodexRing の使用枠を取得できません";
 "ring.help.overlay" = "Codex の使用量に重ねて表示中。クリックすると Codex の使用量メニューが開きます。右クリックまたはメニューバーから CodexRing の設定を開けます。";
-"ring.help.follow" = "Codex ウィンドウに追従中。ウィンドウ内でドラッグして移動できます。クリックして設定を開きます。";
-"ring.help.free" = "自由に移動できます。ドラッグで移動し、画面端で隠れます。端にポインタを合わせると再表示されます。クリックして設定を開きます。";
+"ring.help.follow" = "Codex ウィンドウに追従中。ウィンドウ内でドラッグして移動できます。右クリックでメニューを開きます。";
+"ring.help.free" = "ドラッグで移動できます。画面端で隠れ、端にポインタを合わせると再表示されます。右クリックでメニューを開きます。";
+"ring.help.quotaPanel" = "クリックして利用枠パネルを表示または非表示にします。";
 "ring.help.overlayLocked" = "重ねて表示中は位置が固定されます。固定状態を変更するには重ねて表示をオフにしてください。";
 "ring.help.locked" = "位置は固定されています。右クリックメニューの「位置を固定」をオフにすると解除できます。";
 "ring.hover.center" = "中央の数字：%@";
@@ -108,8 +109,6 @@
 "card.expiryUnknown" = "有効期限不明";
 "card.expiredOn" = "%@に期限切れ";
 "card.expiresOn" = "%@に期限切れ";
-"menu.resetAt" = "%1$@のリセット %2$@";
-"menu.cardExpiry" = "カードの有効期限 %@";
 "menu.cardExpired" = "%@（期限切れ）";
 "menu.refreshedAt" = "更新 %@";
 "reset.timeMissing" = "リセット時刻は未提供です";
@@ -171,7 +170,6 @@
 /* Context and status menus */
 "menu.refreshNow" = "今すぐ更新";
 "menu.settings" = "設定…";
-"menu.resetInfo" = "リセット情報";
 "menu.pin" = "位置を固定";
 "menu.pin.locked" = "固定済み";
 "menu.pin.unlocked" = "未固定";
@@ -181,6 +179,7 @@
 "menu.quit" = "CodexRing を終了";
 
 /* Menu bar panel */
+"panel.windowTitle" = "利用枠パネル";
 "panel.account" = "アカウント";
 "panel.account.loading" = "アカウントを取得中…";
 "panel.account.missing" = "アカウント情報なし";
@@ -224,7 +223,7 @@
 "api.budget.automatic" = "自動 · %@";
 "api.budget.prompt" = "空欄でプランから自動識別";
 "api.settings.show" = "API 使用状況を表示";
-"api.settings.show.help" = "メニューパネルのみに表示します。独自の月次期間で集計し、5分ごとに更新します。公式データには遅延がある場合があります。";
+"api.settings.show.help" = "利用枠パネルに表示されます。独自の月次期間で集計し、5分ごとに更新します。公式データには遅延がある場合があります。";
 "api.settings.connection" = "接続";
 "api.settings.key" = "Admin API Key";
 "api.settings.key.prompt" = "空欄で保存済みキーを保持";
@@ -369,3 +368,8 @@
 "diagnostics.evidence.none" = "なし";
 "diagnostics.evidence.window" = "ウィンドウが画面全体を覆う";
 "diagnostics.evidence.systemFlag" = "システムのフルスクリーンフラグ";
+
+"updates.section" = "ソフトウェアアップデート";
+"updates.check" = "アップデートを確認…";
+"updates.automaticCheck" = "アップデートを自動確認";
+"updates.automaticInstall" = "アップデートを自動インストール";

@@ -73,13 +73,14 @@
 "a11y.ring.outer" = "外圈%1$@：%2$@";
 "a11y.ring.inner" = "；內圈%1$@：%2$@";
 "a11y.ring.center" = "；中心數字僅表示%1$@額度。";
-"a11y.ring.presentation" = "CodexRing %1$@，%2$@，%3$@，%4$@，%5$@。按一下開啟設定。";
+"a11y.ring.presentation" = "CodexRing %1$@，%2$@，%3$@，%4$@，%5$@。";
 "a11y.clockwise" = "順時針";
 "a11y.counterclockwise" = "逆時針";
 "ring.unavailable.a11y" = "CodexRing 額度無法使用";
 "ring.help.overlay" = "已覆蓋 Codex 用量，按一下開啟 Codex 用量選單；按右鍵或從選單列開啟 CodexRing 設定。";
-"ring.help.follow" = "跟隨 Codex 視窗，可在視窗內拖移；按一下開啟設定。";
-"ring.help.free" = "自由移動：拖移以移動，貼邊隱藏，移入邊緣恢復；按一下開啟設定。";
+"ring.help.follow" = "跟隨 Codex 視窗，可在視窗內拖移。按右鍵開啟選單。";
+"ring.help.free" = "自由移動：拖移調整位置，靠邊隱藏，移入邊緣恢復。按右鍵開啟選單。";
+"ring.help.quotaPanel" = "點一下展開或收起額度面板。";
 "ring.help.overlayLocked" = "覆蓋模式下位置已鎖定，關閉覆蓋後可調整固定狀態。";
 "ring.help.locked" = "位置已固定，從右鍵選單取消固定即可解鎖。";
 "ring.hover.center" = "中心數字：%@";
@@ -108,8 +109,6 @@
 "card.expiryUnknown" = "到期時間未知";
 "card.expiredOn" = "已於 %@ 到期";
 "card.expiresOn" = "將於 %@ 到期";
-"menu.resetAt" = "%1$@重設於 %2$@";
-"menu.cardExpiry" = "重設卡過期 %@";
 "menu.cardExpired" = "%@（已過期）";
 "menu.refreshedAt" = "重新整理於 %@";
 "reset.timeMissing" = "未提供重設時間";
@@ -171,7 +170,6 @@
 /* Context and status menus */
 "menu.refreshNow" = "立即重新整理";
 "menu.settings" = "設定…";
-"menu.resetInfo" = "重設資訊";
 "menu.pin" = "固定位置";
 "menu.pin.locked" = "已固定";
 "menu.pin.unlocked" = "未固定";
@@ -181,6 +179,7 @@
 "menu.quit" = "結束 CodexRing";
 
 /* Menu bar panel */
+"panel.windowTitle" = "額度面板";
 "panel.account" = "帳號";
 "panel.account.loading" = "正在讀取帳號…";
 "panel.account.missing" = "未提供帳號";
@@ -224,7 +223,7 @@
 "api.budget.automatic" = "自動 · %@";
 "api.budget.prompt" = "留空自動識別方案";
 "api.settings.show" = "顯示 API 使用進度";
-"api.settings.show.help" = "僅在選單面板顯示。依自訂月度週期統計，每5分鐘重新整理；官方統計可能延遲。";
+"api.settings.show.help" = "顯示在額度面板中。依自訂月度週期統計，每5分鐘重新整理；官方統計可能延遲。";
 "api.settings.connection" = "連線";
 "api.settings.key" = "Admin API Key";
 "api.settings.key.prompt" = "留空保留已儲存的 Key";
@@ -369,3 +368,8 @@
 "diagnostics.evidence.none" = "無";
 "diagnostics.evidence.window" = "視窗覆蓋螢幕";
 "diagnostics.evidence.systemFlag" = "系統全螢幕旗標";
+
+"updates.section" = "軟體更新";
+"updates.check" = "檢查更新…";
+"updates.automaticCheck" = "自動檢查更新";
+"updates.automaticInstall" = "自動安裝更新";

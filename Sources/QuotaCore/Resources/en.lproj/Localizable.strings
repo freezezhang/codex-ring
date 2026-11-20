@@ -73,13 +73,14 @@
 "a11y.ring.outer" = "Outer ring, %1$@: %2$@";
 "a11y.ring.inner" = "; inner ring, %1$@: %2$@";
 "a11y.ring.center" = "; the center number shows only the %@ quota.";
-"a11y.ring.presentation" = "CodexRing %1$@, %2$@, %3$@, %4$@, %5$@. Click to open Settings.";
+"a11y.ring.presentation" = "CodexRing %1$@, %2$@, %3$@, %4$@, %5$@.";
 "a11y.clockwise" = "clockwise";
 "a11y.counterclockwise" = "counterclockwise";
 "ring.unavailable.a11y" = "CodexRing quota unavailable";
 "ring.help.overlay" = "Covering Codex usage. Click to open the Codex usage menu; right-click or use the menu bar to open CodexRing Settings.";
-"ring.help.follow" = "Following the Codex window; drag to move it within the window. Click to open Settings.";
-"ring.help.free" = "Moving freely: drag to move, drop at a screen edge to hide, point at the edge to bring it back. Click to open Settings.";
+"ring.help.follow" = "Following the Codex window. Drag to move within the window. Right-click to open the menu.";
+"ring.help.free" = "Drag to move freely. Drop at a screen edge to hide and point at the edge to bring it back. Right-click to open the menu.";
+"ring.help.quotaPanel" = "Click to show or hide the quota panel.";
 "ring.help.overlayLocked" = "The position is locked in overlay mode. Turn off the overlay to change pinning.";
 "ring.help.locked" = "The position is pinned. Choose Pin Position in the right-click menu to unpin.";
 "ring.hover.center" = "Center number: %@";
@@ -108,8 +109,6 @@
 "card.expiryUnknown" = "Expiry unknown";
 "card.expiredOn" = "expired %@";
 "card.expiresOn" = "expires %@";
-"menu.resetAt" = "%1$@ resets %2$@";
-"menu.cardExpiry" = "Reset card expires %@";
 "menu.cardExpired" = "%@ (expired)";
 "menu.refreshedAt" = "Refreshed at %@";
 "reset.timeMissing" = "Reset time not provided";
@@ -171,7 +170,6 @@
 /* Context and status menus */
 "menu.refreshNow" = "Refresh Now";
 "menu.settings" = "Settings…";
-"menu.resetInfo" = "Reset Info";
 "menu.pin" = "Pin Position";
 "menu.pin.locked" = "Pinned";
 "menu.pin.unlocked" = "Not pinned";
@@ -181,6 +179,7 @@
 "menu.quit" = "Quit CodexRing";
 
 /* Menu bar panel */
+"panel.windowTitle" = "Quota Panel";
 "panel.account" = "Account";
 "panel.account.loading" = "Loading account…";
 "panel.account.missing" = "Account not provided";
@@ -224,7 +223,7 @@
 "api.budget.automatic" = "Auto · %@";
 "api.budget.prompt" = "Leave blank to detect from plan";
 "api.settings.show" = "Show API usage progress";
-"api.settings.show.help" = "Shown only in the menu panel. Totals follow a custom monthly cycle and refresh every 5 minutes; official data may be delayed.";
+"api.settings.show.help" = "Shown in the quota panel. Totals follow a custom monthly cycle and refresh every 5 minutes; official data may be delayed.";
 "api.settings.connection" = "Connection";
 "api.settings.key" = "Admin API Key";
 "api.settings.key.prompt" = "Leave blank to keep the saved key";
@@ -369,3 +368,8 @@
 "diagnostics.evidence.none" = "None";
 "diagnostics.evidence.window" = "Window covers screen";
 "diagnostics.evidence.systemFlag" = "System fullscreen flag";
+
+"updates.section" = "Software Update";
+"updates.check" = "Check for Updates…";
+"updates.automaticCheck" = "Automatically check for updates";
+"updates.automaticInstall" = "Automatically install updates";
