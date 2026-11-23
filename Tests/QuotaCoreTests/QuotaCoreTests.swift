@@ -54,7 +54,7 @@ final class QuotaCoreTests: XCTestCase {
         XCTAssertNil(s.display(now: now).remaining); XCTAssertEqual(s.display(now: now).status, .connection)
     }
     func testNoWeeklyBucketAndUnknownReset() {
-        XCTAssertEqual(QuotaParser.parse([:], at: now).display(now: now).status, .unavailable)
+        XCTAssertEqual(QuotaParser.parse([:], at: now).display(now: now).status, .noData)
         XCTAssertNil(parse(week(reset: NSNull())).quotas[0].resetsAt)
         XCTAssertEqual(parse(week(reset: NSNull())).display(now: now).remaining, 69)
     }

@@ -77,6 +77,25 @@ final class PerformanceLifecycleTests:XCTestCase {
         XCTAssertFalse(api.refreshing);XCTAssertFalse(api.hasConfiguredKey)
         XCTAssertNil(api.snapshot);XCTAssertEqual(store.readCount,1)
     }
+    func testOfflineUsageDistinguishesMissingAndConfiguredKeys() {
+        for key in [nil,"synthetic-key"] as [String?] {
+            let store=TestKeyStore()
+            store.value=key
+            let api=controller(store,enabled:true)
+            api.setNetworkOffline(true)
+            pump { !api.keychainBusy && !api.refreshing }
+            XCTAssertEqual(api.status,key == nil ? .configureKey:.offline)
+            XCTAssertEqual(api.hasConfiguredKey,key != nil)
+            XCTAssertNil(api.snapshot)
+            XCTAssertNil(api.lastSuccessfulRefresh)
+            XCTAssertEqual(store.readCount,1)
+            if key != nil {
+                api.refresh()
+                XCTAssertFalse(api.keychainBusy)
+                XCTAssertEqual(store.readCount,1)
+            }
+        }
+    }
     func testSaveAndDeleteRunOffMainAndPersistOnlyAfterSuccess() {
         let store=TestKeyStore(),gate=DispatchSemaphore(value:0)
         let entered=expectation(description:"save entered")

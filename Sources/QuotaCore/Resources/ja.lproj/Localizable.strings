@@ -40,9 +40,11 @@
 "status.debug" = "デバッグモード";
 "status.loading" = "使用枠を取得中";
 "status.available" = "使用枠を更新しました";
+"status.noData" = "Codex から使用枠データを取得できませんでした";
 "status.unavailable" = "使用枠を取得できません。Codex にログインしているか確認してください";
 "status.stale" = "データが古くなっています";
 "status.expired" = "再取得を待機中";
+"status.offline" = "ネットワークに接続されていません";
 "status.connection" = "接続に失敗しました";
 "status.timeout" = "取得がタイムアウトしました";
 "status.protocolError" = "インターフェースを利用できません";
@@ -188,6 +190,7 @@
 "panel.plan.missing" = "プラン情報なし";
 "panel.plan.a11y" = "プラン：%@";
 "panel.subscription" = "ChatGPT サブスクリプション";
+"panel.lastSuccessfulRefresh" = "前回の取得成功：%@";
 "panel.resetCards" = "リセットカード";
 "panel.card.help" = "有効期限：%@";
 "panel.card.a11y" = "リセットカード：%@";
@@ -226,8 +229,8 @@
 "api.settings.show.help" = "利用枠パネルに表示されます。独自の月次期間で集計し、5分ごとに更新します。公式データには遅延がある場合があります。";
 "api.settings.connection" = "接続";
 "api.settings.key" = "Admin API Key";
-"api.settings.key.prompt" = "空欄で保存済みキーを保持";
-"api.settings.key.help" = "費用の参照権限を持つ OpenAI Admin API キーが必要です。通常のモデル用キーは利用できません。この Mac のキーチェーンのみに保存します。";
+"api.settings.key.prompt" = "この Mac のキーチェーンにのみ保存";
+"api.settings.key.help" = "費用の参照権限を持つ OpenAI Admin API キーが必要です。通常のモデル用キーは利用できません。キーはこの Mac のキーチェーンにのみ保存されます。空欄のままにすると、保存済みのキーが保持されます。";
 "api.settings.project" = "プロジェクト ID";
 "api.settings.project.prompt" = "空欄で組織全体を集計";
 "api.settings.project.help" = "proj_ で始まるプロジェクト ID を入力すると、そのプロジェクトの費用のみを集計します。空欄で組織全体を集計します。";

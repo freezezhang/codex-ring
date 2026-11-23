@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import Network
 import QuotaCore
 
 final class RingApplication: NSObject, NSApplicationDelegate {
@@ -74,6 +75,8 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private var model: SettingsModel!
     private var snapshot = QuotaSnapshot(source: .official, fetchedAt: Date(), loading: true)
     private var source: QuotaSource = .official
+    private let networkMonitor=NWPathMonitor()
+    private var networkOffline=false
     private var expandedFrame: NSRect?
     private var refreshTimer: Timer?, clockTimer: Timer?
     private var hideWork: DispatchWorkItem?
@@ -84,11 +87,11 @@ final class RingApplication: NSObject, NSApplicationDelegate {
     private var capabilities=QuotaCapabilities()
     private var fiveHourSupport:Bool? { debugState.isEnabled ? true:capabilities.support(for:preferences.bucketID) }
     private var displaySnapshot:QuotaSnapshot {
-        debugState.snapshot(live:snapshot,selectedID:preferences.bucketID,fallbackFiveHourReset:debugFallbackFiveHourReset)
-    }
-    private var details:QuotaDetailsPresentation {
-        QuotaDetailsPresentation(snapshot:displaySnapshot,metadataSnapshot:snapshot,preferences:preferences,
-                                 fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt)
+        if networkOffline,source == .official,!debugState.isEnabled {
+            return QuotaSnapshot(source:.official,fetchedAt:snapshot.fetchedAt,quotas:snapshot.quotas,
+                                 failure:.offline,capabilitiesKnown:snapshot.capabilitiesKnown)
+        }
+        return debugState.snapshot(live:snapshot,selectedID:preferences.bucketID,fallbackFiveHourReset:debugFallbackFiveHourReset)
     }
     private let client = AppServerClient()
     private let notifications=QuotaNotificationController()
@@ -173,7 +176,14 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         updateRingVisibility()
         if desktopAnchorEstablished && !overlayActive { panel.orderFrontRegardless() }
         redraw()
-        if automaticRefresh { configureRefreshTimer() }
+        if automaticRefresh {
+            configureRefreshTimer()
+            networkMonitor.pathUpdateHandler={ [weak self] path in
+                let offline=path.status == .unsatisfied
+                DispatchQueue.main.async { [weak self] in self?.updateNetworkOffline(offline) }
+            }
+            networkMonitor.start(queue:DispatchQueue(label:"local.freeze.codex-ring.network",qos:.utility))
+        }
         // Also recover if an app changes its fullscreen geometry without a
         // presentation-options notification (notably native fullscreen).
         clockTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
@@ -224,6 +234,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         cancelOverlayNotice()
         spaceRevision += 1;presentationObservation=nil
         codexMonitor.stop()
+        networkMonitor.cancel()
         savePosition(); refreshTimer?.invalidate(); clockTimer?.invalidate(); hideWork?.cancel(); client.cancel()
     }
     private func openAccessibilitySettings() {
@@ -549,12 +560,14 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         guard ring != nil else { return }
         updateRingVisibility()
         let visible=displaySnapshot
+        let metadata=visible.source == .debug ? snapshot:visible
         let composition=RingComposition(snapshot:visible,preferences:preferences,fiveHourSupport:fiveHourSupport)
         ring.composition=composition
         ring.positionLocked = preferences.effectivePositionLocked
         ring.coversNativeUsage=followingCodex && coveringUsage
         if ring.coversNativeUsage { quotaMenuBar?.closeRingPanel() }
-        let information=details
+        let information=QuotaDetailsPresentation(snapshot:visible,metadataSnapshot:metadata,preferences:preferences,
+                                                 fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt)
         var accessibilityHelp = information.tooltip + "\n" + (ring.coversNativeUsage ? L10n.string("ring.help.overlay"):(followingCodex ? L10n.string("ring.help.follow"):L10n.string("ring.help.free")))
         if !ring.coversNativeUsage { accessibilityHelp += "\n"+L10n.string("ring.help.quotaPanel") }
         if preferences.overlayCodexUsage { accessibilityHelp += "\n" + L10n.string("ring.help.overlayLocked") }
@@ -581,7 +594,7 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         model.update(\.updatedText,dateText(lastRefreshedAt))
         if model.debugState != debugState { model.debugState=debugState }
         model.update(\.diagnosticText,diagnostics)
-        let menuData=QuotaMenuPresentation(snapshot:visible,metadata:snapshot,preferences:preferences,
+        let menuData=QuotaMenuPresentation(snapshot:visible,metadata:metadata,preferences:preferences,
                                           fiveHourSupport:fiveHourSupport,lastRefreshedAt:lastRefreshedAt)
         if model.menuPresentation != menuData { model.menuPresentation=menuData }
         updateMenuBar()
@@ -714,15 +727,29 @@ final class RingApplication: NSObject, NSApplicationDelegate {
         if panel.isOnActiveSpace { panel.orderFrontRegardless() }
         savePosition(); redraw()
     }
+    private func updateNetworkOffline(_ offline:Bool) {
+        guard networkOffline != offline else { return }
+        networkOffline=offline
+        model.apiUsage.setNetworkOffline(offline)
+        if offline {
+            generation += 1
+            client.cancel()
+            fetching=false
+            redraw()
+        } else { refresh() }
+    }
     private func refresh() {
-        guard source == .official,!fetching,!debugState.isEnabled else { redraw();return }
+        guard source == .official,!fetching,!debugState.isEnabled,!networkOffline else { redraw();return }
         fetching=true; redraw(); let request=generation
         DispatchQueue.global(qos:.utility).async { [weak self] in
             guard let self else { return }; let result=self.client.fetch()
             DispatchQueue.main.async { [weak self] in
                 guard let self,self.generation == request,self.source == .official else { return }
                 self.fetching=false;self.snapshot=result
-                if result.failure == nil,!result.loading { self.lastRefreshedAt=result.fetchedAt;self.notifications.observe(result,preferences:self.preferences) }
+                if result.failure == nil,!result.loading {
+                    if result.quotas.contains(where: { $0.remaining != nil }) { self.lastRefreshedAt=result.fetchedAt }
+                    self.notifications.observe(result,preferences:self.preferences)
+                }
                 self.capabilities.observe(result)
                 self.redraw()
             }

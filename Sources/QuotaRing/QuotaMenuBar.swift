@@ -289,12 +289,30 @@ private struct QuotaMenuView:View {
                 QuotaSectionCard {
                     VStack(alignment:.leading,spacing:16) {
                         Text(L10n.string("panel.subscription")).font(.system(size:15,weight:.bold))
-                        ForEach(data.rows) { row in quota(row,at:now) }
-                        if data.showsResetCards {
+                        if let unavailable=data.unavailableRow {
+                            let loading=unavailable.status == .loading || (model.isRefreshing && unavailable.status != .offline)
+                            let symbol:String? = loading ? nil:(unavailable.status == .offline ? "wifi.slash":"info.circle")
+                            QuotaPanelNotice(title:loading ? L10n.string("status.loading"):unavailable.statusText,
+                                             symbol:symbol,lastRefreshedAt:data.lastRefreshedAt)
+                        } else {
+                            ForEach(data.rows) { row in
+                                if row.used != nil {
+                                    quota(row,at:now)
+                                } else {
+                                    HStack(alignment:.firstTextBaseline) {
+                                        Text(row.title).font(.system(size:13,weight:.semibold))
+                                        Spacer(minLength:8)
+                                        Text(row.statusText).font(.system(size:12)).foregroundStyle(.secondary)
+                                            .multilineTextAlignment(.trailing)
+                                    }
+                                }
+                            }
+                        }
+                        if data.showsResetCards && data.metadataNotice == nil {
                             Divider()
                             cards(data,at:now)
                         }
-                        if let notice=data.metadataNotice {
+                        if data.unavailableRow == nil,let notice=data.metadataNotice {
                             Text(notice).font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -355,9 +373,6 @@ private struct QuotaMenuView:View {
                     .monospacedDigit().lineLimit(1).minimumScaleFactor(0.85)
             }
             QuotaProgressBar(row:row,pace:pace)
-            if row.used == nil {
-                Text(row.statusText).font(.system(size:11)).foregroundStyle(.secondary)
-            }
             if let pace {
                 Text(pace.summary).font(.system(size:11)).monospacedDigit()
                     .foregroundStyle(.secondary)
@@ -388,12 +403,37 @@ private struct QuotaMenuHeader:View {
                     .accessibilityLabel(L10n.format("panel.account.a11y",account.accountEmail ?? L10n.string("common.notProvided")))
             }
             HStack(alignment:.lastTextBaseline,spacing:12) {
-                Text(model.isRefreshing ? L10n.string("common.refreshing"):model.menuPresentation?.updatedText ?? L10n.string("common.neverRefreshed"))
-                    .font(.system(size:11)).foregroundStyle(.secondary).monospacedDigit()
+                if let data=model.menuPresentation,data.unavailableRow == nil {
+                    Text(model.isRefreshing ? L10n.string("common.refreshing"):data.updatedText)
+                        .font(.system(size:11)).foregroundStyle(.secondary).monospacedDigit()
+                }
                 Spacer(minLength:0)
                 Text(account.accountPlan?.title ?? L10n.string("panel.plan.missing"))
                     .font(.system(size:12,weight:.medium)).foregroundStyle(.secondary).lineLimit(1)
                     .accessibilityLabel(L10n.format("panel.plan.a11y",account.accountPlan?.title ?? L10n.string("common.notProvided")))
+            }
+        }
+    }
+}
+
+struct QuotaPanelNotice:View {
+    let title:String
+    let symbol:String?
+    let lastRefreshedAt:Date?
+
+    var body:some View {
+        VStack(alignment:.leading,spacing:6) {
+            HStack(alignment:.firstTextBaseline,spacing:8) {
+                if let symbol {
+                    Image(systemName:symbol).foregroundStyle(.secondary).accessibilityHidden(true)
+                } else {
+                    ProgressView().controlSize(.small).accessibilityHidden(true)
+                }
+                Text(title).font(.system(size:13,weight:.medium)).fixedSize(horizontal:false,vertical:true)
+            }
+            if let lastRefreshedAt {
+                Text(L10n.format("panel.lastSuccessfulRefresh",QuotaDateText.string(lastRefreshedAt)))
+                    .font(.system(size:11)).foregroundStyle(.secondary).monospacedDigit()
             }
         }
     }

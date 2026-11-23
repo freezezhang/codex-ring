@@ -26,6 +26,7 @@ public struct QuotaMenuRow:Equatable,Identifiable {
     public let used:Double?
     public let usedText:String
     public let remainingText:String
+    public let status:DisplayStatus
     public let statusText:String
     public let resetText:String
     public let resetsAt:Date?
@@ -71,6 +72,8 @@ public struct QuotaMenuPresentation:Equatable {
     public let selectionText:String
     public let help:String
     public let rows:[QuotaMenuRow]
+    public var unavailableRow:QuotaMenuRow? { rows.contains { $0.used != nil } ? nil:rows.last }
+    public let lastRefreshedAt:Date?
     public let updatedText:String
     public let cardsSummary:String
     public let showsResetCards:Bool
@@ -82,15 +85,17 @@ public struct QuotaMenuPresentation:Equatable {
                 fiveHourSupport:Bool?,lastRefreshedAt:Date?,now:Date=Date()) {
         let composition=RingComposition(snapshot:snapshot,preferences:preferences,fiveHourSupport:fiveHourSupport,now:now)
         isDebug=snapshot.source == .debug
+        self.lastRefreshedAt=lastRefreshedAt
         var selected=[(composition.outerPeriod,composition.outer)]
         if let inner=composition.inner,let period=composition.innerPeriod { selected.append((period,inner)) }
         title=selected.map { $0.1.text }.joined(separator:" | ")
         selectionText=selected.map { period,item in
             period.value(preferences.metric.value(item.text))
         }.joined(separator:" · ")
-        help="CodexRing · "+(isDebug ? L10n.string("debug.badge")+" · ":"")+selected.map { period,item in
+        let helpText=snapshot.failure == .offline ? L10n.string("status.offline"):selected.map { period,item in
             period.value(preferences.metric.value(item.text))+(item.value == nil ? " · "+item.display.subtitle:"")
         }.joined(separator:" | ")
+        help="CodexRing · "+(isDebug ? L10n.string("debug.badge")+" · ":"")+helpText
         let pool=snapshot.selectedPoolID(preferences.bucketID)
         let metadataPool=metadata.selectedPoolID(preferences.bucketID)
         rows=(fiveHourSupport == true ? [QuotaPeriod.fiveHours,.week]:[.week]).map { period in
@@ -101,7 +106,7 @@ public struct QuotaMenuPresentation:Equatable {
                 ? display.quota?.resetsAt
                 : metadata.display(selectedID:metadataPool,period:period,now:now).quota?.resetsAt
             return QuotaMenuRow(period:period,used:used.value,usedText:used.text,
-                                remainingText:remaining.text,statusText:display.subtitle,
+                                remainingText:remaining.text,status:display.status,statusText:display.subtitle,
                                 resetText:reset.map { QuotaDateText.string($0) } ?? L10n.string("common.notProvided"),resetsAt:reset,
                                 paceValidUntil:snapshot.source == .debug ? nil:snapshot.fetchedAt.addingTimeInterval(300),
                                 panel:preferences.quotaPanel,metric:preferences.metric)

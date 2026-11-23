@@ -40,7 +40,7 @@ private final class APIUsageSessionDelegate:NSObject,URLSessionTaskDelegate {
 
 enum OpenAIUsageStatus:Equatable {
     case notConfigured,invalidBudget,keyWhitespace,keyRequired,keychainUnavailable,keychainDeleteFailed
-    case saved,configureKey,refreshing,connected,connectionFailed
+    case saved,configureKey,refreshing,connected,offline,connectionFailed
     case failed(OpenAIUsageError)
     var text:String {
         switch self {
@@ -54,8 +54,15 @@ enum OpenAIUsageStatus:Equatable {
         case .configureKey:return L10n.string("api.status.configureKey")
         case .refreshing:return L10n.string("common.refreshing")
         case .connected:return L10n.string("api.status.connected")
+        case .offline:return L10n.string("status.offline")
         case .connectionFailed:return L10n.string("api.status.connectionFailed")
         case .failed(let error):return error.errorDescription ?? L10n.string("api.status.connectionFailed")
+        }
+    }
+    var needsSettings:Bool {
+        switch self {
+        case .keychainUnavailable,.failed(.authorization),.failed(.permission),.failed(.invalidProject):return true
+        default:return false
         }
     }
 }
@@ -72,6 +79,8 @@ final class OpenAIUsageController:ObservableObject {
     @Published private(set) var keychainBusy=false
     private let planClient=AppServerClient()
     private var lastPlanRefresh:Date?
+    private(set) var lastSuccessfulRefresh:Date?
+    private var networkOffline=false
     var expectedAmount:Double? { configuration.expectedAmount(plan:accountPlan) }
     var planTitle:String { planRefreshing && accountPlan == nil ? L10n.string("api.plan.detecting"):accountPlan?.title ?? L10n.string("api.plan.unknown") }
     var automaticAmountPrompt:String {
@@ -125,6 +134,7 @@ final class OpenAIUsageController:ObservableObject {
                 self.hasConfiguredKey=exists
                 guard exists else { self.status = .keyRequired;completion(false);return }
                 self.snapshot=nil
+                self.lastSuccessfulRefresh=nil
                 self.configuration.projectID=project;self.configuration.manualBudget=amount
                 self.configuration.cycleStartDay=min(31,max(1,startDay));self.persist()
                 self.status = .saved;completion(true);self.refresh()
@@ -140,6 +150,7 @@ final class OpenAIUsageController:ObservableObject {
             case .failure:self.status = .keychainDeleteFailed
             case .success:
                 self.snapshot=nil;self.hasConfiguredKey=false;self.configuration.enabled=false
+                self.lastSuccessfulRefresh=nil
                 self.persist();self.status = .notConfigured
             }
         }
@@ -159,15 +170,16 @@ final class OpenAIUsageController:ObservableObject {
         }
     }
     func refreshAccountPlan() {
-        guard !planRefreshing else { return }
+        guard !planRefreshing,!networkOffline else { return }
         planRefreshing=true
         let client=planClient
         DispatchQueue.global(qos:.utility).async { [weak self] in
             let account=client.fetchAccountInfo()
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                self.accountEmail=account?.email;self.accountPlan=account?.plan
                 self.planRefreshing=false;self.lastPlanRefresh=Date()
+                guard let account else { return }
+                self.accountEmail=account.email;self.accountPlan=account.plan
                 if let snapshot=self.snapshot {
                     self.snapshot=snapshot.withExpectedAmount(self.expectedAmount,manual:self.configuration.manualBudget != nil)
                 }
@@ -180,8 +192,21 @@ final class OpenAIUsageController:ObservableObject {
         if lastPlanRefresh.map({Date().timeIntervalSince($0)>=300}) ?? true { refreshAccountPlan() }
         if snapshot.map({ Date().timeIntervalSince($0.fetchedAt)>=300 || !$0.isCurrent(at:Date()) }) ?? true { refresh() }
     }
+    func setNetworkOffline(_ offline:Bool) {
+        guard networkOffline != offline else { return }
+        networkOffline=offline
+        if offline {
+            cancel();snapshot=nil
+            if hasConfiguredKey {
+                status = .offline
+                return
+            }
+        } else { refreshAccountPlan() }
+        refresh()
+    }
     func refresh() {
         guard configuration.enabled,!refreshing,!keychainBusy else { return }
+        if networkOffline,hasConfiguredKey { status = .offline;return }
         refreshing=true;status = .refreshing
         let token=generation
         performKeyOperation({ try $0.read() }) { [weak self] result in
@@ -195,9 +220,12 @@ final class OpenAIUsageController:ObservableObject {
             case .success(let key):
                 guard let key,!key.isEmpty else {
                     self.refreshing=false;self.hasConfiguredKey=false;self.snapshot=nil
+                    self.lastSuccessfulRefresh=nil
                     self.status = .configureKey;return
                 }
-                self.hasConfiguredKey=true;self.fetchUsage(key:key)
+                self.hasConfiguredKey=true
+                if self.networkOffline { self.refreshing=false;self.status = .offline }
+                else { self.fetchUsage(key:key) }
             }
         }
     }
@@ -213,12 +241,14 @@ final class OpenAIUsageController:ObservableObject {
                 let result=try await client.fetch(key:key,configuration:config)
                 guard let self,self.generation == token,!Task.isCancelled else { return }
                 let resolved=result.withExpectedAmount(self.expectedAmount,manual:self.configuration.manualBudget != nil)
+                self.lastSuccessfulRefresh=resolved.fetchedAt
                 self.snapshot=resolved;self.status = .connected
             } catch {
                 guard let self,self.generation == token,!Task.isCancelled else { return }
                 // Never display server response bodies: they may include credentials or account metadata.
                 self.snapshot=nil
-                self.status=(error as? OpenAIUsageError).map { .failed($0) } ?? .connectionFailed
+                if (error as? URLError)?.code == .notConnectedToInternet { self.status = .offline }
+                else { self.status=(error as? OpenAIUsageError).map { .failed($0) } ?? .connectionFailed }
             }
             guard let self,self.generation == token else { return }
             self.refreshing=false;self.task=nil
@@ -311,17 +341,20 @@ struct OpenAIUsagePanel:View {
                         Text(L10n.string("api.panel.project"))
                             .font(.system(size:10)).foregroundStyle(.secondary)
                     }
-                    if controller.refreshing { ProgressView().controlSize(.small) }
+                    if controller.refreshing,controller.snapshot?.isCurrent(at:now) == true {
+                        ProgressView().controlSize(.small)
+                    }
                 }.help(projectID.isEmpty ? L10n.string("api.panel.organization.help"):projectID)
                 if let data=controller.snapshot,data.isCurrent(at:now) {
                     details(data)
                 } else {
-                    Text(controller.snapshot == nil ? controller.status.text:L10n.string("api.panel.stale"))
-                        .font(.system(size:12)).foregroundStyle(.secondary)
-                    if let amount=controller.expectedAmount {
-                        Text(L10n.format("api.panel.total",OpenAIUsageSnapshot.money(amount))).font(.system(size:12)).monospacedDigit()
+                    let status=controller.status
+                    let title=controller.snapshot != nil && !controller.refreshing ? L10n.string("api.panel.stale"):status.text
+                    let symbol:String? = controller.refreshing ? nil:(status == .offline ? "wifi.slash":"info.circle")
+                    QuotaPanelNotice(title:title,symbol:symbol,lastRefreshedAt:controller.lastSuccessfulRefresh)
+                    if status.needsSettings {
+                        Button(L10n.string("common.settings"),action:settings).buttonStyle(.borderless)
                     }
-                    Button(L10n.string("common.settings"),action:settings).buttonStyle(.borderless)
                 }
               }
             }
@@ -336,16 +369,17 @@ struct OpenAIUsagePanel:View {
                     Text(metric.value(String(format:"%.0f%%",metric == .used ? percent:max(0,100-percent))))
                 }
             }.font(.system(size:13,weight:.semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
-            GeometryReader { geometry in
-                let used=data.usedPercent ?? 0
-                let value=data.usedPercent == nil ? 0:(metric == .used ? min(100,used):max(0,100-used))
-                ZStack(alignment:.leading) {
-                    Capsule().fill(Color.primary.opacity(0.09))
-                    Capsule().fill(used>=90 ? Color.red:used>=80 ? .orange:used>=70 ? .yellow:.blue)
-                        .frame(width:geometry.size.width*value/100)
-                }
-            }.frame(height:7).accessibilityLabel(L10n.string("api.panel.progress.a11y"))
-                .accessibilityValue(data.usedPercent.map { DisplayMetric.used.value(String(format:"%.0f%%",$0)) } ?? L10n.string("api.panel.noBudget"))
+            if let used=data.usedPercent {
+                GeometryReader { geometry in
+                    let value=metric == .used ? min(100,used):max(0,100-used)
+                    ZStack(alignment:.leading) {
+                        Capsule().fill(Color.primary.opacity(0.09))
+                        Capsule().fill(used>=90 ? Color.red:used>=80 ? .orange:used>=70 ? .yellow:.blue)
+                            .frame(width:geometry.size.width*value/100)
+                    }
+                }.frame(height:7).accessibilityLabel(L10n.string("api.panel.progress.a11y"))
+                    .accessibilityValue(DisplayMetric.used.value(String(format:"%.0f%%",used)))
+            }
             HStack(alignment:.firstTextBaseline,spacing:8) {
                 if let budget=data.budget {
                     Text(L10n.format("api.panel.total",OpenAIUsageSnapshot.money(budget)))

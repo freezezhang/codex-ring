@@ -51,14 +51,16 @@ public struct QuotaDetailsPresentation {
         let refresh=L10n.format("details.lastRefreshed",lastRefreshedAt.map { QuotaDateText.string($0) } ?? L10n.string("common.neverRefreshed"))
         var sections=[usage.joined(separator:"\n"),refresh,resetLines.joined(separator:"\n"),cardLines.joined(separator:"\n")]
         if let metadataNotice { sections.append(metadataNotice) }
-        tooltip=sections.joined(separator:"\n\n")
+        let offline=snapshot.failure == .offline
+        tooltip=(offline ? [L10n.string("status.offline"),refresh]:sections).joined(separator:"\n\n")
         let usagePool=snapshot.selectedPoolID(preferences.bucketID)
         let quotaItems=periods.map { period -> String in
             let item=RingPresentation(display:snapshot.display(selectedID:usagePool,period:period,now:now),metric:preferences.metric)
             return item.value == nil ? L10n.format("hover.periodStatus",period.shortName,item.display.subtitle)
                 : period.value(preferences.metric.value(item.text))
         }
-        hoverCardText=((snapshot.source == .debug ? [L10n.string("status.debug")]:[])+quotaItems).joined(separator:"\n")
+        hoverCardText=offline ? L10n.string("status.offline")
+            : ((snapshot.source == .debug ? [L10n.string("status.debug")]:[])+quotaItems).joined(separator:"\n")
         var cardTexts:[String]=[]
         if let cards=metadata.resetCards {
             let available=cards.details?.filter(\.available) ?? []

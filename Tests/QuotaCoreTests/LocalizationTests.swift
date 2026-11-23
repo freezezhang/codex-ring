@@ -154,7 +154,7 @@ final class LocalizationTests:XCTestCase {
         XCTAssertEqual(RefreshInterval.twoMinutes.title,"2 min")
         XCTAssertEqual(WeeklyPaceSchedule.five.title,"5 days")
         let now=Date(timeIntervalSince1970:1_800_000_000)
-        let row=QuotaMenuRow(period:.week,used:20,usedText:"20%",remainingText:"80%",statusText:"",resetText:"",
+        let row=QuotaMenuRow(period:.week,used:20,usedText:"20%",remainingText:"80%",status:.available,statusText:"",resetText:"",
                              resetsAt:now.addingTimeInterval(93784),paceValidUntil:nil,panel:QuotaPanelPreferences(),metric:.remaining)
         XCTAssertEqual(row.progressText,"80% left")
         XCTAssertEqual(row.resetCountdown(at:now),"Resets in 1d 2h 3m 4s")

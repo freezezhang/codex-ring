@@ -40,9 +40,11 @@
 "status.debug" = "偵錯模式";
 "status.loading" = "正在讀取實際額度";
 "status.available" = "額度已更新";
+"status.noData" = "Codex 未回傳額度資料";
 "status.unavailable" = "額度無法使用，請確認已登入 Codex";
 "status.stale" = "資料已過期";
 "status.expired" = "等待重新查詢";
+"status.offline" = "網路未連線";
 "status.connection" = "連線失敗";
 "status.timeout" = "查詢逾時";
 "status.protocolError" = "介面無法使用";
@@ -188,6 +190,7 @@
 "panel.plan.missing" = "未提供訂閱類型";
 "panel.plan.a11y" = "訂閱類型：%@";
 "panel.subscription" = "ChatGPT 訂閱";
+"panel.lastSuccessfulRefresh" = "上次成功重新整理：%@";
 "panel.resetCards" = "重設卡";
 "panel.card.help" = "到期時間：%@";
 "panel.card.a11y" = "重設卡：%@";
@@ -226,8 +229,8 @@
 "api.settings.show.help" = "顯示在額度面板中。依自訂月度週期統計，每5分鐘重新整理；官方統計可能延遲。";
 "api.settings.connection" = "連線";
 "api.settings.key" = "Admin API Key";
-"api.settings.key.prompt" = "留空保留已儲存的 Key";
-"api.settings.key.help" = "需要有費用查詢權限的 OpenAI Admin API Key，一般模型 Key 不適用。僅儲存於本機鑰匙圈。";
+"api.settings.key.prompt" = "僅儲存於此 Mac 的鑰匙圈";
+"api.settings.key.help" = "需要有費用查詢權限的 OpenAI Admin API Key，一般模型 Key 不適用。Key 僅儲存於此 Mac 的鑰匙圈。留空會保留已儲存的 Key。";
 "api.settings.project" = "專案 ID";
 "api.settings.project.prompt" = "留空統計整個組織";
 "api.settings.project.help" = "填寫以 proj_ 開頭的專案 ID，只統計該專案費用；留空統計組織總費用。";

@@ -40,9 +40,11 @@
 "status.debug" = "Debug mode";
 "status.loading" = "Reading live quota";
 "status.available" = "Quota updated";
+"status.noData" = "Codex returned no quota data";
 "status.unavailable" = "Quota unavailable. Make sure you're signed in to Codex";
 "status.stale" = "Data is out of date";
 "status.expired" = "Waiting to query again";
+"status.offline" = "No network connection";
 "status.connection" = "Connection failed";
 "status.timeout" = "Request timed out";
 "status.protocolError" = "Interface unavailable";
@@ -188,6 +190,7 @@
 "panel.plan.missing" = "Plan not provided";
 "panel.plan.a11y" = "Plan: %@";
 "panel.subscription" = "ChatGPT Subscription";
+"panel.lastSuccessfulRefresh" = "Last successful refresh: %@";
 "panel.resetCards" = "Reset Cards";
 "panel.card.help" = "Expires: %@";
 "panel.card.a11y" = "Reset card: %@";
@@ -226,8 +229,8 @@
 "api.settings.show.help" = "Shown in the quota panel. Totals follow a custom monthly cycle and refresh every 5 minutes; official data may be delayed.";
 "api.settings.connection" = "Connection";
 "api.settings.key" = "Admin API Key";
-"api.settings.key.prompt" = "Leave blank to keep the saved key";
-"api.settings.key.help" = "Requires an OpenAI Admin API key with cost read access; regular model keys won't work. Stored only in this Mac's Keychain.";
+"api.settings.key.prompt" = "Stored only in this Mac's Keychain";
+"api.settings.key.help" = "Requires an OpenAI Admin API key with cost read access. Regular model keys won't work. The key is stored only in this Mac's Keychain. Leave blank to keep the saved key.";
 "api.settings.project" = "Project ID";
 "api.settings.project.prompt" = "Leave blank for the whole organization";
 "api.settings.project.help" = "Enter a project ID starting with proj_ to count only that project's costs; leave blank for the organization total.";

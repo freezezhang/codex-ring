@@ -69,15 +69,25 @@ final class QuotaMenuTests:XCTestCase {
         let view=data(live(),preferences:p)
         XCTAssertEqual(view.rows.count,2);XCTAssertEqual(view.title,"17.5%")
     }
-    func testFailureLoadingAndStaleHaveNoProgressOrFakeNumber() {
-        let snapshots=[QuotaSnapshot(source:.official,fetchedAt:now,loading:true),
-                       QuotaSnapshot(source:.official,fetchedAt:now,failure:.connection),
-                       QuotaSnapshot(source:.official,fetchedAt:now.addingTimeInterval(-301),quotas:live().quotas)]
-        for snapshot in snapshots {
+    func testMissingUsageHasOneStatusAndNoProgressOrFakeNumber() {
+        let scenarios:[(QuotaSnapshot,DisplayStatus)]=[
+            (QuotaSnapshot(source:.official,fetchedAt:now,loading:true),.loading),
+            (QuotaSnapshot(source:.official,fetchedAt:now),.noData),
+            (QuotaSnapshot(source:.official,fetchedAt:now,failure:.connection),.connection),
+            (QuotaSnapshot(source:.official,fetchedAt:now,quotas:live().quotas,failure:.offline),.offline),
+            (QuotaSnapshot(source:.official,fetchedAt:now.addingTimeInterval(-301),quotas:live().quotas),.stale)
+        ]
+        for (snapshot,status) in scenarios {
             let view=data(snapshot)
-            XCTAssertEqual(view.title,"—");XCTAssertTrue(view.rows.allSatisfy{$0.used == nil})
-            XCTAssertNotNil(view.metadataNotice)
+            XCTAssertEqual(view.title,"—")
+            XCTAssertTrue(view.rows.allSatisfy { $0.progressPercent == nil })
+            XCTAssertEqual(view.unavailableRow?.status,status)
+            XCTAssertEqual(view.lastRefreshedAt,now)
         }
+        let partial=data(live(five:false))
+        XCTAssertNil(partial.unavailableRow)
+        XCTAssertEqual(partial.rows.first?.status,.noData)
+        XCTAssertEqual(partial.rows.last?.progressPercent,55)
     }
     func testDebugLabelStaysOutOfBarAndMetadataRemainsReal() {
         let metadata=live()

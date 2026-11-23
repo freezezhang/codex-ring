@@ -2,8 +2,8 @@ import Foundation
 import CoreFoundation
 
 public enum QuotaSource: String { case official, disconnected, debug }
-public enum QuotaFailure: String, Error { case unavailable, connection, timeout, protocolError, missingCLI }
-public enum DisplayStatus: String { case loading, available, unavailable, stale, expired, connection, timeout, protocolError, missingCLI }
+public enum QuotaFailure: String, Error { case unavailable, offline, connection, timeout, protocolError, missingCLI }
+public enum DisplayStatus: String { case loading, available, noData, unavailable, stale, expired, offline, connection, timeout, protocolError, missingCLI }
 public enum QuotaPeriod:String,Codable,CaseIterable { case week,fiveHours
     public var title:String { self == .week ? L10n.string("period.week.title"):L10n.string("period.fiveHours.title") }
     public var shortName:String { self == .week ? L10n.string("period.week.short"):L10n.string("period.fiveHours.short") }
@@ -43,9 +43,11 @@ public struct QuotaDisplay {
         switch status {
         case .loading: return L10n.string("status.loading")
         case .available: return L10n.string("status.available")
+        case .noData: return L10n.string("status.noData")
         case .unavailable: return L10n.string("status.unavailable")
         case .stale: return L10n.string("status.stale")
         case .expired: return L10n.string("status.expired")
+        case .offline: return L10n.string("status.offline")
         case .connection: return L10n.string("status.connection")
         case .timeout: return L10n.string("status.timeout")
         case .protocolError: return L10n.string("status.protocolError")
@@ -85,7 +87,7 @@ public struct QuotaSnapshot:Equatable {
         else if let failure { status = DisplayStatus(rawValue: failure.rawValue) ?? .unavailable }
         else if source != .debug && (now.timeIntervalSince(fetchedAt) > 300 || fetchedAt.timeIntervalSince(now) > 60) { status = .stale }
         else if source != .debug, let reset = quota?.resetsAt, reset <= now { status = .expired }
-        else if quota?.remaining == nil { status = .unavailable }
+        else if quota?.remaining == nil { status = .noData }
         return QuotaDisplay(status: status, remaining: status == .available ? quota?.remaining : nil,
                             quota: quota, fetchedAt: fetchedAt, source: source)
     }

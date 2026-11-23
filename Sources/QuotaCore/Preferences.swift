@@ -208,10 +208,11 @@ public struct RingPresentation {
         case .loading: return L10n.string("caption.loading")
         case .available: return metric.shortTitle
         case .stale, .expired: return L10n.string("caption.stale")
-        case .connection: return L10n.string("caption.offline")
+        case .offline: return L10n.string("caption.offline")
+        case .connection, .protocolError: return L10n.string("caption.unavailable")
         case .timeout: return L10n.string("caption.timeout")
+        case .noData: return L10n.string("caption.unknown")
         case .unavailable: return display.source == .disconnected ? L10n.string("caption.paused") : L10n.string("caption.unknown")
-        case .protocolError: return L10n.string("caption.unavailable")
         case .missingCLI: return L10n.string("caption.notConnected")
         }
     }
