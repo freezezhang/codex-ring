@@ -6,7 +6,7 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
-**Keep an eye on your Codex quota on macOS.** Check the floating ring at a glance, or open the quota panel for usage, reset times, and any available reset cards. The panel can also show OpenAI API costs.
+**Keep an eye on your Codex quota on macOS.** Check the floating ring at a glance, or open the quota panel for usage, reset times, and any available reset cards. The menu bar panel can also show OpenAI API costs.
 
 CodexRing is an independent, open-source project and is not affiliated with OpenAI.
 
@@ -48,7 +48,7 @@ The screenshots show CodexRing running on macOS with sample account, quota, cost
 - Under **Settings → Ring**, choose the periods you want on the floating ring. With both selected, the outer ring shows the weekly quota and the inner ring shows the 5-hour quota. The 5-hour option requires a quota window from Codex.
 - With two rings, **Center number** can show **Weekly**, **5-hour**, or **Lower**. **Lower** picks an exhausted quota first, then the one forecast to run out sooner. When there is no usable forecast, it picks the lower remaining percentage.
 - Under **Display → Show**, choose remaining or used. Remaining fills counterclockwise from the top and used fills clockwise. Colors always follow the share actually used. Blue indicates less than 70% used, followed by yellow at 70%, orange at 80%, and red at 90%.
-- Left-click the regular ring to show or hide subscription and OpenAI API usage next to the ring.
+- Left-click the regular ring to show or hide subscription usage and reset cards next to the ring.
 - Hover for about 0.35 seconds to see the periods at a glance. Drag to move the ring. Right-click or Control-click for **Refresh Now**, **Pin Position**, **Hide Ring**, Settings, or Quit. With free movement, the ring can tuck away at a screen edge and reappear when you point at that edge.
 - Choose a 26, 32, 56, 64, or 76 pt ring. The two smallest sizes show the ring and percentage. Larger sizes also show a short caption.
 
@@ -132,7 +132,7 @@ The overlay sits over the existing control and leaves the Codex app files and co
 1. Turn on **Settings → API → Show API usage progress**.
 2. Enter an **OpenAI Admin API key** with cost read access. Regular keys for model calls cannot query organization costs. Enter a `proj_` project ID to filter the costs or leave it blank for the organization total.
 3. Set the **Cycle start day**. The monthly cycle begins at local midnight on the chosen day and uses the final day in shorter months. The day must be set manually. Leave **Total allowance (USD)** blank to use the expected allowance for a detected Pro 100, Pro 200, or Pro 500 plan, or enter a positive USD budget.
-4. Click **Save & Refresh**, then open the quota panel. API costs refresh about every five minutes. Opening the panel can request an update, and you can also refresh manually. The upstream cost figures can be delayed.
+4. Click **Save & Refresh**, then open the menu bar panel. API costs refresh about every five minutes. Opening the panel can request an update, and you can also refresh manually. The upstream cost figures can be delayed.
 
 Costs come from the OpenAI Costs API. The percentage is relative to the budget or expected allowance, for example about 68% left after spending $32.50 of a $100 allowance. The expected allowance depends on the benefit being claimed for the correct API organization and may be prorated in the first cycle. CodexRing does not verify a live balance or change any spending limit. Enter a manual budget if an allowance cannot be inferred.
 

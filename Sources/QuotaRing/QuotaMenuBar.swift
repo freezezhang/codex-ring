@@ -68,8 +68,8 @@ final class QuotaMenuBar:NSObject {
     private func mountPanelContent() {
         let material=NSVisualEffectView(frame:.zero)
         material.material = .popover;material.blendingMode = .behindWindow;material.state = .active
-        material.wantsLayer=true;material.layer?.cornerRadius=16;material.layer?.masksToBounds=true
-        let host=NSHostingView(rootView:QuotaMenuView(model:model,clock:clock,showsAccountAndActions:!isShowingFromRing,
+        material.wantsLayer=true;material.layer?.cornerRadius=isShowingFromRing ? 12:16;material.layer?.masksToBounds=true
+        let host=NSHostingView(rootView:QuotaMenuView(model:model,clock:clock,showsFullPanel:!isShowingFromRing,
             contentSizeChanged:{ [weak self] in self?.scheduleFit() },
             refresh:{ [weak self] in self?.onRefresh?() },
             settings:{ [weak self] in self?.close();self?.onSettings?() },
@@ -200,7 +200,7 @@ final class QuotaMenuBar:NSObject {
         let timer=Timer(timeInterval:1,repeats:true) { [weak self] _ in self?.clock.now=Date() }
         timer.tolerance=0.1
         clockTimer=timer;RunLoop.main.add(timer,forMode:.common)
-        model.apiUsage.refreshIfNeeded()
+        if !isShowingFromRing { model.apiUsage.refreshIfNeeded() }
         localMonitor=NSEvent.addLocalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown,.otherMouseDown,.keyDown]) { [weak self] event in
             guard let self else { return event }
             if event.type == .keyDown {
@@ -237,12 +237,12 @@ private struct QuotaMenuView:View {
     @ObservedObject var model:SettingsModel
     @ObservedObject var clock:QuotaPanelClock
     @State private var contentHeight:CGFloat=440
-    let showsAccountAndActions:Bool
+    let showsFullPanel:Bool
     let contentSizeChanged:()->Void
     let refresh:()->Void,settings:()->Void,quit:()->Void
     var body:some View {
         VStack(spacing:0) {
-            if showsAccountAndActions {
+            if showsFullPanel {
                 QuotaSectionCard {
                     QuotaMenuHeader(model:model,account:model.apiUsage)
                         .background(GeometryReader { geometry in
@@ -253,15 +253,17 @@ private struct QuotaMenuView:View {
             if let data=model.menuPresentation {
                 quotaContent(data)
             }
-            if showsAccountAndActions {
+            if showsFullPanel {
                 Divider()
                 actions
             }
-        }.frame(width:320).fixedSize(horizontal:false,vertical:true)
+        }.frame(width:showsFullPanel ? 320:296).fixedSize(horizontal:false,vertical:true)
             .overlay {
-                RoundedRectangle(cornerRadius:16)
-                    .strokeBorder(Color.primary.opacity(0.12),lineWidth:0.5)
-                    .allowsHitTesting(false)
+                if showsFullPanel {
+                    RoundedRectangle(cornerRadius:16)
+                        .strokeBorder(Color.primary.opacity(0.12),lineWidth:0.5)
+                        .allowsHitTesting(false)
+                }
             }
             .onPreferenceChange(QuotaHeaderHeight.self) { _ in contentSizeChanged() }
     }
@@ -317,8 +319,10 @@ private struct QuotaMenuView:View {
                         }
                     }
                 }
-                OpenAIUsagePanel(controller:model.apiUsage,metric:model.preferences.metric,now:now,settings:settings)
-            }.padding(12)
+                if showsFullPanel {
+                    OpenAIUsagePanel(controller:model.apiUsage,metric:model.preferences.metric,now:now,settings:settings)
+                }
+            }.padding(showsFullPanel ? 12:0)
                 .fixedSize(horizontal:false,vertical:true)
                 .background(GeometryReader { geometry in
                     Color.clear.preference(key:QuotaContentHeight.self,value:geometry.size.height)
