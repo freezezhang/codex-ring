@@ -257,7 +257,7 @@ private struct QuotaMenuView:View {
                 Divider()
                 actions
             }
-        }.frame(width:showsFullPanel ? 320:296).fixedSize(horizontal:false,vertical:true)
+        }.frame(width:showsFullPanel ? 320:260).fixedSize(horizontal:false,vertical:true)
             .overlay {
                 if showsFullPanel {
                     RoundedRectangle(cornerRadius:16)
@@ -290,7 +290,9 @@ private struct QuotaMenuView:View {
             VStack(alignment:.leading,spacing:12) {
                 QuotaSectionCard {
                     VStack(alignment:.leading,spacing:16) {
-                        Text(L10n.string("panel.subscription")).font(.system(size:15,weight:.bold))
+                        if showsFullPanel {
+                            Text(L10n.string("panel.subscription")).font(.system(size:15,weight:.bold))
+                        }
                         if let unavailable=data.unavailableRow {
                             let loading=unavailable.status == .loading || (model.isRefreshing && unavailable.status != .offline)
                             let symbol:String? = loading ? nil:(unavailable.status == .offline ? "wifi.slash":"info.circle")
@@ -368,13 +370,22 @@ private struct QuotaMenuView:View {
     }
     private func quota(_ row:QuotaMenuRow,at now:Date)->some View {
         let pace=row.pace(at:now)
+        let value=Text(row.title+" "+row.progressText).font(.system(size:13,weight:.semibold))
+            .monospacedDigit().lineLimit(1).fixedSize(horizontal:true,vertical:false)
+        let reset=Text(row.resetDescription(at:now)).font(.system(size:11)).foregroundStyle(.secondary)
+            .monospacedDigit().lineLimit(1).minimumScaleFactor(0.85)
         return VStack(alignment:.leading,spacing:10) {
-            HStack(alignment:.firstTextBaseline,spacing:8) {
-                Text(row.title+" "+row.progressText).font(.system(size:13,weight:.semibold))
-                    .monospacedDigit().lineLimit(1).fixedSize(horizontal:true,vertical:false)
-                Spacer(minLength:0)
-                Text(row.resetDescription(at:now)).font(.system(size:11)).foregroundStyle(.secondary)
-                    .monospacedDigit().lineLimit(1).minimumScaleFactor(0.85)
+            if showsFullPanel {
+                HStack(alignment:.firstTextBaseline,spacing:8) {
+                    value
+                    Spacer(minLength:0)
+                    reset
+                }
+            } else {
+                VStack(alignment:.leading,spacing:4) {
+                    value
+                    reset
+                }
             }
             QuotaProgressBar(row:row,pace:pace)
             if let pace {
