@@ -289,7 +289,7 @@ private struct QuotaMenuView:View {
         return ScrollView {
             VStack(alignment:.leading,spacing:12) {
                 QuotaSectionCard {
-                    VStack(alignment:.leading,spacing:16) {
+                    VStack(alignment:.leading,spacing:showsFullPanel ? 16:12) {
                         if showsFullPanel {
                             Text(L10n.string("panel.subscription")).font(.system(size:15,weight:.bold))
                         }
@@ -340,15 +340,16 @@ private struct QuotaMenuView:View {
     private func cards(_ data:QuotaMenuPresentation,at now:Date)->some View {
         VStack(alignment:.leading,spacing:8) {
             HStack {
-                Text(L10n.string("panel.resetCards")).font(.system(size:12,weight:.medium)).foregroundStyle(.secondary)
+                Text(L10n.string("panel.resetCards")).font(.system(size:12,weight:showsFullPanel ? .medium:.semibold))
+                    .foregroundStyle(showsFullPanel ? Color.secondary:Color.primary)
                 Spacer()
                 Text(data.cardsSummary).font(.system(size:11)).foregroundStyle(.secondary)
             }
-            VStack(alignment:.leading,spacing:8) {
+            VStack(alignment:.leading,spacing:showsFullPanel ? 8:5) {
                 ForEach(data.cardRows.indices,id:\.self) { index in
                     cardLine(data.cardRows[index],at:now)
                 }
-            }.padding(.leading,16)
+            }.padding(.leading,showsFullPanel ? 16:4)
         }
     }
     private func cardLine(_ row:QuotaMenuCardRow,at now:Date)->some View {
@@ -374,7 +375,7 @@ private struct QuotaMenuView:View {
             .monospacedDigit().lineLimit(1).fixedSize(horizontal:true,vertical:false)
         let reset=Text(row.resetDescription(at:now)).font(.system(size:11)).foregroundStyle(.secondary)
             .monospacedDigit().lineLimit(1).minimumScaleFactor(0.85)
-        return VStack(alignment:.leading,spacing:10) {
+        return VStack(alignment:.leading,spacing:showsFullPanel ? 10:8) {
             if showsFullPanel {
                 HStack(alignment:.firstTextBaseline,spacing:8) {
                     value
@@ -383,7 +384,14 @@ private struct QuotaMenuView:View {
                 }
             } else {
                 VStack(alignment:.leading,spacing:4) {
-                    value
+                    HStack(alignment:.firstTextBaseline,spacing:6) {
+                        Text(row.title).font(.system(size:14,weight:.semibold))
+                        Text(row.metric.shortTitle).font(.system(size:11)).foregroundStyle(.secondary)
+                        Spacer(minLength:4)
+                        Text(row.metric == .used ? row.usedText:row.remainingText)
+                            .font(.system(size:24,weight:.semibold))
+                            .monospacedDigit().lineLimit(1)
+                    }.accessibilityElement(children:.combine)
                     reset
                 }
             }
