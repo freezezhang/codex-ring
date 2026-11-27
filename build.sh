@@ -117,6 +117,7 @@ if [[ -n "${CODEXRING_SPARKLE_PUBLIC_KEY:-}" ]]; then
     plutil -insert SUFeedURL -string "$feed_url" "$plist"
     plutil -insert SUPublicEDKey -string "$CODEXRING_SPARKLE_PUBLIC_KEY" "$plist"
     plutil -insert SUEnableAutomaticChecks -bool NO "$plist"
+    plutil -insert SUScheduledCheckInterval -integer 3600 "$plist"
     plutil -insert SUAutomaticallyUpdate -bool NO "$plist"
     plutil -insert SUVerifyUpdateBeforeExtraction -bool YES "$plist"
     plutil -insert SURequireSignedFeed -bool YES "$plist"

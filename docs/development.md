@@ -83,6 +83,6 @@ GitHub 在 Intel 和 Apple 芯片的 macOS 26 环境运行测试并构建，再�
 
 使用 [Sparkle 2.10.1 的官方工具](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.1) 运行 `bin/generate_keys --account codexring`。把输出的公钥设为 GitHub Actions 仓库变量 `CODEXRING_SPARKLE_PUBLIC_KEY`。用同一工具的 `-x` 选项导出私钥，并通过 `gh secret set CODEXRING_SPARKLE_PRIVATE_KEY < 私钥文件` 保存到仓库 Secrets。保留安全备份，后续版本沿用同一密钥。
 
-配置公钥后，发布流程会用私钥给最终的通用 ZIP 和 `appcast.xml` 签名。应用从 GitHub Release 的固定地址读取清单，验证后在应用内安装。用户需手动安装第一个包含更新功能的版本，后续可在「设置 → 关于」手动更新或开启自动安装。用于本地验收时，可用 `CODEXRING_SPARKLE_PUBLIC_KEY`、`CODEXRING_UPDATE_FEED_URL` 和递增的 `CODEXRING_BUILD_NUMBER` 构建两个测试版本，用 `scripts/make-appcast.sh` 生成测试清单。
+配置公钥后，发布流程会用私钥给最终的通用 ZIP 和 `appcast.xml` 签名。应用从 GitHub Release 的固定地址读取清单，验证后在应用内安装。用户需手动安装第一个包含更新功能的版本，后续可在「设置 → 关于」手动更新或开启自动安装。构建时通过 `SUScheduledCheckInterval` 设置每小时一次的默认自动检查周期。用于本地验收时，可用 `CODEXRING_SPARKLE_PUBLIC_KEY`、`CODEXRING_UPDATE_FEED_URL` 和递增的 `CODEXRING_BUILD_NUMBER` 构建两个测试版本，用 `scripts/make-appcast.sh` 生成测试清单。
 
 Apple 签名使用 GitHub Actions 的 `apple-signing` 环境，限定 `main` 和 `v*` 发布标签。按[签名凭证说明](development.en.md#apple-credentials)配置五项环境密钥。手动签名验证通过后，将仓库 Actions 变量 `APPLE_NOTARIZE_RELEASES` 设为 `true`。启用后若凭证缺失或公证失败，标签运行会在公开前停止。
